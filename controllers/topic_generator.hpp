@@ -4,11 +4,11 @@
 
 using namespace drogon;
 
-class TestCtrl:public drogon::HttpSimpleController<TestCtrl>
+class TopicGenerator:public drogon::HttpSimpleController<TopicGenerator>
 {
 public:
     void asyncHandleHttpRequest(const HttpRequestPtr& req, std::function<void (const HttpResponsePtr &)> &&callback) override;
     PATH_LIST_BEGIN
-    PATH_ADD("/test", Post);
+    PATH_ADD("/gen_topic", Post);
     PATH_LIST_END
 };

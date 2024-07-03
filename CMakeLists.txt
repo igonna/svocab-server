@@ -11,8 +11,6 @@ check_include_file_cxx(coroutine HAS_COROUTINE)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(${PROJECT_NAME} main.cpp)
-
 # ##############################################################################
 # If you include the drogon source code locally in your project, use this method
 # to add drogon 
@@ -21,23 +19,31 @@ add_executable(${PROJECT_NAME} main.cpp)
 #
 # and comment out the following lines
 find_package(Drogon CONFIG REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon)
+set(Poppler_LIBRARY /Users/c/Downloads/poppler-24.05.0/build/cpp/libpoppler-cpp.dylib)
+set(Gumbo_LIBRARY /opt/homebrew/Cellar/gumbo-parser/0.10.1/lib/libgumbo.dylib)
+set(ICU_INCLUDE_DIRS /opt/homebrew/opt/icu4c/include)
+
+include_directories(${ICU_INCLUDE_DIRS})
+find_package(ICU COMPONENTS uc io REQUIRED)
+
+add_executable(${PROJECT_NAME} main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/controllers/topic_generator.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES})
 
 aux_source_directory(controllers CTL_SRC)
 aux_source_directory(filters FILTER_SRC)
-# aux_source_directory(plugins PLUGIN_SRC)
+aux_source_directory(plugins PLUGIN_SRC)
 aux_source_directory(models MODEL_SRC)
 
-# drogon_create_views(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/views
-#                     ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/models)
 
-target_include_directories(${PROJECT_NAME}
-                           PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-                                   ${CMAKE_CURRENT_SOURCE_DIR}/models)
 target_sources(${PROJECT_NAME}
-               PRIVATE
-               ${SRC_DIR}
-               ${CTL_SRC}
-               ${FILTER_SRC}
-            #    ${PLUGIN_SRC}
-               ${MODEL_SRC})
+   PRIVATE
+   ${SRC_DIR}
+   ${CTL_SRC}
+   ${FILTER_SRC}
+   ${PLUGIN_SRC}
+   ${MODEL_SRC}
+)
+
+
+# cmake -D ICU_ROOT=$(brew --prefix icu4c) -D CMAKE_PREFIX_PATH=$(brew --prefix icu4c) -D CMAKE_INCLUDE_PATH=$(brew --prefix icu4c)/include -D CMAKE_LIBRARY_PATH=$(brew --prefix icu4c)/lib ..

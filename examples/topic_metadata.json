@@ -1,0 +1,12 @@
+{
+    "topic_title": "",
+    "src_lang": "en",
+    "dst_langs": ["es"],
+    "result_type": "create", // create, update, preview
+    "word_count_type": "frequency", // frequency, sum
+    "pick_type": "intersect", // intersect, sum
+    "process_weight_limit": 80, // 0-100
+    "repository": "public", // private, public, global
+    "texts": [""],
+    "urls": [""]
+}

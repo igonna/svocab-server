@@ -1,5 +1,4 @@
 #include <drogon/drogon.h>
-#include "controllers/test_ctrl.hpp"
 
 int main() {
 
