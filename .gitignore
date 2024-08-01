@@ -54,3 +54,11 @@ out/
 
 # VScode
 .vscode/
+
+# .fleet
+.fleet/
+.cache/
+
+# drogon
+drogon.log
+uploads/

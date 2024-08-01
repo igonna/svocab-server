@@ -1,12 +1,103 @@
+// {
+//     "topic_title": "",
+//     "src_lang": "en",
+//     "dst_langs": ["es"],
+//     "result_type": "create", // create, update, preview
+//     "word_count_type": "relative", // relative, sum
+//     "word_join_type": "intersect", // intersect, sum
+//     "process_weight_limit": 80, // 0-100
+//     "repository": "public", // private, public, global
+//     "priority": 1000,
+//     "texts": [""],
+//     "urls": [""]
+// }
+
+// svocab topic // found by topic id // topic id couldn't change
 {
     "topic_title": "",
     "src_lang": "en",
-    "dst_langs": ["es"],
-    "result_type": "create", // create, update, preview
-    "word_count_type": "frequency", // frequency, sum
-    "pick_type": "intersect", // intersect, sum
-    "process_weight_limit": 80, // 0-100
-    "repository": "public", // private, public, global
-    "texts": [""],
-    "urls": [""]
+    "mix_value": 1.25,
+    "skip_value": 0.0,
+    "position": 0,
+    "words": { // this
+
+    }
 }
+
+// svocab topic mirror with custom settings on user device
+{
+    "topic_title": "",
+    "src_lang": "en",
+    "mix_value": 1.25,
+    "skip_value": 0.0,
+    "position": 0,
+    "words_and_process_status": { // this
+
+    }
+}
+
+// user topic // found by topic id
+{
+    "topic_title": "",
+    "src_lang": "en",
+    "word_count_type": "balanced_sources", // balanced_sources, summarized_sources
+    "exclude_words_that_not_in_all_sources": false,
+    "do_not_save_sources": false,
+    "mix_value": 1.25,
+    "skip_value": 0.0,
+    "position": 0,
+    "last_source_id": 5,
+    "last_edit_time": 12818328882,
+    "sources" : {
+        "0": {
+            "typ": "ytb",
+            "id": "9GDX-IyZ_C8",
+            "tit": "",
+            "txt": "",
+            "err": "some_err"
+        },
+        "1": {
+            "typ": "web",
+            "url": "https://...",
+            "tit": "",
+            "txt": "",
+            "err": "some_err"
+        },
+        "2": {
+            "typ": "img",
+            "path": "./",
+            "tit": "",
+            "txt": "",
+            "err": "some_err"
+        },
+        "3": {
+            "typ": "aud",
+            "path": "./",
+            "tit": "",
+            "txt": "",
+            "err": "some_err"
+        },
+        "4": {
+            "typ": "txt",
+            "tit": "",
+            "txt": "",
+            "err": "some_err"
+        },
+        "5": {
+            "typ": "doc",
+            "path": "./",
+            "tit": "",
+            "txt": "",
+            "err": "some_err"
+        }
+    },
+    "words_and_process_status": { // 0 = not_processed, 1 = processed, 2 = couldn't be processed
+        "hello": 1,
+        "kljlakjs": 2,
+        "hi": 1
+    }
+}
+
+
+
+// focus group

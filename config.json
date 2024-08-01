@@ -1,6 +1,6 @@
 /* This is a JSON format configuration file
  */
-{
+ {
     /*
     //ssl:The global SSL settings. "key" and "cert" are the path to the SSL key and certificate. While
     //    "conf" is an array of 1 or 2-element tuples that supplies file style options for `SSL_CONF_cmd`.
@@ -21,7 +21,7 @@
             //https: If true, use https for security,false by default
             "https": false
         }
-        // ,
+        //,
         // {
         //     "address": "0.0.0.0",
         //     "port": 443,
@@ -36,6 +36,7 @@
         //         //["MinProtocol", "TLSv1.3"]
         //     ]
         // }
+        
     ],/*
     "db_clients": [
         {
@@ -105,11 +106,11 @@
         //is the number of CPU cores
         "number_of_threads": 16,
         //enable_session: False by default
-        "enable_session": false,
+        "enable_session": true,
         "session_timeout": 0,
         //string value of SameSite attribute of the Set-Cookie HTTP response header
         //valid value is either 'Null' (default), 'Lax', 'Strict' or 'None'
-        "session_same_site" : "Null",
+        "session_same_site": "Null",
         //session_cookie_key: The cookie key of the session, "JSESSIONID" by default
         "session_cookie_key": "JSESSIONID",
         //session_max_age: The max age of the session cookie, -1 by default
@@ -221,7 +222,7 @@
             //use_spdlog: Use spdlog library to log
             "use_spdlog": false,
             //log_path: Log file path,empty by default,in which case,logs are output to the stdout
-            "log_path": "./",
+            //"log_path": "./",
             //logfile_base_name: Log file base name,empty by default which means drogon names logfile as
             //drogon.log ...
             "logfile_base_name": "",
@@ -311,7 +312,10 @@
         // Currently only gzip and br are supported. Note: max_memory_body_size and max_body_size applies twice for compressed requests.
         // Once when receiving and once when decompressing. i.e. if the decompressed body is larger than max_body_size, the request
         // will be rejected.
-        "enabled_compressed_request": false
+        "enabled_compressed_request": false,
+        // enable_request_stream: Defaults to false. If true the server will enable stream mode for http requests.
+        // See the wiki for more details.
+        "enable_request_stream": false,
     },
     //plugins: Define all plugins running in the application
     "plugins": [
@@ -344,5 +348,14 @@
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 
-    "custom_config": {}
+    "custom_config": {
+        "realm": "drogonRealm",
+        "opaque": "drogonOpaque",
+        "credentials": [
+            {
+                "user": "drogon",
+                "password": "dr0g0n"
+            }
+        ]
+    }
 }

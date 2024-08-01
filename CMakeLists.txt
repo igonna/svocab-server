@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(svocab-server CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 20)
 
 include(CheckIncludeFileCXX)
@@ -19,12 +21,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #
 # and comment out the following lines
 find_package(Drogon CONFIG REQUIRED)
-set(Poppler_LIBRARY /Users/c/Downloads/poppler-24.05.0/build/cpp/libpoppler-cpp.dylib)
-set(Gumbo_LIBRARY /opt/homebrew/Cellar/gumbo-parser/0.10.1/lib/libgumbo.dylib)
-set(ICU_INCLUDE_DIRS /opt/homebrew/opt/icu4c/include)
+# set(Poppler_LIBRARY /Users/c/Downloads/poppler-24.05.0/build/cpp/libpoppler-cpp.dylib)
+# set(Gumbo_LIBRARY /opt/homebrew/Cellar/gumbo-parser/0.10.1/lib/libgumbo.dylib)
+# set(ICU_INCLUDE_DIRS /opt/homebrew/opt/icu4c/include)
 
 include_directories(${ICU_INCLUDE_DIRS})
 find_package(ICU COMPONENTS uc io REQUIRED)
+
+include_directories(${LibOAI_INCLUDE})
+
 
 add_executable(${PROJECT_NAME} main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/controllers/topic_generator.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES})
@@ -44,6 +49,5 @@ target_sources(${PROJECT_NAME}
    ${PLUGIN_SRC}
    ${MODEL_SRC}
 )
-
 
 # cmake -D ICU_ROOT=$(brew --prefix icu4c) -D CMAKE_PREFIX_PATH=$(brew --prefix icu4c) -D CMAKE_INCLUDE_PATH=$(brew --prefix icu4c)/include -D CMAKE_LIBRARY_PATH=$(brew --prefix icu4c)/lib ..

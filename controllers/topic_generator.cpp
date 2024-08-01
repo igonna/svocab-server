@@ -9,26 +9,26 @@
 #include <memory>
 
 
-// Function to extract text from a GumboNode
-void extractText(GumboNode *node, std::string &text)
-{
-    if (node->type == GUMBO_NODE_TEXT)
-    {
-        text.append(node->v.text.text);
-    }
-    else if (node->type == GUMBO_NODE_ELEMENT && node->v.element.tag != GUMBO_TAG_SCRIPT && node->v.element.tag != GUMBO_TAG_STYLE)
-    {
-        GumboVector *children = &node->v.element.children;
-        for (unsigned int i = 0; i < children->length; ++i)
-        {
-            extractText(static_cast<GumboNode *>(children->data[i]), text);
-        }
-        if (node->v.element.tag == GUMBO_TAG_P || node->v.element.tag == GUMBO_TAG_BR)
-        {
-            text.append("\n");
-        }
-    }
-}
+// // Function to extract text from a GumboNode
+// void extractText(GumboNode *node, std::string &text)
+// {
+//     if (node->type == GUMBO_NODE_TEXT)
+//     {
+//         text.append(node->v.text.text);
+//     }
+//     else if (node->type == GUMBO_NODE_ELEMENT && node->v.element.tag != GUMBO_TAG_SCRIPT && node->v.element.tag != GUMBO_TAG_STYLE)
+//     {
+//         GumboVector *children = &node->v.element.children;
+//         for (unsigned int i = 0; i < children->length; ++i)
+//         {
+//             extractText(static_cast<GumboNode *>(children->data[i]), text);
+//         }
+//         if (node->v.element.tag == GUMBO_TAG_P || node->v.element.tag == GUMBO_TAG_BR)
+//         {
+//             text.append("\n");
+//         }
+//     }
+// }
 
 
 std::vector<char> get_bytes_from_file(const char* file_data, size_t file_length) {
@@ -46,6 +46,10 @@ std::vector<char> get_bytes_from_file(const char* file_data, size_t file_length)
 
     return bytes;
 }
+
+enum class ResultType {create, update, preview};
+enum class WordCountType {relative, sum};
+enum class WordJoinType {intersect, sum};
 
 std::optional<Json::Value> parse_json(const std::string& data) {
     Json::Value root;
@@ -79,29 +83,9 @@ void ERROR_RESPONSE(std::function<void (const HttpResponsePtr &)> &callback, dro
     callback(resp);
 }
 
-enum class ResultType {create, update, preview};
-enum class WordCountType {frequency, sum};
-
-std::unordered_map<std::string, double_t> get_words_from_unicode_string_with_spaces(const icu::UnicodeString& unicode_string) {
+std::optional<std::pair<std::unordered_map<std::string, double_t>, uint32_t>> extract_words_from_text(icu::UnicodeString text, const char* language) {
     std::unordered_map<std::string, double_t> words_count;
-
-    int32_t total_len = unicode_string.length();
-    UChar32 c;
-    bool is_alpha;
-    icu::UnicodeString current_word;
-
-    for (int32_t i = 0; i < total_len; ++i) {
-        c = unicode_string.char32At(i);
-        is_alpha = u_isalpha(c);
-        current_word += u_tolower(c);
-    }
-    return words_count;
-}
-
-
-std::optional<std::unordered_map<std::string, double_t>> extract_words_from_text(icu::UnicodeString text, const char* language) {
-    std::unordered_map<std::string, double_t> words_count;
-
+    uint32_t total_words_count = 0;
 
     UErrorCode status = U_ZERO_ERROR;
     std::unique_ptr<icu::BreakIterator> bi(icu::BreakIterator::createWordInstance(icu::Locale(language), status));
@@ -126,13 +110,15 @@ std::optional<std::unordered_map<std::string, double_t>> extract_words_from_text
         word.toUTF8String(utf8Word);
 
         words_count[std::move(utf8Word)] += 1.0f;
+        ++total_words_count;
     }
 
-    return words_count;
+    return std::make_pair(std::move(words_count), total_words_count);
 }
 
 void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::function<void (const HttpResponsePtr &)> &&callback)
 {
+    std::cout << "got here" << std::endl;
     //2.23 seconds
     // request verifying
     MultiPartParser multiPartParser;
@@ -162,24 +148,35 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
 
     // process files
     auto src_lang = json_meta["src_lang"].asString();
+    auto word_count_type = json_meta["word_count_type"].asString() == "sum" ? WordCountType::sum : WordCountType::relative;
     std::vector<std::unordered_map<std::string, double_t>> files_words;
     files_words.reserve(files.size());
 
-    for (auto& file : files) {
+    for (const auto& file : files) {
         std::vector file_bytes = get_bytes_from_file(file.fileData(), file.fileLength());
         icu::UnicodeString unicode_string = icu::UnicodeString::fromUTF8(icu::StringPiece(file_bytes.data()));
         file_bytes.clear();
 
-        auto extracted_words = extract_words_from_text(unicode_string, src_lang.c_str());
+        auto extract_result = extract_words_from_text(unicode_string, src_lang.c_str());
 
-        if (!extracted_words.has_value()) {
+        if (!extract_result.has_value()) {
             std::string error_message = std::string("could not parse one of files: ") + file.getFileName();
             return ERROR_RESPONSE(callback, k400BadRequest, error_message.c_str());
         }
 
-        files_words.push_back(std::move(extracted_words.value()));
-        // files_words
+        auto extracted_words = std::move(extract_result.value().first);
+        auto total_words_count = extract_result.value().second;
+
+        if (word_count_type == WordCountType::relative) {
+            for (const auto& pair : extracted_words) {
+                extracted_words[pair.first] += pair.second / total_words_count;
+            }
+        }
+
+        files_words.push_back(std::move(extracted_words));
     }
+
+    auto word_join_type = json_meta["word_join_type"].asString() == "sum" ? WordJoinType::sum : WordJoinType::intersect;
 
     // files_words.push_back(get_words_from_unicode_string_with_spaces(unicode_string));
     // get words from unicode_string
@@ -215,4 +212,59 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
                 "directory";
     callback(resp);
 
+
+
+
+
+    //     // Example URLs to fetch
+    // std::vector<std::string> urlss = {
+    //     "http://example.com",
+    //     "http://example.org"
+    // };
+
+    // // Shared pointer to collect extracted text from multiple URLs
+    // auto collectedText = std::make_shared<std::vector<std::string>>();
+    // auto responsesRemaining = std::make_shared<std::atomic<size_t>>(urls.size());
+
+    // for (const auto &url : urlss)
+    // {
+    //     auto client = HttpClient::newHttpClient(url);
+    //     auto request = HttpRequest::newHttpRequest();
+    //     request->setMethod(Get);
+
+    //     client->sendRequest(request, [callback, collectedText, responsesRemaining](ReqResult result, const HttpResponsePtr &response)
+    //     {
+    //         if (result == ReqResult::Ok)
+    //         {
+    //             std::string readBuffer = std::string(response->getBody());
+    //             // Parse HTML and extract text using Gumbo
+    //             GumboOutput *output = gumbo_parse(readBuffer.c_str());
+    //             std::string extractedText;
+    //             extractText(output->root, extractedText);
+    //             gumbo_destroy_output(&kGumboDefaultOptions, output);
+    //             collectedText->emplace_back(extractedText);
+    //         }
+    //         else
+    //         {
+    //             collectedText->emplace_back("Failed to fetch URL");
+    //         }
+
+    //         // Check if all responses have been processed
+    //         if (--(*responsesRemaining) == 0)
+    //         {
+    //             std::string combinedText;
+    //             for (const auto &text : *collectedText)
+    //             {
+    //                 combinedText += text + "\n";
+    //             }
+
+    //             // Send the combined text as the response
+    //             auto resp = HttpResponse::newHttpResponse();
+    //             resp->setStatusCode(k200OK);
+    //             resp->setContentTypeCode(CT_TEXT_PLAIN);
+    //             resp->setBody(combinedText);
+    //             callback(resp);
+    //         }
+    //     });
+    // }
 }
