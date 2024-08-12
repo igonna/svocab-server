@@ -1,0 +1,82 @@
+CREATE TABLE free_users_limits (
+
+);
+
+CREATE TABLE subscription_users_limits (
+
+);
+
+
+
+
+
+
+
+FIRST VERSION KEYS:
+secretKey
+codeRequestBlock-email 30 seconds
+verificationCode-email 16 minutes
+rovokedDeviceKey-user-id time(Minutes secret key exists)
+
+
+
+SECOND VERSION KEYS:
+secretKey
+
+user_state_user-id
+
+
+user_state:
+0;0;
+
+
+
+
+languages
+
+topics
+
+
+android devices info
+
+
+
+caching:
+
+
+CREATE TABLE user_state (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    has_subscription BOOLEAN NOT NULL DEFAULT FALSE,
+    topics_last_update_time INT NOT NULL DEFAULT 0,
+    check_points_last_update_time INT NOT NULL DEFAULT 0,
+    learned_words_last_update_time INT NOT NULL DEFAULT 0,
+    learned_words_hot_sync_last_update_time INT NOT NULL DEFAULT 0,
+    focus_group TEXT NOT NULL DEFAULT '', --word;2;t;\n
+    selected_languages TEXT NOT NULL DEFAULT '', -- en;es;1.25;t\n
+    last_revoked_device_num
+) PARTITION BY HASH (user_id);
+
+
+
+
+
+only in redis:
+
+
+
+
+what happens if focus group on one device is outdated, user reopened app it's empty
+
+but another device at the same time was open
+
+
+means new opened device is preferred
+
+the only question is to refresh focus group or not?
+
+if on another device it was changed few seconds ago
+
+
+for example focus_group fetched, then read last update time, if it's outdate open new focus group, else open old one
+
+outdated if current_time - last_update_time > 5 minutes

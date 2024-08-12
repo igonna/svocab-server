@@ -36,6 +36,20 @@
     }
 }
 
+// topic_data separated because if user change topic_options 
+// no need to rewrite sources and words
+
+topic_options
+topic_metadata
+topic_words
+
+metadata:
+
+
+// words sorted by popularity, but also have order_number which is sorted by first appearance
+words: word;order_num
+
+
 // user topic // found by topic id
 {
     "topic_title": "",
@@ -91,13 +105,9 @@
             "err": "some_err"
         }
     },
-    "words_and_process_status": { // 0 = not_processed, 1 = processed, 2 = couldn't be processed
-        "hello": 1,
-        "kljlakjs": 2,
-        "hi": 1
-    }
+    "words": "hello;3;computer;1;hi;2;"
 }
 
-
+// 0 = not_processed, 1 = processed, 2 = couldn't be processed
 
 // focus group
