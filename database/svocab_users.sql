@@ -14,13 +14,13 @@ CREATE TABLE users (
 CREATE TABLE user_state (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     has_subscription BOOLEAN NOT NULL DEFAULT FALSE,
+    revoke_device_last_update_id INT NOT NULL DEFAULT 0,
     topics_last_update_id INT NOT NULL DEFAULT 0,
     check_points_last_update_id INT NOT NULL DEFAULT 0,
     learned_words_last_update_id INT NOT NULL DEFAULT 0,
     learned_words_hot_sync_last_update_id INT NOT NULL DEFAULT 0,
     focus_group_last_update_time INT NOT NULL DEFAULT 0,
-    selected_languages_last_update_id INT NOT NULL DEFAULT 0,
-    revoke_device_last_update_id INT NOT NULL DEFAULT 0
+    selected_languages_last_update_id INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_focus_group (
@@ -46,28 +46,28 @@ CREATE TABLE user_check_points (
 CREATE TABLE user_devices (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     device_num INT,
+    created_at INT NOT NULL,
     os_name TEXT NOT NULL,
     os_version TEXT NOT NULL,
     device_market_name TEXT NOT NULL,
     device_model TEXT NOT NULL,
     device_refresh_token TEXT NOT NULL,
     token_last_request_time INT NOT NULL,
-    created_at INT NOT NULL,
-    ip_address INT NOT NULL,
+    last_ip_address INT NOT NULL,
     PRIMARY KEY (user_id, device_num)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_learned_words (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     lang_tag CHAR(2) NOT NULL,
-    words JSONB NOT NULL DEFAULT '{}',
+    words TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (user_id, lang_tag)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_learned_words_hot_sync (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     lang_tag CHAR(2) NOT NULL,
-    words JSONB NOT NULL DEFAULT '{}',
+    words TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (user_id, lang_tag)
 ) PARTITION BY HASH (user_id);
 
@@ -94,7 +94,7 @@ CREATE TABLE user_statistics (
     app_sessions JSONB NOT NULL
 ) PARTITION BY HASH (user_id);
 
-CREATE TABLE user_google_play_subscrition ( -- to do this, after more details known
+CREATE TABLE user_google_play_subscription ( -- to do this, after more details known
     user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     subscription_id VARCHAR(255) NOT NULL,
     purchase_token VARCHAR(255) NOT NULL,
@@ -161,7 +161,7 @@ CREATE TABLE user_statistics_p1 PARTITION OF user_statistics FOR VALUES WITH (MO
 CREATE TABLE user_statistics_p2 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_statistics_p3 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_google_play_subscrition_p0 PARTITION OF user_google_play_subscrition FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_google_play_subscrition_p1 PARTITION OF user_google_play_subscrition FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_google_play_subscrition_p2 PARTITION OF user_google_play_subscrition FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_google_play_subscrition_p3 PARTITION OF user_google_play_subscrition FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_google_play_subscription_p0 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_google_play_subscription_p1 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_google_play_subscription_p2 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_google_play_subscription_p3 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 3);

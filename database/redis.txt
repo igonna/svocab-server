@@ -1,82 +1,29 @@
-CREATE TABLE free_users_limits (
-
-);
-
-CREATE TABLE subscription_users_limits (
-
-);
-
-
-
-
-
-
-
 FIRST VERSION KEYS:
-secretKey
-codeRequestBlock-email 30 seconds
-verificationCode-email 16 minutes
-rovokedDeviceKey-user-id time(Minutes secret key exists)
-
+    secretKey
+    codeRequestBlock-email 30 seconds
+    verificationCode-email 16 minutes
+    rovokedDeviceKey-user-id time(Minutes secret key exists)
 
 
 SECOND VERSION KEYS:
-secretKey
-
-user_state_user-id
-
-
-user_state:
-0;0;
-
-
-
-
-languages
-
-topics
-
-
-android devices info
+-- everything affected by lru
+svocab:
+    secretKey
+    freeUserSecretKey
+    paid_users = limit_count 1 minute
+    rich_users = limit_count 1 minute
+    free_users = limit_count 1 minute
+    user_state_user-id
+    codeRequestBlock-email 30 seconds
+    verificationCode-email 16 minutes
+    usr;ip;device-id = limit_count 3 hours // paid user limit
+    fusr;ip;device-id = limit_count 3 hours // free user limit
+    fip;ip = limit count 3 hours // free ip limit
 
 
-
-caching:
-
-
-CREATE TABLE user_state (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    has_subscription BOOLEAN NOT NULL DEFAULT FALSE,
-    topics_last_update_time INT NOT NULL DEFAULT 0,
-    check_points_last_update_time INT NOT NULL DEFAULT 0,
-    learned_words_last_update_time INT NOT NULL DEFAULT 0,
-    learned_words_hot_sync_last_update_time INT NOT NULL DEFAULT 0,
-    focus_group TEXT NOT NULL DEFAULT '', --word;2;t;\n
-    selected_languages TEXT NOT NULL DEFAULT '', -- en;es;1.25;t\n
-    last_revoked_device_num
-) PARTITION BY HASH (user_id);
+translation-cache:
+    lang_src;lang_dst;word = word_translation;phrase;phrase_translation
+    bndw;word = error_count // banned word
 
 
-
-
-
-only in redis:
-
-
-
-
-what happens if focus group on one device is outdated, user reopened app it's empty
-
-but another device at the same time was open
-
-
-means new opened device is preferred
-
-the only question is to refresh focus group or not?
-
-if on another device it was changed few seconds ago
-
-
-for example focus_group fetched, then read last update time, if it's outdate open new focus group, else open old one
-
-outdated if current_time - last_update_time > 5 minutes
+maxmemory-policy allkeys-lru
