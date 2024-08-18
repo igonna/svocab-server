@@ -1,7 +1,11 @@
 CREATE TABLE topic (
     topic_id SERIAL,
     src_lang CHAR(2),
-    topic_metadata TEXT NOT NULL,
+    topic_title TEXT NOT NULL,
+    mix_value REAL NOT NULL,
+    skip_value REAL NOT NULL,
+    position INT NOT NULL,
+    is_enabled BOOLEAN NOT NULL,
     topic_words TEXT NOT NULL,
     last_update_id INT NOT NULL DEFAULT 0,
     UNIQUE(topic_id, src_lang)

@@ -54,9 +54,12 @@ words: word;order_num
 {
     "topic_title": "",
     "src_lang": "en",
+
     "word_count_type": "balanced_sources", // balanced_sources, summarized_sources
     "exclude_words_that_not_in_all_sources": false,
+
     "do_not_save_sources": false,
+
     "mix_value": 1.25,
     "skip_value": 0.0,
     "position": 0,
@@ -111,3 +114,37 @@ words: word;order_num
 // 0 = not_processed, 1 = processed, 2 = couldn't be processed
 
 // focus group
+
+
+
+
+1, 2, 3, 4
+
+
+update 2
+delete 1
+add 5
+
+
+add_new
+
+
+
+
+youtube [kj12, ll81]
+
+delete youtube 0 -> [ll81]
+delete youtube 0 -> []
+add new youtube 1 -> [ww33]
+
+result: [ww33]
+
+
+delete youtube 0 -> [ll81]
+add new youtube 1 -> [ww33]
+delete youtube 0 -> []
+
+result: [ww33]
+
+
+
