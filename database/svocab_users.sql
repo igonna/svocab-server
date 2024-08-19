@@ -13,31 +13,25 @@ CREATE TABLE users (
 
 CREATE TABLE user_sequence (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    generation_id INT NOT NULL,
-    not_learned_words_pages TEXT[], -- page size is 25 words
-    pages_count INT,
-    was_cropped BOOLEAN,
-    last_taken_focus_size INT,
-    last_taken_page_pointer INT NOT NULL DEFAULT -1,
-    last_taken_word_pointer_inside_page INT NOT NULL DEFAULT -1,
-    hidden_words_from_focus_size
+    not_learned_words TEXT[], -- 200 words by default, but brough_back could increase, some of them could be NULL
+    brought_back_words TEXT[], -- words which user removed from learned or hidden words
 
-    last_gen_id
-    last_update_id
+    was_cropped BOOLEAN NOT NULL DEFAULT FALSE,
+    lowest_not_learned_pointer INT NOT NULL DEFAULT 0,
+
+    last_gen_for_repeat_time INT NOT NULL DEFAULT 0, -- required to update every 6 hours, to mix words for repeat
+    last_gen_id INT NOT NULL DEFAULT 0, -- current state
+    last_update_id INT NOT NULL DEFAULT 0, -- >= last_gen_id
+
+    last_focus_group TEXT,
+    last_focus_group_gen_id INT NOT NULL DEFAULT 0
     PRIMARY KEY (user_id)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_state (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     has_subscription BOOLEAN NOT NULL DEFAULT FALSE,
-    check_points INT NOT NULL DEFAULT 0,
-    focus_group TEXT NOT NULL DEFAULT '' --word;2;t;\n
-    -- revoke_device_last_update_id INT NOT NULL DEFAULT 0,
-    -- topics_last_update_id INT NOT NULL DEFAULT 0,
-    -- check_points_last_update_id INT NOT NULL DEFAULT 0,
-    -- learned_words_last_update_id INT NOT NULL DEFAULT 0,
-    -- learned_words_hot_sync_last_update_id INT NOT NULL DEFAULT 0,
-    -- selected_languages_last_update_id INT NOT NULL DEFAULT 0,
+    check_points SMALLINT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 -- check_points:
@@ -67,17 +61,10 @@ CREATE TABLE user_devices (
     PRIMARY KEY (user_id, device_num)
 ) PARTITION BY HASH (user_id);
 
-CREATE TABLE user_hidden_words (
+CREATE TABLE user_words (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     lang_tag CHAR(2) NOT NULL,
-    words TEXT NOT NULL DEFAULT '', -- word;0;
-    PRIMARY KEY (user_id, lang_tag)
-) PARTITION BY HASH (user_id);
-
-CREATE TABLE user_learned_words (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    lang_tag CHAR(2) NOT NULL,
-    words TEXT NOT NULL DEFAULT '',
+    words TEXT NOT NULL DEFAULT '', -- word;16;160010120
     PRIMARY KEY (user_id, lang_tag)
 ) PARTITION BY HASH (user_id);
 
@@ -91,14 +78,14 @@ CREATE TABLE user_topics (
     dst_lang CHAR(2) NOT NULL,
 
     topic_title TEXT,
-    mix_value REAL NOT NULL,
-    skip_value REAL NOT NULL,
+    mix_value REAL NOT NULL DEFAULT 1.0,
+    skip_value REAL NOT NULL DEFAULT 0.0,
     position INT NOT NULL,
-    is_enabled BOOLEAN NOT NULL,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
-    word_count_type SMALLINT, -- balanced_sources, summarized_sources
-    word_order_type SMALLINT, -- popularity, first_appearance
-    exclude_words_that_not_in_all_sources BOOLEAN,
+    word_count_type SMALLINT NOT NULL DEFAULT 0, -- balanced_sources, summarized_sources
+    word_order_type SMALLINT NOT NULL DEFAULT 0, -- popularity, first_appearance
+    exclude_words_that_not_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
 
     texts_sources TEXT[],
 
@@ -125,8 +112,8 @@ CREATE TABLE user_topics (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_custom_global_topic_options (
-    topic_id INT,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    topic_id INT,
     mix_value REAL NOT NULL,
     skip_value REAL NOT NULL,
     position INT NOT NULL,
@@ -134,30 +121,26 @@ CREATE TABLE user_custom_global_topic_options (
     PRIMARY KEY (user_id, topic_id)
 ) PARTITION BY HASH (user_id);
 
-CREATE TABLE user_ranks (
-    rank_pos SMALLINT,
+CREATE TABLE ranks (
+    rank_pos PRIMARY KEY SMALLINT,
     rank_min_score BIGINT,
     last_rank_update INT,
-    PRIMARY KEY (rank_pos)
 );
 
 CREATE TABLE user_statistics (
     user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     app_sessions JSONB NOT NULL, -- i am not sure that we need it
-
-    last_learn_time INT,
-    learned_today INT,
-    learned_words_total INT,
-    learn_streak INT,
-    total_learn_days INT,
-    last_repeat_time INT,
-    repeated_today INT,
-    focus_size_total_sum BIGINT,
-    focus_size_changes_total_count INT,
-    user_rank SMALLINT, -- from 0 to 100
-    last_rank_update_time INT,
-    -- user_score BIGINT, -- total_learned * average_per_day_learned
-
+    last_learn_time INT NOT NULL DEFAULT 0,
+    learned_today INT NOT NULL DEFAULT 0,
+    learned_words_total INT NOT NULL DEFAULT 0,
+    learn_streak INT NOT NULL DEFAULT 0,
+    total_learn_days INT NOT NULL DEFAULT 0,
+    last_repeat_time INT NOT NULL DEFAULT 0,
+    repeated_today INT NOT NULL DEFAULT 0,
+    focus_size_total_sum BIGINT NOT NULL DEFAULT 0,
+    focus_size_changes_total_count INT NOT NULL DEFAULT 0,
+    user_rank SMALLINT NOT NULL DEFAULT 100, -- from 0 to 100
+    last_rank_update_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE INDEX idx_score ON user_statistics (user_score DESC);
@@ -196,10 +179,10 @@ CREATE TABLE user_devices_p1 PARTITION OF user_devices FOR VALUES WITH (MODULUS 
 CREATE TABLE user_devices_p2 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_devices_p3 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_learned_words_p0 PARTITION OF user_learned_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_learned_words_p1 PARTITION OF user_learned_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_learned_words_p2 PARTITION OF user_learned_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_learned_words_p3 PARTITION OF user_learned_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_words_p0 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_hidden_words_p0 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_hidden_words_p1 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
