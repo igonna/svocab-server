@@ -12,7 +12,7 @@ CREATE TABLE users (
 ) PARTITION BY HASH (id);
 
 CREATE TABLE user_sequence (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     not_learned_words TEXT[], -- 200 words by default, but brough_back could increase, some of them could be NULL
     brought_back_words TEXT[], -- words which user removed from learned or hidden words
 
@@ -24,13 +24,13 @@ CREATE TABLE user_sequence (
     last_update_id INT NOT NULL DEFAULT 0, -- >= last_gen_id
 
     last_focus_group TEXT,
-    last_focus_group_gen_id INT NOT NULL DEFAULT 0
-    PRIMARY KEY (user_id)
+    last_focus_group_gen_id INT NOT NULL DEFAULT 0,
+    last_focus_group_update_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_state (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    has_subscription BOOLEAN NOT NULL DEFAULT FALSE,
+    user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    learned_this_time INT NOT NULL DEFAULT 0,
     check_points SMALLINT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
@@ -41,10 +41,13 @@ CREATE TABLE user_state (
 -- filter_tutorial_passed
 -- rate_us_passed
 
-CREATE TABLE user_selected_languages (
+CREATE TABLE user_language_pairs (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    selected_languages TEXT NOT NULL DEFAULT '', -- en;es;1.25;t\n
-    PRIMARY KEY (user_id)
+    src_lang CHAR(2) NOT NULL,
+    dst_lang CHAR(2) NOT NULL,
+    mix_value REAL NOT NULL DEFAULT 1.0,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (user_id, src_lang, dst_lang)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_devices (
@@ -122,9 +125,9 @@ CREATE TABLE user_custom_global_topic_options (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE ranks (
-    rank_pos PRIMARY KEY SMALLINT,
+    rank_pos SMALLINT PRIMARY KEY,
     rank_min_score BIGINT,
-    last_rank_update INT,
+    last_rank_update_time INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE user_statistics (
@@ -143,8 +146,6 @@ CREATE TABLE user_statistics (
     last_rank_update_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
-CREATE INDEX idx_score ON user_statistics (user_score DESC);
-
 CREATE TABLE user_google_play_subscription ( -- to do this, after more details known
     user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     subscription_id VARCHAR(255) NOT NULL,
@@ -162,6 +163,11 @@ CREATE TABLE users_p1 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 1
 CREATE TABLE users_p2 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE users_p3 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
+CREATE TABLE user_sequence_p0 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_sequence_p1 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_sequence_p2 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_sequence_p3 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
 CREATE UNIQUE INDEX idx_unique_email ON users (id, email);
 
 CREATE TABLE user_state_p0 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 0);
@@ -169,10 +175,10 @@ CREATE TABLE user_state_p1 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, R
 CREATE TABLE user_state_p2 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_state_p3 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_selected_languages_p0 PARTITION OF user_selected_languages FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_selected_languages_p1 PARTITION OF user_selected_languages FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_selected_languages_p2 PARTITION OF user_selected_languages FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_selected_languages_p3 PARTITION OF user_selected_languages FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_language_pairs_p0 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_language_pairs_p1 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_language_pairs_p2 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_language_pairs_p3 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_devices_p0 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_devices_p1 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 1);
@@ -184,20 +190,15 @@ CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, R
 CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_hidden_words_p0 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_hidden_words_p1 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_hidden_words_p2 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_hidden_words_p3 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
-
 CREATE TABLE user_topics_p0 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_topics_p1 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_topics_p2 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_topics_p3 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_global_topic_metadata_p0 PARTITION OF user_global_topic_metadata FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_global_topic_metadata_p1 PARTITION OF user_global_topic_metadata FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_global_topic_metadata_p2 PARTITION OF user_global_topic_metadata FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_global_topic_metadata_p3 PARTITION OF user_global_topic_metadata FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_custom_global_topic_options_p0 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_custom_global_topic_options_p1 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_custom_global_topic_options_p2 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_custom_global_topic_options_p3 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_statistics_p0 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_statistics_p1 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
