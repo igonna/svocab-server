@@ -30,10 +30,15 @@ sign_in_code-email@gmail.com
 attach_code-email@gmail.com
 register_attempts*
 
+user_auth
+
+user_account
+
+
 
 REGISTER
 
-1.create_account_without_email -> refresh_token, user_id, device_num
+1.register_without_email -> refresh_token, user_id, device_num
     lang_src
     lang_dst
     first_topic_skip_coeff(optional)
@@ -125,7 +130,7 @@ PROGRESS WORDS
     src_lang
     word
 
-TOPIC FILTER
+USER LANGUAGES
 
 21.get_languages_with_topics -> JSON langs:topics (topic{type,title,enabled,})
 
@@ -140,7 +145,7 @@ TOPIC FILTER
     boolean
 
 
-TOPIC BASIC OPTIONS
+TOPIC OPTIONS
 
 24.set_topic_enabled -> ok
     topic_id
@@ -160,9 +165,6 @@ TOPIC BASIC OPTIONS
 
 28.get_topic_words -> list
     topic_id
-
-
-TOPIC ADVANCED OPTIONS
 
 29.create_topic -> topic_id
     (lang_pair_id)
@@ -226,7 +228,7 @@ DEVICES INFO
     device_num
 
 
-SEQUENCE
+FOCUS GROUP
 
 43.get_focus_group -> list
 
@@ -245,6 +247,10 @@ TOKEN
     device_num
     user_id
     refresh_token
+
+LANGAUGES
+
+48.get_supported_languages -> list
 
 
 

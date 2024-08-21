@@ -30,8 +30,24 @@ find_package(ICU COMPONENTS uc io REQUIRED)
 
 include_directories(${LibOAI_INCLUDE})
 
+# set(SOURCE_FILES
+#    topic_generator.cc
+# )
 
-add_executable(${PROJECT_NAME} main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/controllers/topic_generator.cpp)
+# set(SOURCE_DIR src)
+
+# foreach(SOURCE ${SOURCE_FILES})
+#     list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/controllers/${SOURCE})
+# endforeach()
+
+# Set the directory containing the source files
+set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/controllers)
+
+# Automatically gather all .cc files from the SOURCE_DIR
+file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cc)
+
+add_executable(${PROJECT_NAME} main.cpp ${SOURCES})
+
 target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES})
 
 aux_source_directory(controllers CTL_SRC)

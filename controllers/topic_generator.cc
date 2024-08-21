@@ -1,4 +1,4 @@
-#include "topic_generator.hpp"
+#include "topic_generator.h"
 #include <drogon/HttpRequest.h>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>

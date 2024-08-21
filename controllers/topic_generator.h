@@ -8,7 +8,8 @@ class TopicGenerator:public drogon::HttpSimpleController<TopicGenerator>
 {
 public:
     void asyncHandleHttpRequest(const HttpRequestPtr& req, std::function<void (const HttpResponsePtr &)> &&callback) override;
-    PATH_LIST_BEGIN
+
+    METHOD_LIST_BEGIN
     PATH_ADD("/gen_topic", Post);
-    PATH_LIST_END
+    METHOD_LIST_END
 };
