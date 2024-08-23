@@ -5,7 +5,6 @@ CREATE TABLE users (
     email TEXT,
     special_user_type SpecialUserType,
     register_date TIMESTAMP NOT NULL DEFAULT NOW(),
-    subscription_last_verify_time INT,
     token_last_request_time INT NOT NULL DEFAULT 0, -- dead user detection
     last_device_num INT NOT NULL DEFAULT 0,
     UNIQUE (id, email)
@@ -53,13 +52,10 @@ CREATE TABLE user_language_pairs (
 CREATE TABLE user_devices (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     device_num INT,
-    created_at INT NOT NULL,
-    os_name TEXT NOT NULL,
-    os_version TEXT NOT NULL,
-    device_market_name TEXT NOT NULL,
-    device_model TEXT NOT NULL,
-    device_refresh_token TEXT NOT NULL,
-    token_last_request_time INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    device_name TEXT NOT NULL,
+    device_refresh_token CHAR(16) NOT NULL,
+    token_last_request_time INT NOT NULL DEFAULT 0,
     last_ip_address INT NOT NULL,
     PRIMARY KEY (user_id, device_num)
 ) PARTITION BY HASH (user_id);
@@ -89,6 +85,7 @@ CREATE TABLE user_topics (
     word_count_type SMALLINT NOT NULL DEFAULT 0, -- balanced_sources, summarized_sources
     word_order_type SMALLINT NOT NULL DEFAULT 0, -- popularity, first_appearance
     exclude_words_that_not_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
+    exclude_very_rare_words BOOLEAN NO NULL DEFAULT TRUE,
 
     texts_sources TEXT[],
 
@@ -116,11 +113,11 @@ CREATE TABLE user_topics (
 
 CREATE TABLE user_custom_global_topic_options (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    topic_id INT,
-    mix_value REAL NOT NULL,
-    skip_value REAL NOT NULL,
-    position INT NOT NULL,
-    is_enabled BOOLEAN NOT NULL,
+    topic_id INT NOT NULL,
+    mix_value REAL,
+    skip_value REAL,
+    position INT,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     PRIMARY KEY (user_id, topic_id)
 ) PARTITION BY HASH (user_id);
 
@@ -132,7 +129,7 @@ CREATE TABLE ranks (
 
 CREATE TABLE user_statistics (
     user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    app_sessions JSONB NOT NULL, -- i am not sure that we need it
+    -- app_sessions JSONB NOT NULL, -- i am not sure that we need it
     last_learn_time INT NOT NULL DEFAULT 0,
     learned_today INT NOT NULL DEFAULT 0,
     learned_words_total INT NOT NULL DEFAULT 0,

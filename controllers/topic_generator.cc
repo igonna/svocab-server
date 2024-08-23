@@ -7,6 +7,7 @@
 #include <unicode/unistr.h>
 #include <unicode/brkiter.h>
 #include <memory>
+#include "utils/utils.h"
 
 
 // // Function to extract text from a GumboNode
@@ -76,13 +77,6 @@ std::optional<Json::Value> parse_json(const std::string& data) {
         return std::nullopt;
 }
 
-void ERROR_RESPONSE(std::function<void (const HttpResponsePtr &)> &callback, drogon::HttpStatusCode status_code, const char* message) {
-    auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(message);
-    resp->setStatusCode(status_code);
-    callback(resp);
-}
-
 std::optional<std::pair<std::unordered_map<std::string, double_t>, uint32_t>> extract_words_from_text(icu::UnicodeString text, const char* language) {
     std::unordered_map<std::string, double_t> words_count;
     uint32_t total_words_count = 0;
@@ -123,13 +117,13 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
     // request verifying
     MultiPartParser multiPartParser;
     if (multiPartParser.parse(req) != 0)
-        return ERROR_RESPONSE(callback, k400BadRequest, "body not valid");
+        return local_utils::Error::Response::MAKE_ERROR(callback, k400BadRequest, "body not valid");
 
     static const std::string metadata_parameter = "metadata";
     auto metadata = multiPartParser.getParameter<std::string>(metadata_parameter);
 
     if (metadata.size() == 0)
-        return ERROR_RESPONSE(callback, k400BadRequest, "metadata is empty");
+        return local_utils::Error::Response::MAKE_ERROR(callback, k400BadRequest, "metadata is empty");
 
     // meta
     Json::Value json_meta;
@@ -137,14 +131,14 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
     if (metadata_parsed.has_value())
         json_meta = metadata_parsed.value();
     else
-        return ERROR_RESPONSE(callback, k400BadRequest, "metadata parse error");
+        return local_utils::Error::Response::MAKE_ERROR(callback, k400BadRequest, "metadata parse error");
 
     auto texts = json_meta["texts"];
     auto urls = json_meta["urls"];
     auto &files = multiPartParser.getFiles();
 
     if (texts.size() == 0 && urls.size() == 0 && files.size() == 0)
-        return ERROR_RESPONSE(callback, k400BadRequest, "no content to parse");
+        return local_utils::Error::Response::MAKE_ERROR(callback, k400BadRequest, "no content to parse");
 
     // process files
     auto src_lang = json_meta["src_lang"].asString();
@@ -161,7 +155,7 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
 
         if (!extract_result.has_value()) {
             std::string error_message = std::string("could not parse one of files: ") + file.getFileName();
-            return ERROR_RESPONSE(callback, k400BadRequest, error_message.c_str());
+            return local_utils::Error::Response::MAKE_ERROR(callback, k400BadRequest, error_message.c_str());
         }
 
         auto extracted_words = std::move(extract_result.value().first);

@@ -36,12 +36,31 @@ user_account
 
 
 
+REGISTER USER DATABASE WORK
+
+CREATE ROW
+users
+user_sequence
+user_state
+user_language_pairs -> user_words
+user_devices
+user_statistics
+(optional)user_custom_global_topic_options
+
+
+
+DELETE USER DATABASE WORK
+
+
+
 REGISTER
 
 1.register_without_email -> refresh_token, user_id, device_num
     lang_src
     lang_dst
-    first_topic_skip_coeff(optional)
+    skip_value(optional)
+    topic_id(optional)
+    device_os
     device_model
 
 
@@ -51,11 +70,13 @@ REGISTER
 3.register_email -> refresh_token, user_id, device_num
     code
     email
+    device_os
     device_model
 
 
 4.register_google -> refresh_token, user_id, device_num
     google_token
+    device_os
     device_model
 
 
@@ -68,10 +89,12 @@ SIGNIN
 6.sign_in_to_acccount_email -> refresh_token, user_id, device_num
     code
     email
+    device_os
     device_model
 
 7.sign_in_to_account_google -> refresh_token, user_id, device_num
     google_token
+    device_os
     device_model
 
 
@@ -191,7 +214,7 @@ TOPIC OPTIONS
     topic_id
     title
 
-35.get_topic_sources -> json
+35.get_topic_sources_title -> json
     topic_id
 
 36.delete_topic_source -> ok
@@ -218,6 +241,12 @@ TOPIC OPTIONS
     topic_id
     source_id
     content
+
+
+40.1.get_topic_content -> string-content
+    topic_id
+
+40.2.get_basic_topic -> string-content, topic_id
 
 
 DEVICES INFO
