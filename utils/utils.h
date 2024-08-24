@@ -1,33 +1,190 @@
 #include <drogon/HttpRequest.h>
 #include <random>
+#include <tuple>
+#include <curl/curl.h>
 
 
 namespace local_utils {
 
-static inline std::string generate_random_string(size_t length) {
-    std::random_device rd; 
-    std::mt19937 gen(rd()); 
-    std::uniform_int_distribution<> dis(32, 122); 
- 
-    std::string result; 
-    result.reserve(length); 
- 
-    for (size_t i = 0; i < length; ++i) { 
-        result += static_cast<char>(dis(gen)); 
-    } 
- 
-    return result; 
+namespace token {
+    static inline std::string generate_random_string(size_t length) {
+        std::random_device rd; 
+        std::mt19937 gen(rd()); 
+        std::uniform_int_distribution<> dis(32, 122); 
+    
+        std::string result; 
+        result.reserve(length); 
+    
+        for (size_t i = 0; i < length; ++i) { 
+            result += static_cast<char>(dis(gen)); 
+        } 
+    
+        return result; 
+    }
+
+    static inline std::string generate_refresh_token() {
+        return generate_random_string(16);
+    }
+
+    static inline std::string create_client_refresh_token(uint32_t user_id, uint32_t device_num, const std::string &refresh_token) {
+        return std::to_string(user_id) + '.' + std::to_string(device_num) + '.' + refresh_token;
+    }
+
+    // user_id, device_num, refresh_token
+    static inline std::tuple<uint32_t, uint32_t, std::string> break_client_refresh_token(const std::string& token) {
+        auto token_size = token.size();
+
+        std::string tmp_str;
+
+        uint32_t user_id;
+        uint32_t device_num;
+
+        uint8_t n = 0;
+        for (uint32_t i = 0; i < token_size; ++i) {
+            if (token[i] == '.' && n != 2) {
+                if (n == 0) {
+                    user_id = std::stoi(tmp_str);
+                } else if (n == 1) {
+                    device_num = std::stoi(tmp_str);
+                }
+                tmp_str.clear();
+                ++n;
+                continue;
+            }
+
+            tmp_str += token[i];
+        }
+
+        return std::tuple<uint32_t, uint32_t, std::string>(user_id, device_num, tmp_str);
+    }
+
 }
+
+namespace redis {
+    static inline std::string create_attempts_key(const std::string& email) {
+        return std::string("reg-a-") + email;
+    }
+
+    static inline std::string create_register_code_key(const std::string& email) {
+        return std::string("reg-c-") + email;
+    }
+}
+
+namespace email {
+    static inline std::string generate_email_code() {
+        static constexpr uint8_t length = 5;
+
+        std::random_device rd; 
+        std::mt19937 gen(rd()); 
+        std::uniform_int_distribution<> dis(48, 57); 
+    
+        std::string result; 
+        result.reserve(length); 
+    
+        for (uint8_t i = 0; i < length; ++i) { 
+            result += static_cast<char>(dis(gen)); 
+        } 
+    
+        return result; 
+    }
+
+    class SmtpDialer {
+    private:
+        std::string smtp_server;
+        std::string smtp_user;
+        std::string smtp_password;
+
+        std::string payload;
+
+        size_t bytes_read = 0;
+
+        size_t readfunction(char *ptr, size_t size, size_t nmemb) {
+            const char *data;
+            size_t room = size * nmemb;
+            
+            if((size == 0) || (nmemb == 0) || ((size*nmemb) < 1)) {
+                return 0;
+            }
+            
+            data = payload.data() + bytes_read;
+            
+            if (data) {
+                size_t len = strlen(data);
+                if(room < len)
+                    len = room;
+                memcpy(ptr, data, len);
+                bytes_read += len;
+            
+                return len;
+            }
+            
+            return 0;
+        }
+
+
+        static size_t static_readfunction(void *buffer, size_t size, size_t nmemb, void *user_data) {
+            return static_cast<SmtpDialer*>(user_data)->readfunction(reinterpret_cast<char*>(buffer), size, nmemb);
+        }
+
+
+    public:
+        SmtpDialer(const std::string &server, const std::string& user, const std::string& password) {
+            smtp_server = server;
+            smtp_user = user;
+            smtp_password = password;
+        }
+
+        void send_email(const std::string& email, const std::string& code) {
+            payload = "To: " + email + "\r\n" +
+                "From: svocab <" + smtp_user + ">\r\n" +
+                "Subject: code\r\n" +
+                "Content-Type: text/html\r\n" +
+                "\r\n" +
+                "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
+
+            CURL *curl;
+            CURLcode res = CURLE_OK;
+            struct curl_slist *recipients = nullptr;
+
+            curl = curl_easy_init();
+            if (curl) {
+                // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+                curl_easy_setopt(curl, CURLOPT_USERNAME, smtp_user.c_str());
+                curl_easy_setopt(curl, CURLOPT_PASSWORD, smtp_password.c_str());
+                curl_easy_setopt(curl, CURLOPT_URL, smtp_server.c_str());
+                curl_easy_setopt(curl, CURLOPT_MAIL_FROM, smtp_user.c_str());
+
+                recipients = curl_slist_append(recipients, email.c_str());
+                curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
+                curl_easy_setopt(curl, CURLOPT_READFUNCTION, SmtpDialer::static_readfunction);
+
+                curl_easy_setopt(curl, CURLOPT_READDATA, this);
+                curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+
+                res = curl_easy_perform(curl);
+
+                if (res != CURLE_OK) {
+                    throw std::runtime_error(curl_easy_strerror(res));
+                }
+
+                curl_slist_free_all(recipients);
+                curl_easy_cleanup(curl);
+            }
+        }
+    };
+}
+
 
 namespace Error {
 
 namespace Name {
     static constexpr char not_valid_header[] = "not_valid_headers";
+    static constexpr char something_wrong[] = "something_wrong";
 };
 
 
 namespace Response {
-    static void MAKE_ERROR(std::function<void (const HttpResponsePtr &)> &callback, drogon::HttpStatusCode status_code, const char* message) {
+    static void ERROR(std::function<void (const HttpResponsePtr &)> &callback, drogon::HttpStatusCode status_code, const char* message) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(status_code);
         resp->setBody(message);
@@ -35,7 +192,11 @@ namespace Response {
     }
 
     static void NOT_VALID_HEADER(std::function<void (const HttpResponsePtr &)> &callback) {
-        MAKE_ERROR(callback, k400BadRequest, Name::not_valid_header);
+        ERROR(callback, k400BadRequest, Name::not_valid_header);
+    }
+
+    static void SOMETHING_WRONG(std::function<void (const HttpResponsePtr &)> &callback) {
+        ERROR(callback, k500InternalServerError, Name::something_wrong);
     }
 }
 

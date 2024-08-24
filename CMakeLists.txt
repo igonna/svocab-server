@@ -23,6 +23,7 @@ find_package(Drogon CONFIG REQUIRED)
 # set(Poppler_LIBRARY /Users/c/Downloads/poppler-24.05.0/build/cpp/libpoppler-cpp.dylib)
 # set(Gumbo_LIBRARY /opt/homebrew/Cellar/gumbo-parser/0.10.1/lib/libgumbo.dylib)
 # set(ICU_INCLUDE_DIRS /opt/homebrew/opt/icu4c/include)
+find_package(CURL REQUIRED)
 
 include_directories(${ICU_INCLUDE_DIRS})
 find_package(ICU COMPONENTS uc io REQUIRED)
@@ -47,7 +48,7 @@ file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cc)
 
 add_executable(${PROJECT_NAME} main.cpp ${SOURCES})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES} CURL::libcurl)
 
 aux_source_directory(controllers CTL_SRC)
 aux_source_directory(filters FILTER_SRC)
