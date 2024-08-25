@@ -2,7 +2,7 @@
 #include <drogon/HttpRequest.h>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
-#include <gumbo.h>
+// #include <gumbo.h>
 #include <unicode/uchar.h>
 #include <unicode/unistr.h>
 #include <unicode/brkiter.h>

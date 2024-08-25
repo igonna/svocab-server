@@ -9,10 +9,10 @@ namespace v1
 class UserRegister : public drogon::HttpController<UserRegister>
 {
   public:
-    void registerWithoutEmail(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) const;
-    void getCodeForEmailRegister(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) const;
-    void registerEmail(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) const;
-    void registerGoogle(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &&callback) const;
+    Task<> registerWithoutEmail(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+    Task<> getCodeForEmailRegister(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+    Task<> registerEmail(HttpRequestPtr req, std::function<void(const HttpResponsePtr&)> callback);
+    Task<> registerGoogle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
     // list path definitions here;
     // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);

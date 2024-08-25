@@ -3,6 +3,15 @@ project(svocab-server CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+
+SET(CMAKE_C_COMPILER "/opt/homebrew/Cellar/gcc/14.1.0_2/bin/gcc-14")
+SET(CMAKE_CXX_COMPILER "/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14")
+
+# cmake -DCMAKE_BUILD_TYPE=Release \
+#       -DCMAKE_C_COMPILER=/opt/homebrew/Cellar/gcc/14.1.0_2/bin/gcc-14 \
+#       -DCMAKE_CXX_COMPILER=/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14 \
+#       ..
+
 set(CMAKE_CXX_STANDARD 20)
 include(CheckIncludeFileCXX)
 
@@ -20,6 +29,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #
 # and comment out the following lines
 find_package(Drogon CONFIG REQUIRED)
+include_directories(${POPPLER_INCLUDE_DIRS})
 # set(Poppler_LIBRARY /Users/c/Downloads/poppler-24.05.0/build/cpp/libpoppler-cpp.dylib)
 # set(Gumbo_LIBRARY /opt/homebrew/Cellar/gumbo-parser/0.10.1/lib/libgumbo.dylib)
 # set(ICU_INCLUDE_DIRS /opt/homebrew/opt/icu4c/include)

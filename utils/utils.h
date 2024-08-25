@@ -2,6 +2,11 @@
 #include <random>
 #include <tuple>
 #include <curl/curl.h>
+#include <unicode/unistr.h>
+#include <unicode/normalizer2.h>
+#include <regex>
+#include <iostream>
+#include <drogon/HttpClient.h>
 
 
 namespace local_utils {
@@ -88,6 +93,58 @@ namespace email {
         return result; 
     }
 
+
+    static bool is_valid_email(const std::string &email) {
+        UErrorCode error_code = U_ZERO_ERROR;
+        const icu::Normalizer2* normalizer = icu::Normalizer2::getNFKCInstance(error_code);
+        if (U_FAILURE(error_code)) {
+            return false;
+        }
+        icu::UnicodeString normalized_email = normalizer->normalize(icu::UnicodeString::fromUTF8(email), error_code);
+        if (U_FAILURE(error_code)) {
+            return false;
+        }
+
+        std::string normalized_email_utf8;
+        normalized_email.toUTF8String(normalized_email_utf8);
+
+        std::regex email_pattern(R"((^[^\s@]+@[^\s@]+\.[^\s@]+$))", std::regex::icase);
+
+        if (!std::regex_match(normalized_email_utf8, email_pattern)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    static Task<std::string> get_email_from_google_token(const std::string &token) {
+        auto client = HttpClient::newHttpClient("https://oauth2.googleapis.com");
+        auto req = HttpRequest::newHttpRequest();
+        req->setPath("/tokeninfo?id_token=" + token);
+
+        auto resp = co_await client->sendRequestCoro(req);
+
+        Json::Value root;
+        if (!Json::Reader().parse(std::string(resp->getBody()), root)) {
+            throw std::runtime_error("json_parse_error");
+        }
+
+        if (resp->getStatusCode() != k200OK) {
+            throw std::runtime_error("not_valid_token: " + std::to_string(resp->getStatusCode()) + " " + root["error"].asString());
+        }
+
+        if (root.isMember("error")) {
+            throw std::runtime_error("error_in_google_response");
+        }
+
+        auto email = root["email"].asString();
+
+        if (!is_valid_email(email)) {
+            throw std::runtime_error("not_valid_email");
+        }
+        co_return email;
+    }
+
     class SmtpDialer {
     private:
         std::string smtp_server;
@@ -137,7 +194,7 @@ namespace email {
         void send_email(const std::string& email, const std::string& code) {
             payload = "To: " + email + "\r\n" +
                 "From: svocab <" + smtp_user + ">\r\n" +
-                "Subject: code\r\n" +
+                "Subject: code " + code + "\r\n" +
                 "Content-Type: text/html\r\n" +
                 "\r\n" +
                 "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
