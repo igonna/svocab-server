@@ -25,7 +25,10 @@ sign_in_to_account_with_email (
 ) -> refresh_token, user_id
 
 
+register_code_request-email@gmail.com
+register_attempts-email@gmail.com
 register_code-email@gmail.com
+
 sign_in_code-email@gmail.com
 attach_code-email@gmail.com
 register_attempts*
@@ -55,29 +58,25 @@ DELETE USER DATABASE WORK
 
 REGISTER
 
-1.register_without_email -> refresh_token, user_id, device_num
-    lang_src
-    lang_dst
-    skip_value(optional)
-    topic_id(optional)
-    device_os
-    device_model
+1. register -> refresh_token
+
+# 1.register_without_email -> refresh_token
+#     lang_src
+#     lang_dst
+#     skip_value(optional)
+#     topic_id(optional)
 
 
-2.get_code_for_email_register -> code
-    email
+# 2.get_code_for_email_register -> code
+#     email
 
-3.register_email -> refresh_token, user_id, device_num
-    code
-    email
-    device_os
-    device_model
+# 3.register_email -> refresh_token
+#     code
+#     email
 
 
-4.register_google -> refresh_token, user_id, device_num
-    google_token
-    device_os
-    device_model
+# 4.register_google -> refresh_token
+#     google_token
 
 
 
@@ -86,28 +85,24 @@ SIGNIN
 5.get_code_for_email_sign_in -> code
     email
 
-6.sign_in_to_acccount_email -> refresh_token, user_id, device_num
+6.sign_in_to_acccount_email -> refresh_token
     code
     email
-    device_os
-    device_model
 
-7.sign_in_to_account_google -> refresh_token, user_id, device_num
+7.sign_in_to_account_google -> refresh_token
     google_token
-    device_os
-    device_model
 
 
-ATTACH
+LINK
 
-8.get_code_for_email_attach -> code
+8.get_code_for_email_link -> code
     email
 
-9.attach_email_to_account -> ok
+9.link_email_to_account -> ok
     code
     email
 
-10.attach_google_to_account -> ok
+10.link_google_to_account -> ok
     google_token
 
 
@@ -276,6 +271,8 @@ TOKEN
     device_num
     user_id
     refresh_token
+    device_os_version
+    device_model
 
 LANGAUGES
 

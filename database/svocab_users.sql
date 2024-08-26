@@ -53,10 +53,14 @@ CREATE TABLE user_devices (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     device_num INT,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    device_name TEXT NOT NULL,
+
+    device_name TEXT NOT NULL DEFAULT '',
+    device_model TEXT NOT NULL DEFAULT '',
+    device_os_version TEXT NOT NULL DEFAULT '',
+
     device_refresh_token CHAR(16) NOT NULL,
     token_last_request_time INT NOT NULL DEFAULT 0,
-    last_ip_address INT NOT NULL,
+    last_ip_address INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, device_num)
 ) PARTITION BY HASH (user_id);
 

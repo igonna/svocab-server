@@ -7,71 +7,83 @@
 #include <regex>
 #include <iostream>
 #include <drogon/HttpClient.h>
+#include <jwt-cpp/jwt.h>
 
 
 namespace local_utils {
 
 namespace token {
     static inline std::string generate_random_string(size_t length) {
-        std::random_device rd; 
-        std::mt19937 gen(rd()); 
-        std::uniform_int_distribution<> dis(32, 122); 
-    
-        std::string result; 
-        result.reserve(length); 
-    
-        for (size_t i = 0; i < length; ++i) { 
-            result += static_cast<char>(dis(gen)); 
-        } 
+        static const std::string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+        std::random_device rd;
+        std::mt19937 generator(rd());
+        std::uniform_int_distribution<> distribution(0, characters.size() - 1);
+
+        std::string result;
+        for (size_t i = 0; i < length; ++i) {
+            result += characters[distribution(generator)];
+        }
     
         return result; 
     }
 
-    static inline std::string generate_refresh_token() {
+    static uint32_t secret_part_len = 6;
+
+    static std::string create_client_refresh_token(uint32_t user_id, uint32_t device_num, const std::string& device_refresh_token) {
+        auto secret_1 = generate_random_string(secret_part_len);
+        auto secret_2 = generate_random_string(secret_part_len);
+
+        auto secret = secret_1 + secret_2;
+
+        auto token = jwt::create()
+            .set_type("JWS")
+            .set_payload_claim("user_id", jwt::claim(std::to_string(user_id)))
+            .set_payload_claim("device_num", jwt::claim(std::to_string(device_num)))
+            .set_payload_claim("device_token", jwt::claim(device_refresh_token))
+            .sign(jwt::algorithm::hs256{secret});
+
+        return secret_1 + token + secret_2;
+    }
+
+    static inline std::string create_device_token() {
         return generate_random_string(16);
     }
 
-    static inline std::string create_client_refresh_token(uint32_t user_id, uint32_t device_num, const std::string &refresh_token) {
-        return std::to_string(user_id) + '.' + std::to_string(device_num) + '.' + refresh_token;
-    }
+    // user_id, device_num, device_refresh_token
+    static std::tuple<uint32_t, uint32_t, std::string> decode_client_refresh_token(const std::string& refresh_token) {
+        uint32_t refresh_token_length = refresh_token.size();
 
-    // user_id, device_num, refresh_token
-    static inline std::tuple<uint32_t, uint32_t, std::string> break_client_refresh_token(const std::string& token) {
-        auto token_size = token.size();
+        auto secret = refresh_token.substr(0, secret_part_len) 
+            + refresh_token.substr(refresh_token_length - secret_part_len + 1, secret_part_len);
+        auto token = refresh_token.substr(secret_part_len, refresh_token_length - secret_part_len + secret_part_len);
 
-        std::string tmp_str;
+        auto decoded = jwt::decode(token);
+        auto verifier = jwt::verify()
+                            .allow_algorithm(jwt::algorithm::hs256{secret});
 
-        uint32_t user_id;
-        uint32_t device_num;
+        verifier.verify(decoded);
 
-        uint8_t n = 0;
-        for (uint32_t i = 0; i < token_size; ++i) {
-            if (token[i] == '.' && n != 2) {
-                if (n == 0) {
-                    user_id = std::stoi(tmp_str);
-                } else if (n == 1) {
-                    device_num = std::stoi(tmp_str);
-                }
-                tmp_str.clear();
-                ++n;
-                continue;
-            }
+        auto user_id = decoded.get_payload_claim("user_id").as_integer();
+        auto device_num = decoded.get_payload_claim("device_num").as_integer();
+        auto device_token = decoded.get_payload_claim("device_token").as_string();
 
-            tmp_str += token[i];
-        }
-
-        return std::tuple<uint32_t, uint32_t, std::string>(user_id, device_num, tmp_str);
+        return std::tuple<uint32_t, uint32_t, std::string>(user_id, device_num, device_token);
     }
 
 }
 
 namespace redis {
-    static inline std::string create_attempts_key(const std::string& email) {
-        return std::string("reg-a-") + email;
+    static inline std::string create_link_code_requests_key(const std::string& email) {
+        return std::string("link-r-") + email;
     }
 
-    static inline std::string create_register_code_key(const std::string& email) {
-        return std::string("reg-c-") + email;
+    static inline std::string create_link_attempts_key(const std::string& email) {
+        return std::string("link-a-") + email;
+    }
+
+    static inline std::string create_link_code_key(const std::string& email) {
+        return std::string("link-c-") + email;
     }
 }
 

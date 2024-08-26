@@ -6,10 +6,10 @@ using namespace drogon;
 
 class UserBareToken : public drogon::HttpController<UserBareToken>
 {
-  public:
-    
-    METHOD_LIST_BEGIN
-    // list path definitions here;
-    // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
-    METHOD_LIST_END
+public:
+	Task<> getBareToken(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+
+	METHOD_LIST_BEGIN
+	METHOD_ADD(UserBareToken::getBareToken, "/get", Get);
+	METHOD_LIST_END
 };

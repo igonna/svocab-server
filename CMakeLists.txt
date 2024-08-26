@@ -38,6 +38,18 @@ find_package(CURL REQUIRED)
 include_directories(${ICU_INCLUDE_DIRS})
 find_package(ICU COMPONENTS uc io REQUIRED)
 
+
+# add_subdirectory(${JWT_CPP_DIR})
+# target_link_libraries(your_target_name jwt-cpp)
+
+
+# Specify OpenSSL include directories and libraries
+include_directories(${OPENSSL_INCLUDE})
+link_directories(${OPENSSL_LIB_DIR})
+include_directories(${JWT_CPP_INCLUDE})
+
+
+
 include_directories(${LibOAI_INCLUDE})
 
 # set(SOURCE_FILES
@@ -51,14 +63,19 @@ include_directories(${LibOAI_INCLUDE})
 # endforeach()
 
 # Set the directory containing the source files
-set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/controllers)
+set(CONTROLLERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/controllers)
+set(FILTERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/filters)
 
 # Automatically gather all .cc files from the SOURCE_DIR
-file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cc)
+file(GLOB_RECURSE CONTROLLER_SOURCES ${CONTROLLERS_DIR}/*.cc)
+file(GLOB_RECURSE FILTER_SOURCES ${FILTERS_DIR}/*.cc)
 
-add_executable(${PROJECT_NAME} main.cpp ${SOURCES})
+add_executable(${PROJECT_NAME} main.cpp ${CONTROLLER_SOURCES} ${FILTER_SOURCES})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES} CURL::libcurl)
+
+# Link jwt-cpp and OpenSSL
+# target_link_libraries(JWTExample PRIVATE jwt-cpp OpenSSL::SSL OpenSSL::Crypto)
 
 aux_source_directory(controllers CTL_SRC)
 aux_source_directory(filters FILTER_SRC)
