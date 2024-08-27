@@ -5,7 +5,6 @@
 #include <drogon/orm/Exception.h>
 
 #include <drogon/drogon.h>
-#include <chrono>
 
 using namespace drogon;
 
@@ -56,7 +55,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
     }
 
     auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(local_utils::token::create_client_refresh_token(user_id, device_num, device_refresh_token));
+    resp->setBody(local_utils::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
     callback(resp);
 }
 

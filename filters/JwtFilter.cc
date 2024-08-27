@@ -12,10 +12,12 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
             throw std::runtime_error("");
         }
 
-        auto [user_id, device_num, device_token] = local_utils::token::decode_client_refresh_token(token);
+        // get_secret_key
+        auto secret_key = std::string();
+
+        auto [user_id, device_num] = local_utils::token::decode_device_bare_token(token, secret_key);
         req->attributes()->insert("user_id", user_id);
         req->attributes()->insert("device_num", device_num);
-        req->attributes()->insert("device_token", device_token);
 
         fccb();
     } catch (const std::exception& e) {

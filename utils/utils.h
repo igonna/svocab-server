@@ -1,3 +1,4 @@
+#pragma once
 #include <drogon/HttpRequest.h>
 #include <random>
 #include <tuple>
@@ -8,9 +9,18 @@
 #include <iostream>
 #include <drogon/HttpClient.h>
 #include <jwt-cpp/jwt.h>
+#include <chrono>
+#include "utils/constants.h"
 
 
 namespace local_utils {
+
+namespace time {
+    static uint32_t get_unix_timestamp() {
+        const auto p1 = std::chrono::system_clock::now();
+        return std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count();
+    }
+}
 
 namespace token {
     static inline std::string generate_random_string(size_t length) {
@@ -30,7 +40,7 @@ namespace token {
 
     static uint32_t secret_part_len = 6;
 
-    static std::string create_client_refresh_token(uint32_t user_id, uint32_t device_num, const std::string& device_refresh_token) {
+    static std::string create_device_refresh_token(uint32_t user_id, uint32_t device_num, const std::string& device_refresh_token) {
         auto secret_1 = generate_random_string(secret_part_len);
         auto secret_2 = generate_random_string(secret_part_len);
 
@@ -47,30 +57,59 @@ namespace token {
     }
 
     static inline std::string create_device_token() {
-        return generate_random_string(16);
+        return generate_random_string(local_constants::device_token_length);
     }
 
     // user_id, device_num, device_refresh_token
-    static std::tuple<uint32_t, uint32_t, std::string> decode_client_refresh_token(const std::string& refresh_token) {
+    static std::tuple<uint32_t, uint32_t, std::string> decode_device_refresh_token(const std::string& refresh_token) {
         uint32_t refresh_token_length = refresh_token.size();
 
         auto secret = refresh_token.substr(0, secret_part_len) 
-            + refresh_token.substr(refresh_token_length - secret_part_len + 1, secret_part_len);
-        auto token = refresh_token.substr(secret_part_len, refresh_token_length - secret_part_len + secret_part_len);
+            + refresh_token.substr(refresh_token_length - secret_part_len, secret_part_len);
+        auto token = refresh_token.substr(secret_part_len, refresh_token_length - secret_part_len - secret_part_len);
 
         auto decoded = jwt::decode(token);
-        auto verifier = jwt::verify()
-                            .allow_algorithm(jwt::algorithm::hs256{secret});
-
+        auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{secret});
         verifier.verify(decoded);
 
-        auto user_id = decoded.get_payload_claim("user_id").as_integer();
-        auto device_num = decoded.get_payload_claim("device_num").as_integer();
+        auto user_id = std::stoi(decoded.get_payload_claim("user_id").as_string());
+        auto device_num = std::stoi(decoded.get_payload_claim("device_num").as_string());
         auto device_token = decoded.get_payload_claim("device_token").as_string();
 
         return std::tuple<uint32_t, uint32_t, std::string>(user_id, device_num, device_token);
     }
 
+    static std::string create_device_bare_token(uint32_t user_id, uint32_t device_num, const std::string& secret) {
+        auto token = jwt::create()
+            .set_type("JWS")
+            .set_payload_claim("user_id", jwt::claim(std::to_string(user_id)))
+            .set_payload_claim("device_num", jwt::claim(std::to_string(device_num)))
+            .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds{local_constants::secret_key_expire_seconds})
+            .sign(jwt::algorithm::hs256{secret});
+
+        return token;
+    }
+
+    // user_id, device_id
+    static std::tuple<uint32_t, uint32_t> decode_device_bare_token(const std::string& token, const std::string& secret) {
+        auto decoded = jwt::decode(token);
+        auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{secret});
+        verifier.verify(decoded);
+
+        // Check if the token has expired
+        auto exp_claim = decoded.get_payload_claim("exp");
+        std::time_t exp_time = exp_claim.as_date().time_since_epoch().count();
+        std::time_t time_now = ::local_utils::time::get_unix_timestamp();
+
+        if (time_now >= exp_time) {
+            throw std::runtime_error("token_expired");
+        }
+
+        auto user_id = std::stoi(decoded.get_payload_claim("user_id").as_string());
+        auto device_num = std::stoi(decoded.get_payload_claim("device_num").as_string());
+
+        return std::tuple<uint32_t, uint32_t>(user_id, device_num);
+    }
 }
 
 namespace redis {
@@ -248,24 +287,24 @@ namespace Error {
 
 namespace Name {
     static constexpr char not_valid_header[] = "not_valid_headers";
-    static constexpr char something_wrong[] = "something_wrong";
-};
+    static constexpr char SOMETHING_WRONG[] = "SOMETHING_WRONG";
+}
 
 
 namespace Response {
-    static void ERROR(std::function<void (const HttpResponsePtr &)> &callback, drogon::HttpStatusCode status_code, const char* message) {
+    static inline void ERROR(std::function<void (const HttpResponsePtr &)> &callback, drogon::HttpStatusCode status_code, const char* message) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(status_code);
         resp->setBody(message);
         callback(resp);
     }
 
-    static void NOT_VALID_HEADER(std::function<void (const HttpResponsePtr &)> &callback) {
+    static inline void NOT_VALID_HEADER(std::function<void (const HttpResponsePtr &)> &callback) {
         ERROR(callback, k400BadRequest, Name::not_valid_header);
     }
 
-    static void SOMETHING_WRONG(std::function<void (const HttpResponsePtr &)> &callback) {
-        ERROR(callback, k500InternalServerError, Name::something_wrong);
+    static inline void SOMETHING_WRONG(std::function<void (const HttpResponsePtr &)> &callback) {
+        ERROR(callback, k500InternalServerError, Name::SOMETHING_WRONG);
     }
 }
 

@@ -244,13 +244,17 @@ TOPIC OPTIONS
 40.2.get_basic_topic -> string-content, topic_id
 
 
-DEVICES INFO
+USER DEVICES
 
 41.get_devices -> list
 
 42.revoke_device -> ok
     device_num
 
+47.get_bare_token -> bare_token
+    refresh_token
+    device_os_version
+    device_model
 
 FOCUS GROUP
 
@@ -264,15 +268,6 @@ FOCUS GROUP
     word_id
 
 46.update_focus_group -> ok/new_focus_group_ready_status
-
-TOKEN
-
-47.get_bare_token -> bare_token
-    device_num
-    user_id
-    refresh_token
-    device_os_version
-    device_model
 
 LANGAUGES
 

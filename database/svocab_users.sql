@@ -51,7 +51,7 @@ CREATE TABLE user_language_pairs (
 
 CREATE TABLE user_devices (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    device_num INT,
+    device_num INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
     device_name TEXT NOT NULL DEFAULT '',
