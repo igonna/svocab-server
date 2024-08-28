@@ -8,7 +8,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
     auto email = req->getHeader("email");
 
     if (!email.size() || !local_utils::email::is_valid_email(email)) {
-        co_return local_utils::Error::Response::ERROR(callback, k400BadRequest, "not_valid_email");
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_email");
     }
 
     auto rc = app().getRedisClient();
@@ -18,21 +18,21 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
     try {
         auto result = co_await rc->execCommandCoro("get %s", link_code_requests.c_str());
 
-        uint8_t requests_count = result.isNil() ? 0 : result.asInteger();
+        uint8_t requests_count = result.isNil() ? 0 : std::stoi(result.asString());
 
         if (requests_count >= local_constants::link_code_max_requests) {
-            co_return local_utils::Error::Response::ERROR(callback, k429TooManyRequests, "");
+            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
         }
 
         co_await rc->execCommandCoro("set %s %d %s %d", 
             link_code_requests.c_str(), 
             requests_count + 1, 
             "EX", 
-            local_constants::link_code_max_requests
+            local_constants::block_link_code_request_seconds
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     // check if email already exists
@@ -42,11 +42,11 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
         auto result = co_await transaction->execSqlCoro("select 1 from users where email = $1 limit 1", email);
 
         if (result.size()) {
-            co_return local_utils::Error::Response::ERROR(callback, k409Conflict, "");
+            co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     // create code
@@ -60,7 +60,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     // send code to email
@@ -73,7 +73,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
         ).send_email(email, email_code);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     co_return callback(HttpResponse::newHttpResponse());
@@ -81,9 +81,10 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
 
 Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
+    auto code = req->getHeader("code");
     
-    if (!email.size() || !local_utils::email::is_valid_email(email)) {
-        co_return local_utils::Error::Response::ERROR(callback, k400BadRequest, "not_valid_email");
+    if (!email.size() || !local_utils::email::is_valid_email(email) || !code.size()) {
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_headers");
     }
 
     auto rc = app().getRedisClient();
@@ -93,18 +94,64 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
     try {
         auto result = co_await rc->execCommandCoro("get %s", link_attempts_key.c_str());
 
-        uint8_t attempts_count = result.isNil() ? 0 : result.asInteger();
+        auto attempts_count = result.isNil() ? 0 : std::stoi(result.asString());
 
         if (attempts_count >= local_constants::link_max_attempts) {
-            co_return local_utils::Error::Response::ERROR(callback, k429TooManyRequests, "");
+            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
         }
+
+        co_await rc->execCommandCoro("set %s %d %s %d", 
+            link_attempts_key.c_str(), 
+            attempts_count + 1, 
+            "EX", 
+            local_constants::block_link_attempts_seconds
+        );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    // link
+    // check if code valid
+    auto email_code_key = local_utils::redis::create_link_code_key(email);
+    try {
+        auto redis_code = co_await rc->execCommandCoro("get %s", 
+            email_code_key.c_str()
+        );
+        
+        if (redis_code.isNil() || redis_code.asString() != code) {
+            co_return local_utils::Response::Error::FORBIDDEN(callback, "not_valid_code");
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
 
+    // update email
+    auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+    try {
+        auto user_db = app().getDbClient(local_constants::users_db);
+
+        auto result = co_await user_db->execSqlCoro("update users set email = $1 where id = $2", 
+            email,
+            user_id
+        );
+
+        if (result.affectedRows() == 0) {
+            co_return local_utils::Response::Error::FORBIDDEN(callback, "not_valid_user");
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    // delete verify_attempts && code && code_requests key on success
+    std::string link_code_requests = local_utils::redis::create_link_code_requests_key(email);
+    try {
+        co_await rc->execCommandCoro("del %s", link_attempts_key.c_str());
+        co_await rc->execCommandCoro("del %s", email_code_key.c_str());
+        co_await rc->execCommandCoro("del %s", link_code_requests.c_str());
+    } catch (...) {}
+    
     callback(HttpResponse::newHttpResponse());
 }
 
@@ -112,7 +159,7 @@ Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void
     auto token = req->getHeader("token");
 
     if (!token.size()) {
-        co_return local_utils::Error::Response::ERROR(callback, k400BadRequest, "not_valid_token");
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_token");
     }
 
     std::string email;
@@ -120,13 +167,41 @@ Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void
         email = co_await local_utils::email::get_email_from_google_token(token);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
+    // check if email already exists
+    try {
+        auto transaction = app().getDbClient(local_constants::users_db)->newTransaction();
 
-    Json::Value response;
-    response["email"] = email;
-    auto resp = HttpResponse::newHttpJsonResponse(response);
-    callback(resp);
+        auto result = co_await transaction->execSqlCoro("select 1 from users where email = $1 limit 1", email);
+
+        if (result.size()) {
+            co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    // update email
+    auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+    try {
+        auto user_db = app().getDbClient(local_constants::users_db);
+
+        auto result = co_await user_db->execSqlCoro("update users set email = $1 where id = $2", 
+            email,
+            user_id
+        );
+
+        if (result.affectedRows() == 0) {
+            co_return local_utils::Response::Error::FORBIDDEN(callback, "not_valid_user");
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    callback(HttpResponse::newHttpResponse());
 }
 };

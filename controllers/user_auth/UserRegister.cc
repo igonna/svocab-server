@@ -51,7 +51,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
         // }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     auto resp = HttpResponse::newHttpResponse();
@@ -63,7 +63,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //     auto email = req->getHeader("email");
 
 //     if (!email.size() || !local_utils::email::is_valid_email(email)) {
-//         co_return local_utils::Error::Response::ERROR(callback, k400BadRequest, "not_valid_email");
+//         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_email");
 //     }
 
 //     auto rc = app().getRedisClient();
@@ -76,7 +76,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         uint8_t requests_count = result.isNil() ? 0 : result.asInteger();
 
 //         if (requests_count >= local_constants::register_code_max_requests) {
-//             co_return local_utils::Error::Response::ERROR(callback, k429TooManyRequests, "");
+//             co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
 //         }
 
 //         co_await rc->execCommandCoro("set %s %d %s %d", 
@@ -87,7 +87,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         );
 //     } catch (const std::exception &e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
 //     }
 
 //     // check if email already exists
@@ -97,11 +97,11 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         auto result = co_await transaction->execSqlCoro("select 1 from users where email = $1 limit 1", email);
 
 //         if (result.size()) {
-//             co_return local_utils::Error::Response::ERROR(callback, k409Conflict, "");
+//             co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
 //         }
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
 //     }
 
 //     // create code
@@ -115,7 +115,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         );
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
 //     }
 
 //     // send code to email
@@ -128,7 +128,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         ).send_email(email, email_code);
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
 //     }
 
 //     callback(HttpResponse::newHttpResponse());
@@ -138,7 +138,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //     auto email = req->getHeader("email");
 
 //     if (!email.size() || !local_utils::email::is_valid_email(email)) {
-//         co_return local_utils::Error::Response::ERROR(callback, k400BadRequest, "not_valid_email");
+//         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_email");
 //     }
 
 //     auto rc = app().getRedisClient();
@@ -151,11 +151,11 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         uint8_t attempts_count = result.isNil() ? 0 : result.asInteger();
 
 //         if (attempts_count >= local_constants::register_max_attempts) {
-//             co_return local_utils::Error::Response::ERROR(callback, k429TooManyRequests, "");
+//             co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
 //         }
 //     } catch (const std::exception &e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
 //     }
 
 //     callback(HttpResponse::newHttpResponse());
@@ -165,7 +165,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //     auto token = req->getHeader("token");
 
 //     if (!token.size()) {
-//         co_return local_utils::Error::Response::ERROR(callback, k400BadRequest, "not_valid_token");
+//         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_token");
 //     }
 
 //     std::string email;
@@ -173,7 +173,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 //         email = co_await local_utils::email::get_email_from_google_token(token);
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
 //     }
 
 

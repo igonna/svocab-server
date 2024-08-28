@@ -17,6 +17,12 @@ namespace local_constants {
 
 namespace redis {
     static constexpr std::string secret_key_name = "secret";
+    static constexpr uint8_t secret_key_length = 16;
+}
+
+namespace attributes {
+    static constexpr std::string user_id = "user_id";
+    static constexpr std::string device_num = "device_num";
 }
     
 }

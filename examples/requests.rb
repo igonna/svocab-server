@@ -379,6 +379,29 @@ word:1;1;0;1950;20
 
 
 
+
+sync state:
+seq_id
+word_id;state
+
+word_phase:
+    technical:
+        int seq_id
+        int word_id
+        int phase_num (0-2)
+        bool was_error
+        bool is_open
+        bool is_completed
+    user_friendly:
+        string lang_src
+        string lang_dst
+        string word_src
+        string word_dst
+        string phrase_src
+        string phrase_dst
+
+
+
 update_word:
 
 hello;16;

@@ -4,21 +4,6 @@
 
 namespace v1
 {
-Task<std::string> get_secret_key() {
-    std::string secret_key;
-
-    auto rc = app().getRedisClient();
-    auto result = co_await rc->execCommandCoro("get %s", local_constants::redis::secret_key_name.c_str());
-
-    if (result.isNil()) {
-        // create secret key
-        result.asString();
-    } else {
-        secret_key = result.asString();
-    }
-    co_return "";
-}
-
 Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto refresh_token = req->getHeader("refreshToken");
     auto device_os_version = req->getHeader("deviceOsVersion");
@@ -32,7 +17,7 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
         std::tie(user_id, device_num, device_refresh_token) = local_utils::token::decode_device_refresh_token(refresh_token);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::ERROR(callback, k401Unauthorized, "");
+        co_return local_utils::Response::Error::ERROR(callback, k401Unauthorized, "");
     }
 
     auto ip_addr = req->peerAddr().ipNetEndian();
@@ -56,21 +41,20 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
         );
 
         if (result.affectedRows() == 0) {
-            co_return local_utils::Error::Response::ERROR(callback, k401Unauthorized, "");
+            co_return local_utils::Response::Error::ERROR(callback, k401Unauthorized, "");
         }
 
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Error::Response::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     // get secret key
-    std::string secret_key = co_await get_secret_key();
-
+    auto rc = app().getRedisClient();
+    auto secret_key = co_await local_utils::secret_key::get_secret_key(rc);
     auto bare_token = local_utils::token::create_device_bare_token(user_id, device_num, secret_key);
-    auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(bare_token);
-    co_return callback(resp);
+    
+    co_return local_utils::Response::OK(callback, bare_token);
 }
 
 Task<> getDevices(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {

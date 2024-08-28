@@ -11,9 +11,21 @@
 #include <jwt-cpp/jwt.h>
 #include <chrono>
 #include "utils/constants.h"
+#include <drogon/nosql/RedisClient.h>
 
 
 namespace local_utils {
+
+namespace attributes {
+    template<typename T>
+    T get_value(const HttpRequestPtr& req, const std::string& key) {
+        if (!req->attributes()->find(key)) {
+            throw std::runtime_error("not_exists");
+        }
+
+        return req->attributes()->get<T>(key);
+    }
+}
 
 namespace time {
     static uint32_t get_unix_timestamp() {
@@ -283,15 +295,19 @@ namespace email {
 }
 
 
+namespace Response {
+    static inline void OK(std::function<void (const HttpResponsePtr &)> &callback, const std::string& body) {
+        auto resp = HttpResponse::newHttpResponse();
+        resp->setStatusCode(k200OK);
+        resp->setBody(body);
+        callback(resp);
+    }
 namespace Error {
-
 namespace Name {
     static constexpr char not_valid_header[] = "not_valid_headers";
-    static constexpr char SOMETHING_WRONG[] = "SOMETHING_WRONG";
+    static constexpr char SOMETHING_WRONG[] = "something_wrong";
 }
 
-
-namespace Response {
     static inline void ERROR(std::function<void (const HttpResponsePtr &)> &callback, drogon::HttpStatusCode status_code, const char* message) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(status_code);
@@ -306,7 +322,36 @@ namespace Response {
     static inline void SOMETHING_WRONG(std::function<void (const HttpResponsePtr &)> &callback) {
         ERROR(callback, k500InternalServerError, Name::SOMETHING_WRONG);
     }
+
+    static inline void FORBIDDEN(std::function<void (const HttpResponsePtr &)> &callback, const std::string& body) {
+        ERROR(callback, k403Forbidden, body.c_str());
+    }
+}
 }
 
+namespace secret_key {
+    static Task<std::string> get_secret_key(drogon::nosql::RedisClientPtr rc) {
+        auto secret_value = co_await rc->execCommandCoro("get %s", local_constants::redis::secret_key_name.c_str());
+
+        if (secret_value.isNil()) {
+            // if failed to get (not exists)
+            auto new_secret_value = local_utils::token::generate_random_string(local_constants::redis::secret_key_length);
+            // try to set
+            auto new_secret_set_result = co_await rc->execCommandCoro("set %s %s ex %d nx", 
+                local_constants::redis::secret_key_name.c_str(), 
+                new_secret_value.c_str(), 
+                local_constants::secret_key_expire_seconds
+            );
+
+            if (new_secret_set_result.isNil()) {
+                // if failed to set (another server just set it)
+                secret_value = co_await rc->execCommandCoro("get %s", local_constants::redis::secret_key_name.c_str());
+            } else {
+                // if set by this server
+                co_return new_secret_value;
+            }
+        }
+        co_return secret_value.asString();
+    }
 }
 }

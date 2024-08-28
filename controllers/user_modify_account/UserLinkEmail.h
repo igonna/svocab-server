@@ -16,10 +16,8 @@ public:
 
 	METHOD_LIST_BEGIN
 	METHOD_ADD(UserLinkEmail::getCodeForEmailLink, "/get_code_to_email", Post, "JwtFilter");
-	METHOD_ADD(UserLinkEmail::linkEmailToAccount, "/link_email", Post);
-	METHOD_ADD(UserLinkEmail::linkGoogleToAccount, "/link_google", Post);
-	// list path definitions here;
-	// PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
+	METHOD_ADD(UserLinkEmail::linkEmailToAccount, "/link_email", Post, "JwtFilter");
+	METHOD_ADD(UserLinkEmail::linkGoogleToAccount, "/link_google", Post, "JwtFilter");
 	METHOD_LIST_END
 };
 };

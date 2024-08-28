@@ -117,13 +117,13 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
     // request verifying
     MultiPartParser multiPartParser;
     if (multiPartParser.parse(req) != 0)
-        return local_utils::Error::Response::ERROR(callback, k400BadRequest, "body not valid");
+        return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body not valid");
 
     static const std::string metadata_parameter = "metadata";
     auto metadata = multiPartParser.getParameter<std::string>(metadata_parameter);
 
     if (metadata.size() == 0)
-        return local_utils::Error::Response::ERROR(callback, k400BadRequest, "metadata is empty");
+        return local_utils::Response::Error::ERROR(callback, k400BadRequest, "metadata is empty");
 
     // meta
     Json::Value json_meta;
@@ -131,14 +131,14 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
     if (metadata_parsed.has_value())
         json_meta = metadata_parsed.value();
     else
-        return local_utils::Error::Response::ERROR(callback, k400BadRequest, "metadata parse error");
+        return local_utils::Response::Error::ERROR(callback, k400BadRequest, "metadata parse error");
 
     auto texts = json_meta["texts"];
     auto urls = json_meta["urls"];
     auto &files = multiPartParser.getFiles();
 
     if (texts.size() == 0 && urls.size() == 0 && files.size() == 0)
-        return local_utils::Error::Response::ERROR(callback, k400BadRequest, "no content to parse");
+        return local_utils::Response::Error::ERROR(callback, k400BadRequest, "no content to parse");
 
     // process files
     auto src_lang = json_meta["src_lang"].asString();
@@ -155,7 +155,7 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
 
         if (!extract_result.has_value()) {
             std::string error_message = std::string("could not parse one of files: ") + file.getFileName();
-            return local_utils::Error::Response::ERROR(callback, k400BadRequest, error_message.c_str());
+            return local_utils::Response::Error::ERROR(callback, k400BadRequest, error_message.c_str());
         }
 
         auto extracted_words = std::move(extract_result.value().first);
