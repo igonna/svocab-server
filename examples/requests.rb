@@ -60,26 +60,6 @@ REGISTER
 
 1. register -> refresh_token
 
-# 1.register_without_email -> refresh_token
-#     lang_src
-#     lang_dst
-#     skip_value(optional)
-#     topic_id(optional)
-
-
-# 2.get_code_for_email_register -> code
-#     email
-
-# 3.register_email -> refresh_token
-#     code
-#     email
-
-
-# 4.register_google -> refresh_token
-#     google_token
-
-
-
 SIGNIN
 
 5.get_code_for_email_sign_in -> code
@@ -104,16 +84,6 @@ LINK
 
 10.link_google_to_account -> ok
     google_token
-
-
-CHANGE
-
-----change_e;verify
-11.get_code_for_change_email -> code
-    email
-
-12.verify_change_email -> email_changed
-    code
 
 
 DELETE

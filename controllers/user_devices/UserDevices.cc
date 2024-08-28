@@ -44,6 +44,14 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
             co_return local_utils::Response::Error::ERROR(callback, k401Unauthorized, "");
         }
 
+        result = co_await user_db->execSqlCoro("update users set token_last_request_time = $1 where id = $2", 
+            time_now, 
+            user_id
+        );
+
+        if (result.affectedRows() == 0) {
+            throw std::runtime_error("token_last_request_time_no_updated");
+        }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

@@ -20,7 +20,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
 
         uint8_t requests_count = result.isNil() ? 0 : std::stoi(result.asString());
 
-        if (requests_count >= local_constants::link_code_max_requests) {
+        if (requests_count >= local_constants::code_max_requests) {
             co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
         }
 
@@ -28,7 +28,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
             link_code_requests.c_str(), 
             requests_count + 1, 
             "EX", 
-            local_constants::block_link_code_request_seconds
+            local_constants::block_code_request_seconds
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
@@ -56,7 +56,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
             local_utils::redis::create_link_code_key(email).c_str(), 
             email_code.c_str(), 
             "EX", 
-            local_constants::link_code_expire_seconds
+            local_constants::code_expire_seconds
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -96,7 +96,7 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
 
         auto attempts_count = result.isNil() ? 0 : std::stoi(result.asString());
 
-        if (attempts_count >= local_constants::link_max_attempts) {
+        if (attempts_count >= local_constants::verify_code_max_attempts) {
             co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
         }
 
@@ -104,7 +104,7 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
             link_attempts_key.c_str(), 
             attempts_count + 1, 
             "EX", 
-            local_constants::block_link_attempts_seconds
+            local_constants::block_code_verify_attempts_seconds
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
@@ -112,10 +112,10 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
     }
 
     // check if code valid
-    auto email_code_key = local_utils::redis::create_link_code_key(email);
+    auto link_email_code_key = local_utils::redis::create_link_code_key(email);
     try {
         auto redis_code = co_await rc->execCommandCoro("get %s", 
-            email_code_key.c_str()
+            link_email_code_key.c_str()
         );
         
         if (redis_code.isNil() || redis_code.asString() != code) {
@@ -148,7 +148,7 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
     std::string link_code_requests = local_utils::redis::create_link_code_requests_key(email);
     try {
         co_await rc->execCommandCoro("del %s", link_attempts_key.c_str());
-        co_await rc->execCommandCoro("del %s", email_code_key.c_str());
+        co_await rc->execCommandCoro("del %s", link_email_code_key.c_str());
         co_await rc->execCommandCoro("del %s", link_code_requests.c_str());
     } catch (...) {}
     
@@ -165,6 +165,9 @@ Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void
     std::string email;
     try {
         email = co_await local_utils::email::get_email_from_google_token(token);
+    } catch (const local_utils::email::google_token_not_valid_exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::FORBIDDEN(callback, e.what());
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

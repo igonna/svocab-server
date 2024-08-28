@@ -136,6 +136,19 @@ namespace redis {
     static inline std::string create_link_code_key(const std::string& email) {
         return std::string("link-c-") + email;
     }
+
+
+    static inline std::string create_sign_in_code_requests_key(const std::string& email) {
+        return std::string("sign_in-r-") + email;
+    }
+
+    static inline std::string create_sign_in_attempts_key(const std::string& email) {
+        return std::string("sign_in-a-") + email;
+    }
+
+    static inline std::string create_sign_in_code_key(const std::string& email) {
+        return std::string("sign_in-c-") + email;
+    }
 }
 
 namespace email {
@@ -180,6 +193,12 @@ namespace email {
         return true;
     }
 
+    struct google_token_not_valid_exception : public std::exception{
+        const char* what() const noexcept override {
+            return "invalid_token";
+        }
+    };
+
     static Task<std::string> get_email_from_google_token(const std::string &token) {
         auto client = HttpClient::newHttpClient("https://oauth2.googleapis.com");
         auto req = HttpRequest::newHttpRequest();
@@ -193,7 +212,8 @@ namespace email {
         }
 
         if (resp->getStatusCode() != k200OK) {
-            throw std::runtime_error("not_valid_token: " + std::to_string(resp->getStatusCode()) + " " + root["error"].asString());
+            throw google_token_not_valid_exception();
+            // throw std::runtime_error("not_valid_token: " + std::to_string(resp->getStatusCode()) + " " + root["error"].asString());
         }
 
         if (root.isMember("error")) {

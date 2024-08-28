@@ -9,7 +9,6 @@ SECOND VERSION KEYS:
 -- everything affected by lru
 svocab:
     secretKey
-    freeUserSecretKey
     paid_users = limit_count 1 minute
     rich_users = limit_count 1 minute
     free_users = limit_count 1 minute
