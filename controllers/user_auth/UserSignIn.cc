@@ -188,8 +188,6 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    std::cout << "email: " << email << std::endl;
-
     uint32_t user_id;
     uint32_t device_num;
     std::string device_refresh_token = local_utils::token::create_device_token();

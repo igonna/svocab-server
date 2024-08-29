@@ -19,8 +19,10 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
 
             // get_secret_key
             std::string secret_key;
+            drogon::nosql::RedisClientPtr rc;
+            bool is_device_revoked;
             try {
-                auto rc = app().getRedisClient();
+                rc = app().getRedisClient();
                 secret_key = co_await local_utils::secret_key::get_secret_key(rc);
             } catch (...) {
                 throw std::runtime_error(redis_error);
@@ -30,6 +32,13 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
             
             req->attributes()->insert(local_constants::attributes::user_id, user_id);
             req->attributes()->insert(local_constants::attributes::device_num, device_num);
+
+            is_device_revoked = co_await local_utils::redis::revoke::is_device_revoked(rc, user_id, device_num);
+
+            if (is_device_revoked) {
+                throw std::runtime_error("revoked");
+            }
+
             fccb();
         } catch (const std::exception& e) {
             drogon::HttpStatusCode code;

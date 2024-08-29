@@ -94,7 +94,20 @@ DELETE
 
 ACCOUNT INFO
 
+# get_info
 14.get_email_and_plus_info -> email, has_plus
+
+USER DEVICES
+
+16.get_devices -> list
+
+42.revoke_device -> ok
+    device_num
+
+47.get_bare_token -> bare_token
+    refresh_token
+    device_os_version
+    device_model
 
 STATE INFO
 
@@ -212,19 +225,6 @@ TOPIC OPTIONS
     topic_id
 
 40.2.get_basic_topic -> string-content, topic_id
-
-
-USER DEVICES
-
-41.get_devices -> list
-
-42.revoke_device -> ok
-    device_num
-
-47.get_bare_token -> bare_token
-    refresh_token
-    device_os_version
-    device_model
 
 FOCUS GROUP
 

@@ -1,15 +1,18 @@
 #pragma once
-
 #include <drogon/HttpController.h>
+#include "filters/JwtFilter.h"
 
 using namespace drogon;
 
+namespace v1
+{
 class UserDeleteAccount : public drogon::HttpController<UserDeleteAccount>
 {
-  public:
-    
-    METHOD_LIST_BEGIN
-    // list path definitions here;
-    // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
-    METHOD_LIST_END
+public:
+	Task<> deleteAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+
+	METHOD_LIST_BEGIN
+	METHOD_ADD(UserDeleteAccount::deleteAccount, "/delete_account", Post, "JwtFilter");
+	METHOD_LIST_END
 };
+}
