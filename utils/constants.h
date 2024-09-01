@@ -15,6 +15,19 @@ namespace local_constants {
 
     static constexpr uint32_t secret_key_expire_seconds = 60*60*2;
 
+
+namespace languages {
+    static constexpr uint32_t lang_tag_size = 2;
+
+    static constexpr auto chat_gpt_supported_languages_sorted_by_learning_popularity = {
+        "en", "es", "fr", "de", "zh", "ja", "it", "pt", "ru", "ko", "ar", "nl", "sv", 
+        "tr", "hi", "no", "el", "pl", "vi", "id", "da", "th", "uk", "fa", "cs", "fi", 
+        "ro", "sw", "hu", "ca", "bn", "is", "ms", "sr", "hr", "hy", "ka", "sq", "bs", 
+        "sk", "sl", "lt", "lv", "et", "mk", "ta", "te", "ur", "mr", "gu", "ml", "kk", 
+        "mn", "my", "tl", "am", "kn", "so", "bg", "pa"
+    };
+}
+
 namespace redis {
     static constexpr std::string secret_key_name = "secret";
     static constexpr uint8_t secret_key_length = 16;

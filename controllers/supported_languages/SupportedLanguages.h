@@ -4,12 +4,14 @@
 
 using namespace drogon;
 
+namespace v1
+{
 class SupportedLanguages : public drogon::HttpController<SupportedLanguages>
 {
-  public:
-    
-    METHOD_LIST_BEGIN
-    // list path definitions here;
-    // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
-    METHOD_LIST_END
+public:
+	Task<> getSupportedLanguages(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	METHOD_LIST_BEGIN
+	METHOD_ADD(SupportedLanguages::getSupportedLanguages, "/get", Get);
+	METHOD_LIST_END
 };
+}

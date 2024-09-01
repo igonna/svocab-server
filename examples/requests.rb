@@ -60,6 +60,19 @@ REGISTER
 
 1. register -> refresh_token
 
+
+LINK
+
+2.get_code_for_email_link -> code
+    email
+
+3.link_email_to_account -> ok
+    code
+    email
+
+4.link_google_to_account -> ok
+    google_token
+
 SIGNIN
 
 5.get_code_for_email_sign_in -> code
@@ -73,41 +86,50 @@ SIGNIN
     google_token
 
 
-LINK
+ACCOUNT INFO
 
-8.get_code_for_email_link -> code
-    email
-
-9.link_email_to_account -> ok
-    code
-    email
-
-10.link_google_to_account -> ok
-    google_token
-
+8.get_info -> email, has_plus
 
 DELETE
 
-13.delete_account -> ok
+9.delete_account -> ok
     refresh_token
 
-
-ACCOUNT INFO
-
-# get_info
-14.get_email_and_plus_info -> email, has_plus
 
 USER DEVICES
 
-16.get_devices -> list
+10.get_devices -> list
 
-42.revoke_device -> ok
+11.revoke_device -> ok
     device_num
 
-47.get_bare_token -> bare_token
+12.get_bare_token -> bare_token
     refresh_token
     device_os_version
     device_model
+
+
+
+
+
+
+LANGAUGES
+
+48.get_supported_languages -> list
+
+USER LANGUAGES
+
+21.get_languages_with_topics -> JSON langs:topics (topic{type,title,enabled,})
+
+22.set_language_pair_mix_value -> ok
+    src_lang
+    dst_lang
+    float
+
+23.set_language_pair_enabled -> ok
+    src_lang
+    dst_lang
+    boolean
 
 STATE INFO
 
@@ -130,20 +152,6 @@ PROGRESS WORDS
 20.remove_hidden_word -> ok
     src_lang
     word
-
-USER LANGUAGES
-
-21.get_languages_with_topics -> JSON langs:topics (topic{type,title,enabled,})
-
-22.set_language_pair_mix_value -> ok
-    src_lang
-    dst_lang
-    float
-
-23.set_language_pair_enabled -> ok
-    src_lang
-    dst_lang
-    boolean
 
 
 TOPIC OPTIONS
@@ -238,10 +246,6 @@ FOCUS GROUP
     word_id
 
 46.update_focus_group -> ok/new_focus_group_ready_status
-
-LANGAUGES
-
-48.get_supported_languages -> list
 
 
 

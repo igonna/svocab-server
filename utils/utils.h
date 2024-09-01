@@ -150,6 +150,10 @@ namespace redis {
         return std::string("sign_in-c-") + email;
     }
 
+    static inline std::string create_supported_languages_key(const std::string& lang_tag) {
+        return std::string("supported_languages-") + lang_tag;
+    }
+
 namespace revoke {
     static inline std::string create_revoke_device_key(uint32_t user_id, uint32_t device_num) {
         return std::string("revoke-") + std::to_string(user_id) + "-" + std::to_string(device_num);

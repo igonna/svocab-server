@@ -1,0 +1,180 @@
+Albanian = sq
+Amharic = am
+Arabic = ar
+Armenian = hy
+Bengali = bn
+Bosnian = bs
+Bulgarian = bg
+Burmese = my
+Catalan = ca
+Croatian = hr
+Czech = cs
+Danish = da
+Dutch = nl
+English = en
+Estonian = et
+Finnish = fi
+French = fr
+Georgian = ka
+German = de
+Greek = el
+Gujarati = gu
+Hindi = hi
+Hungarian = hu
+Icelandic = is
+Indonesian = id
+Italian = it
+Japanese = ja
+Kannada = kn
+Kazakh = kk
+Korean = ko
+Latvian = lv
+Lithuanian = lt
+Macedonian = mk
+Malay = ms
+Malayalam = ml
+Mandarin Chinese = zh
+Marathi = mr
+Mongolian = mn
+Norwegian = no
+Persian (Farsi) = fa
+Polish = pl
+Portuguese = pt
+Punjabi = pa
+Romanian = ro
+Russian = ru
+Serbian = sr
+Slovak = sk
+Slovenian = sl
+Somali = so
+Spanish = es
+Swahili = sw
+Swedish = sv
+Tagalog = tl
+Tamil = ta
+Telugu = te
+Thai = th
+Turkish = tr
+Ukrainian = uk
+Urdu = ur
+Vietnamese = vi
+
+
+sorted by global influence:
+Mandarin Chinese (zh)
+English (en)
+Hindi (hi)
+Spanish (es)
+Arabic (ar)
+Bengali (bn)
+Portuguese (pt)
+Russian (ru)
+Japanese (ja)
+Punjabi (pa)
+German (de)
+French (fr)
+Urdu (ur)
+Indonesian (id)
+Swahili (sw)
+Korean (ko)
+Vietnamese (vi)
+Tamil (ta)
+Turkish (tr)
+Telugu (te)
+Italian (it)
+Thai (th)
+Persian (Farsi) (fa)
+Gujarati (gu)
+Malay (ms)
+Kannada (kn)
+Marathi (mr)
+Dutch (nl)
+Burmese (my)
+Czech (cs)
+Greek (el)
+Hungarian (hu)
+Swedish (sv)
+Finnish (fi)
+Norwegian (no)
+Danish (da)
+Serbian (sr)
+Romanian (ro)
+Bulgarian (bg)
+Armenian (hy)
+Slovak (sk)
+Croatian (hr)
+Bosnian (bs)
+Albanian (sq)
+Lithuanian (lt)
+Slovenian (sl)
+Latvian (lv)
+Estonian (et)
+Macedonian (mk)
+Somali (so)
+Icelandic (is)
+Georgian (ka)
+Mongolian (mn)
+Catalan (ca)
+Tagalog (tl)
+Amharic (am)
+
+
+sorted by learning popularity:
+English (en)
+Spanish (es)
+French (fr)
+German (de)
+Mandarin Chinese (zh)
+Japanese (ja)
+Italian (it)
+Portuguese (pt)
+Russian (ru)
+Korean (ko)
+Arabic (ar)
+Dutch (nl)
+Swedish (sv)
+Turkish (tr)
+Hindi (hi)
+Norwegian (no)
+Greek (el)
+Polish (pl)
+Vietnamese (vi)
+Indonesian (id)
+Danish (da)
+Thai (th)
+Ukrainian (uk)
+Persian (Farsi) (fa)
+Czech (cs)
+Finnish (fi)
+Romanian (ro)
+Swahili (sw)
+Hungarian (hu)
+Catalan (ca)
+Bengali (bn)
+Icelandic (is)
+Malay (ms)
+Serbian (sr)
+Croatian (hr)
+Armenian (hy)
+Georgian (ka)
+Albanian (sq)
+Bosnian (bs)
+Slovak (sk)
+Slovenian (sl)
+Lithuanian (lt)
+Latvian (lv)
+Estonian (et)
+Macedonian (mk)
+Tamil (ta)
+Telugu (te)
+Urdu (ur)
+Marathi (mr)
+Gujarati (gu)
+Malayalam (ml)
+Kazakh (kk)
+Mongolian (mn)
+Burmese (my)
+Tagalog (tl)
+Amharic (am)
+Kannada (kn)
+Somali (so)

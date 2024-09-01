@@ -13,7 +13,7 @@ public:
 	Task<> getAccountInfo(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
 	METHOD_LIST_BEGIN
-	METHOD_ADD(UserAccountInfo::getAccountInfo, "/get_info", Post, "JwtFilter");
+	METHOD_ADD(UserAccountInfo::getAccountInfo, "/get_info", Get, "JwtFilter");
 	METHOD_LIST_END
 };
 }
