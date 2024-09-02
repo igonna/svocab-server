@@ -75,12 +75,10 @@ CREATE TABLE user_topics (
     topic_id SERIAL,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
 
-    topic_metadata TEXT NOT NULL,
-
     src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
 
-    topic_title TEXT,
+    topic_title TEXT NOT NULL DEFAULT '',
     mix_value REAL NOT NULL DEFAULT 1.0,
     skip_value REAL NOT NULL DEFAULT 0.0,
     position INT NOT NULL,
@@ -89,29 +87,29 @@ CREATE TABLE user_topics (
     word_count_type SMALLINT NOT NULL DEFAULT 0, -- balanced_sources, summarized_sources
     word_order_type SMALLINT NOT NULL DEFAULT 0, -- popularity, first_appearance
     exclude_words_that_not_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
-    exclude_very_rare_words BOOLEAN NO NULL DEFAULT TRUE,
+    exclude_very_rare_words BOOLEAN NOT NULL DEFAULT TRUE,
 
-    texts_sources TEXT[],
+    texts_sources TEXT[] DEFAULT '{}',
 
-    texts_processed TEXT[],
-    documents_processed TEXT[],
-    website_urls_processed TEXT[],
-    youtube_urls_processed TEXT[],
+    texts_processed TEXT[] DEFAULT '{}',
+    documents_processed TEXT[] DEFAULT '{}',
+    website_urls_processed TEXT[] DEFAULT '{}',
+    youtube_urls_processed TEXT[] DEFAULT '{}',
 
-    texts_titles TEXT[],
-    documents_titles TEXT[],
-    website_urls_titles TEXT[],
-    youtube_urls_titles TEXT[],
+    texts_titles TEXT[] DEFAULT '{}',
+    documents_titles TEXT[] DEFAULT '{}',
+    website_urls_titles TEXT[] DEFAULT '{}',
+    youtube_urls_titles TEXT[] DEFAULT '{}',
 
-    texts_fail_title_status TEXT[], -- 'text_title','status'
-    documents_fail_title_status TEXT[],
-    website_urls_fail_title_status TEXT[],
-    youtube_urls_fail_title_status TEXT[],
+    texts_fail_title_status TEXT[] DEFAULT '{}', -- 'text_title','status'
+    documents_fail_title_status TEXT[] DEFAULT '{}',
+    website_urls_fail_title_status TEXT[] DEFAULT '{}',
+    youtube_urls_fail_title_status TEXT[] DEFAULT '{}',
 
-    topic_processed_words TEXT NOT NULL,
+    topic_processed_words TEXT NOT NULL DEFAULT '',
 
-    last_gen_id INT NOT NULL,
-    last_update_id INT NOT NULL,
+    last_gen_id INT NOT NULL DEFAULT 0,
+    last_update_id INT NOT NULL DEFAULT 0,
     PRIMARY KEY (topic_id, user_id)
 ) PARTITION BY HASH (user_id);
 

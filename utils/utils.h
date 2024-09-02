@@ -376,6 +376,12 @@ namespace Response {
         resp->setBody(body);
         callback(resp);
     }
+
+    static inline void JSON_OK(std::function<void (const HttpResponsePtr &)> &callback, const Json::Value& body) {
+        auto resp = HttpResponse::newHttpJsonResponse(body);
+        resp->setStatusCode(k200OK);
+        callback(resp);
+    }
 namespace Error {
 namespace Name {
     static constexpr char not_valid_header[] = "not_valid_headers";

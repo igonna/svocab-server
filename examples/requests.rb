@@ -109,27 +109,89 @@ USER DEVICES
     device_model
 
 
-
-
-
-
 LANGAUGES
+13.get_supported_languages -> list
 
-48.get_supported_languages -> list
 
 USER LANGUAGES
 
-21.get_languages_with_topics -> JSON langs:topics (topic{type,title,enabled,})
+14.set_language_pair_enabled -> ok
+    src_lang
+    dst_lang
+    boolean
 
-22.set_language_pair_mix_value -> ok
+15.set_language_pair_mix_value -> ok
     src_lang
     dst_lang
     float
 
-23.set_language_pair_enabled -> ok
+
+USER TOPICS
+
+16.create_topic -> get_topic_generation_window
     src_lang
     dst_lang
+
+30.delete_topic -> ok
+    topic_id
+
+25.get_topic_generation_window -> json
+    topic_id
+
+17.set_topic_title -> ok
+    topic_id
+    title
+
+18.add_topic_source -> ok
+    topic_id
+    source_type
+    content
+
+26.get_topic_source_text_content -> body
+    topic_id
+    text_id
+
+20.set_topic_source_text -> ok
+    topic_id
+    source_id
+    content
+
+19.add_topic_source_document -> ok
+    topic_id
+    document
+
+
+11.set_topic_option -> ok
+    topic_id
+    topic_option_name
+    value
+
+24.set_topic_enabled -> ok
+    topic_id
     boolean
+
+27.set_topic_position -> ok
+    topic_id
+
+28.get_topic_words -> list
+    topic_id
+
+36.delete_topic_source -> ok
+    topic_id
+    source_type
+    source_id
+
+37.delete_topic_failed_source -> ok
+    topic_id
+    source_type
+    source_id
+
+// generated topics + global topics
+16.get_topics -> JSON langs:topics (topic{type,title,enabled,})
+
+40.enable_first_user_topic -> ok (topic_id) / not_found
+    src_lang
+    dst_lang
 
 STATE INFO
 
@@ -153,86 +215,6 @@ PROGRESS WORDS
     src_lang
     word
 
-
-TOPIC OPTIONS
-
-24.set_topic_enabled -> ok
-    topic_id
-    boolean
-
-25.set_topic_skip_value -> ok
-    topic_id
-    float
-
-26.set_topic_mix_value -> ok
-    topic_id
-    float
-
-27.set_topics_positions -> ok
-    topic_id_1=0
-    topic_id_2=3
-
-28.get_topic_words -> list
-    topic_id
-
-29.create_topic -> topic_id
-    (lang_pair_id)
-    src_lang
-    dst_lang
-
-30.delete_topic -> ok
-    topic_id
-
-31.set_word_count_type -> ok
-    topic_id
-    int
-
-32.set_word_order_type -> ok
-    topic_id
-    int
-
-33.set_topic_filter_option -> ok
-    topic_id
-    id
-    boolean
-
-34.set_topic_title -> ok
-    topic_id
-    title
-
-35.get_topic_sources_title -> json
-    topic_id
-
-36.delete_topic_source -> ok
-    topic_id
-    source_type
-    source_id
-
-
-37.delete_topic_failed_source -> ok
-    topic_id
-    source_type
-    source_id
-
-38.add_topic_source -> ok
-    topic_id
-    source_type
-    content
-
-39.add_topic_document_source -> ok
-    topic_id
-    document
-
-40.update_text_source -> ok
-    topic_id
-    source_id
-    content
-
-
-40.1.get_topic_content -> string-content
-    topic_id
-
-40.2.get_basic_topic -> string-content, topic_id
 
 FOCUS GROUP
 
