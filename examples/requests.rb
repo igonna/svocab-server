@@ -145,7 +145,7 @@ USER TOPICS
 18.add_topic_source -> ok
     topic_id
     source_type
-    content
+    body:content
 
 26.get_topic_source_text_content -> body
     topic_id
@@ -154,7 +154,7 @@ USER TOPICS
 20.set_topic_source_text -> ok
     topic_id
     source_id
-    content
+    body:content
 
 19.add_topic_source_document -> ok
     topic_id

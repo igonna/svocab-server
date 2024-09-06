@@ -2,35 +2,11 @@
 #include <drogon/HttpRequest.h>
 #include <poppler/cpp/poppler-document.h>
 #include <poppler/cpp/poppler-page.h>
-// #include <gumbo.h>
 #include <unicode/uchar.h>
 #include <unicode/unistr.h>
 #include <unicode/brkiter.h>
 #include <memory>
 #include "utils/utils.h"
-
-
-// // Function to extract text from a GumboNode
-// void extractText(GumboNode *node, std::string &text)
-// {
-//     if (node->type == GUMBO_NODE_TEXT)
-//     {
-//         text.append(node->v.text.text);
-//     }
-//     else if (node->type == GUMBO_NODE_ELEMENT && node->v.element.tag != GUMBO_TAG_SCRIPT && node->v.element.tag != GUMBO_TAG_STYLE)
-//     {
-//         GumboVector *children = &node->v.element.children;
-//         for (unsigned int i = 0; i < children->length; ++i)
-//         {
-//             extractText(static_cast<GumboNode *>(children->data[i]), text);
-//         }
-//         if (node->v.element.tag == GUMBO_TAG_P || node->v.element.tag == GUMBO_TAG_BR)
-//         {
-//             text.append("\n");
-//         }
-//     }
-// }
-
 
 std::vector<char> get_bytes_from_file(const char* file_data, size_t file_length) {
     std::unique_ptr<poppler::document> doc{ poppler::document::load_from_raw_data(file_data, file_length) };

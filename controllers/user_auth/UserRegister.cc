@@ -3,8 +3,8 @@
 #include "utils/constants.h"
 #include <drogon/HttpController.h>
 #include <drogon/orm/Exception.h>
-
 #include <drogon/drogon.h>
+#include "core/token/token.h"
 
 using namespace drogon;
 
@@ -14,7 +14,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
     uint32_t user_id;
     uint32_t device_num;
 
-    std::string device_refresh_token = local_utils::token::create_device_token();
+    std::string device_refresh_token = core::token::create_device_token();
 
     // create user
     try {
@@ -51,7 +51,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
     }
 
     auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(local_utils::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
+    resp->setBody(core::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
     co_return callback(resp);
 }
 }

@@ -1,6 +1,7 @@
 #include "UserAccountInfo.h"
 #include "utils/constants.h"
 #include "utils/utils.h"
+#include "plugins/EmailSender.h"
 
 namespace v1
 {
@@ -27,7 +28,7 @@ Task<> UserAccountInfo::getAccountInfo(HttpRequestPtr req, std::function<void(co
 
     Json::Value response;
     response["email"] = email;
-    response["email_type"] = local_utils::email::get_email_type(email);
+    response["email_type"] = app().getPlugin<EmailSender>()->get_email_type(email);
     response["has_subsciption"] = has_subscription;
     co_return callback(HttpResponse::newHttpJsonResponse(response));
 }

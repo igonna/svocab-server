@@ -1,6 +1,9 @@
 #include "JwtFilter.h"
 #include "utils/utils.h"
 #include <drogon/HttpAppFramework.h>
+#include "core/secret/secret_key.h"
+#include "core/token/token.h"
+#include "core/device/revoke.h"
 
 using namespace drogon;
 
@@ -23,17 +26,17 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
             bool is_device_revoked;
             try {
                 rc = app().getRedisClient();
-                secret_key = co_await local_utils::secret_key::get_secret_key(rc);
+                secret_key = co_await core::secret::get_secret_key(rc);
             } catch (...) {
                 throw std::runtime_error(redis_error);
             }
 
-            auto [user_id, device_num] = local_utils::token::decode_device_bare_token(token, secret_key);
+            auto [user_id, device_num] = core::token::decode_device_bare_token(token, secret_key);
             
             req->attributes()->insert(local_constants::attributes::user_id, user_id);
             req->attributes()->insert(local_constants::attributes::device_num, device_num);
 
-            is_device_revoked = co_await local_utils::redis::revoke::is_device_revoked(rc, user_id, device_num);
+            is_device_revoked = co_await core::device::is_device_revoked(rc, user_id, device_num);
 
             if (is_device_revoked) {
                 throw std::runtime_error("revoked");

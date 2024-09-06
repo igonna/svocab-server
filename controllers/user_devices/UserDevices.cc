@@ -1,6 +1,9 @@
 #include "UserDevices.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
+#include "core/secret/secret_key.h"
+#include "core/token/token.h"
+#include "core/device/revoke.h"
 
 namespace v1
 {
@@ -14,7 +17,7 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
     std::string device_refresh_token;
     
     try {
-        std::tie(user_id, device_num, device_refresh_token) = local_utils::token::decode_device_refresh_token(refresh_token);
+        std::tie(user_id, device_num, device_refresh_token) = core::token::decode_device_refresh_token(refresh_token);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::ERROR(callback, k401Unauthorized, "");
@@ -59,8 +62,8 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
 
     // get secret key
     auto rc = app().getRedisClient();
-    auto secret_key = co_await local_utils::secret_key::get_secret_key(rc);
-    auto bare_token = local_utils::token::create_device_bare_token(user_id, device_num, secret_key);
+    auto secret_key = co_await core::secret::get_secret_key(rc);
+    auto bare_token = core::token::create_device_bare_token(user_id, device_num, secret_key);
     
     co_return local_utils::Response::OK(callback, bare_token);
 }
@@ -140,7 +143,7 @@ Task<> UserDevices::revokeDevice(HttpRequestPtr req, std::function<void(const Ht
         }
 
         auto rc = app().getRedisClient();
-        co_await local_utils::redis::revoke::revoke_device(rc, user_id, device_num_to_delete);
+        co_await core::device::revoke_device(rc, user_id, device_num_to_delete);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

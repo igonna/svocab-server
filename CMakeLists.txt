@@ -36,6 +36,7 @@ include_directories(${POPPLER_INCLUDE_DIRS})
 find_package(CURL REQUIRED)
 
 include_directories(${ICU_INCLUDE_DIRS})
+include_directories(${Gumbo_INCLUDE_DIR})
 find_package(ICU COMPONENTS uc io REQUIRED)
 
 
@@ -47,9 +48,6 @@ find_package(ICU COMPONENTS uc io REQUIRED)
 include_directories(${OPENSSL_INCLUDE})
 link_directories(${OPENSSL_LIB_DIR})
 include_directories(${JWT_CPP_INCLUDE})
-
-
-
 include_directories(${LibOAI_INCLUDE})
 
 # set(SOURCE_FILES
@@ -63,15 +61,35 @@ include_directories(${LibOAI_INCLUDE})
 # endforeach()
 
 # Set the directory containing the source files
+
+# Set the directories
 set(CONTROLLERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/controllers)
 set(FILTERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/filters)
+set(CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/core)
+set(UTILS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/utils)
+set(PLUGINS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/plugins)
 
-# Automatically gather all .cc files from the SOURCE_DIR
-file(GLOB_RECURSE CONTROLLER_SOURCES ${CONTROLLERS_DIR}/*.cc)
-file(GLOB_RECURSE FILTER_SOURCES ${FILTERS_DIR}/*.cc)
+# Define a function to gather all .cc files from a directory
+function(gather_sources TARGET_VAR DIR)
+    file(GLOB_RECURSE SOURCES ${DIR}/*.cc)
+    set(${TARGET_VAR} ${SOURCES} PARENT_SCOPE)
+endfunction()
 
-add_executable(${PROJECT_NAME} main.cpp ${CONTROLLER_SOURCES} ${FILTER_SOURCES})
+# Use the function to gather sources
+gather_sources(CONTROLLER_SOURCES ${CONTROLLERS_DIR})
+gather_sources(FILTER_SOURCES ${FILTERS_DIR})
+gather_sources(CORE_SOURCES ${CORE_DIR})
+gather_sources(UTILS_SOURCES ${UTILS_DIR})
+gather_sources(PLUGINS_SOURCES ${PLUGINS_DIR})
 
+
+# message(STATUS "Controller sources: ${CONTROLLER_SOURCES}")
+# message(STATUS "Filter sources: ${FILTER_SOURCES}")
+# message(STATUS "Core sources: ${CORE_SOURCES}")
+
+
+# Add the executable with all the source files
+add_executable(${PROJECT_NAME} main.cpp ${CONTROLLER_SOURCES} ${FILTER_SOURCES} ${CORE_SOURCES} ${UTILS_SOURCES} ${PLUGINS_SOURCES})
 target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES} CURL::libcurl)
 
 # Link jwt-cpp and OpenSSL

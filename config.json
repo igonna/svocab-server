@@ -345,6 +345,17 @@
                 // "custom_time_format": "",
                 // "use_real_ip": false
             }
+        },
+        {
+            "name": "EmailSender",
+            "dependencies": [],
+            //config: The configuration of the plugin. This json object is the parameter to initialize the plugin.
+            //It can be commented out
+            "config": {
+                "server": "smtps://mail.hosting.reg.ru:465",
+                "user": "verify@svocab.com",
+                "password": "lqwkejrlqwkjflkasdjfqi12312341234jlkjasdfio1j32"
+            }
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 

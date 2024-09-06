@@ -1,13 +1,14 @@
 #include "UserLinkEmail.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
+#include "plugins/EmailSender.h"
 
 namespace v1
 {
 Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
 
-    if (!email.size() || !local_utils::email::is_valid_email(email)) {
+    if (!email.size() || !app().getPlugin<EmailSender>()->is_valid_email(email)) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_email");
     }
 
@@ -50,7 +51,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
     }
 
     // create code
-    auto email_code = local_utils::email::generate_email_code();
+    auto email_code = app().getPlugin<EmailSender>()->generate_email_code();
     try {
         co_await rc->execCommandCoro("set %s %s %s %d", 
             local_utils::redis::create_link_code_key(email).c_str(), 
@@ -65,12 +66,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
 
     // send code to email
     try {
-        auto& smtp_config = app().getCustomConfig()["smtp"];
-        local_utils::email::SmtpDialer(
-            smtp_config["server"].asString(), 
-            smtp_config["user"].asString(), 
-            smtp_config["password"].asString()
-        ).send_email(email, email_code);
+        app().getPlugin<EmailSender>()->send_email(email, email_code);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -83,7 +79,7 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
     auto email = req->getHeader("email");
     auto code = req->getHeader("code");
     
-    if (!email.size() || !local_utils::email::is_valid_email(email) || !code.size()) {
+    if (!email.size() || !app().getPlugin<EmailSender>()->is_valid_email(email) || !code.size()) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_headers");
     }
 
@@ -164,8 +160,9 @@ Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void
 
     std::string email;
     try {
-        email = co_await local_utils::email::get_email_from_google_token(token);
-    } catch (const local_utils::email::google_token_not_valid_exception& e) {
+        
+        email = co_await app().getPlugin<EmailSender>()->get_email_from_google_token(token);
+    } catch (const EmailSender::google_token_not_valid_exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::FORBIDDEN(callback, e.what());
     } catch (const std::exception& e) {

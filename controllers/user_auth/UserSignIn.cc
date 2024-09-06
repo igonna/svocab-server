@@ -1,13 +1,15 @@
 #include "UserSignIn.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
+#include "plugins/EmailSender.h"
+#include "core/token/token.h"
 
 namespace v1
 {
 Task<> UserSignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
 
-    if (!email.size() || !local_utils::email::is_valid_email(email)) {
+    if (!email.size() || !app().getPlugin<EmailSender>()->is_valid_email(email)) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_email");
     }
 
@@ -50,7 +52,7 @@ Task<> UserSignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(
     }
 
     // create code
-    auto email_code = local_utils::email::generate_email_code();
+    auto email_code = app().getPlugin<EmailSender>()->generate_email_code();
     try {
         co_await rc->execCommandCoro("set %s %s %s %d", 
             local_utils::redis::create_sign_in_code_key(email).c_str(), 
@@ -65,12 +67,7 @@ Task<> UserSignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(
 
     // send code to email
     try {
-        auto& smtp_config = app().getCustomConfig()["smtp"];
-        local_utils::email::SmtpDialer(
-            smtp_config["server"].asString(), 
-            smtp_config["user"].asString(), 
-            smtp_config["password"].asString()
-        ).send_email(email, email_code);
+        app().getPlugin<EmailSender>()->send_email(email, email_code);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -83,7 +80,7 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
     auto email = req->getHeader("email");
     auto code = req->getHeader("code");
     
-    if (!email.size() || !local_utils::email::is_valid_email(email) || !code.size()) {
+    if (!email.size() || !app().getPlugin<EmailSender>()->is_valid_email(email) || !code.size()) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_headers");
     }
 
@@ -128,7 +125,7 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
 
     uint32_t user_id;
     uint32_t device_num;
-    std::string device_refresh_token = local_utils::token::create_device_token();
+    std::string device_refresh_token = core::token::create_device_token();
 
     // update user and insert device
     try {
@@ -166,7 +163,7 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
     } catch (...) {}
 
     auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(local_utils::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
+    resp->setBody(core::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
     co_return callback(resp);
 }
 
@@ -179,8 +176,8 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
 
     std::string email;
     try {
-        email = co_await local_utils::email::get_email_from_google_token(token);
-    } catch (const local_utils::email::google_token_not_valid_exception& e) {
+        email = co_await app().getPlugin<EmailSender>()->get_email_from_google_token(token);
+    } catch (const EmailSender::google_token_not_valid_exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::FORBIDDEN(callback, e.what());
     } catch (const std::exception& e) {
@@ -190,7 +187,7 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
 
     uint32_t user_id;
     uint32_t device_num;
-    std::string device_refresh_token = local_utils::token::create_device_token();
+    std::string device_refresh_token = core::token::create_device_token();
     
     // update user and insert device
     try {
@@ -220,7 +217,7 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
     }
 
     auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(local_utils::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
+    resp->setBody(core::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
     co_return callback(resp);
 }
 }

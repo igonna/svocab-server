@@ -1,6 +1,7 @@
 #include "UserLanguages.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
+#include "core/postgres/queries.h"
 
 namespace v1
 {
@@ -21,6 +22,7 @@ Task<> UserLanguages::setLanguagePairEnabled(HttpRequestPtr req, std::function<v
             "values ($1, $2, $3, $4) on conflict (user_id, src_lang, dst_lang) do update "
             "set is_enabled = excluded.is_enabled", user_id, src_lang, dst_lang, value_str
         );
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
@@ -47,6 +49,7 @@ Task<> UserLanguages::setLanguagePairMixValue(HttpRequestPtr req, std::function<
             "values ($1, $2, $3, $4) on conflict (user_id, src_lang, dst_lang) do update "
             "set mix_value = excluded.mix_value", user_id, src_lang, dst_lang, value
         );
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
