@@ -18,7 +18,6 @@ namespace local_utils {
 
 // utils
 namespace attributes {
-
     template<typename T>
     T get_value(const drogon::HttpRequestPtr& req, const std::string& key) {
         if (!req->attributes()->find(key)) {
