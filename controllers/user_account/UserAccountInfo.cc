@@ -12,7 +12,7 @@ Task<> UserAccountInfo::getAccountInfo(HttpRequestPtr req, std::function<void(co
     bool has_subscription;
 
     try {
-        auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto result = co_await db->execSqlCoro("SELECT u.id, u.email, CASE WHEN us.user_id IS NOT NULL THEN TRUE ELSE FALSE END "
             "AS has_subscription FROM users u LEFT JOIN user_google_play_subscription us ON u.id = us.user_id WHERE u.id = $1",

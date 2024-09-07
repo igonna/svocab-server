@@ -1,7 +1,7 @@
 CREATE TYPE SpecialUserType AS ENUM ('admin', 'tester');
 
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     email TEXT,
     special_user_type SpecialUserType,
     register_date TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -11,7 +11,7 @@ CREATE TABLE users (
 ) PARTITION BY HASH (id);
 
 CREATE TABLE user_sequence (
-    user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     not_learned_words TEXT[], -- 200 words by default, but brough_back could increase, some of them could be NULL
     brought_back_words TEXT[], -- words which user removed from learned or hidden words
 
@@ -28,7 +28,7 @@ CREATE TABLE user_sequence (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_state (
-    user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     learned_this_time INT NOT NULL DEFAULT 0,
     check_points SMALLINT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
@@ -41,7 +41,7 @@ CREATE TABLE user_state (
 -- rate_us_passed
 
 CREATE TABLE user_language_pairs (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
     mix_value REAL NOT NULL DEFAULT 1.0,
@@ -50,7 +50,7 @@ CREATE TABLE user_language_pairs (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_devices (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     device_num INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
@@ -65,15 +65,15 @@ CREATE TABLE user_devices (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_words (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     lang_tag CHAR(2) NOT NULL,
     words TEXT NOT NULL DEFAULT '', -- word;16;160010120
     PRIMARY KEY (user_id, lang_tag)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_topics (
-    topic_id SERIAL,
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    topic_id BIGSERIAL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
 
     src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
@@ -84,10 +84,10 @@ CREATE TABLE user_topics (
     position INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
-    word_count_type SMALLINT NOT NULL DEFAULT 0, -- balanced_sources, summarized_sources
-    word_order_type SMALLINT NOT NULL DEFAULT 0, -- popularity, first_appearance
-    exclude_words_that_not_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
-    exclude_very_rare_words BOOLEAN NOT NULL DEFAULT TRUE,
+    count_word_as SMALLINT NOT NULL DEFAULT 0, -- relative_to_the_source, total_sum_in_all_sources
+    order_words_by SMALLINT NOT NULL DEFAULT 0, -- popularity, first_appearance
+    exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
+    exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
 
     texts_sources TEXT[] DEFAULT '{}',
 
@@ -106,7 +106,7 @@ CREATE TABLE user_topics (
     website_urls_fail_title_status TEXT[] DEFAULT '{}',
     youtube_urls_fail_title_status TEXT[] DEFAULT '{}',
 
-    topic_processed_words TEXT NOT NULL DEFAULT '',
+    topic_words_sequence TEXT NOT NULL DEFAULT '',
 
     last_gen_id INT NOT NULL DEFAULT 0,
     last_update_id INT NOT NULL DEFAULT 0,
@@ -114,7 +114,7 @@ CREATE TABLE user_topics (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_custom_global_topic_options (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     topic_id INT NOT NULL,
     mix_value REAL,
     skip_value REAL,
@@ -130,7 +130,7 @@ CREATE TABLE ranks (
 );
 
 CREATE TABLE user_statistics (
-    user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     -- app_sessions JSONB NOT NULL, -- i am not sure that we need it
     last_learn_time INT NOT NULL DEFAULT 0,
     learned_today INT NOT NULL DEFAULT 0,
@@ -146,7 +146,7 @@ CREATE TABLE user_statistics (
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_google_play_subscription ( -- to do this, after more details known
-    user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     subscription_id VARCHAR(255) NOT NULL,
     purchase_token VARCHAR(255) NOT NULL,
     purchase_time TIMESTAMP NOT NULL,

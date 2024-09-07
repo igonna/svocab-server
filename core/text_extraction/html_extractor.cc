@@ -57,6 +57,6 @@ std::tuple<std::string, std::string> extract_text_and_title_from_html(const std:
     // Clean up Gumbo-Parser output
     gumbo_destroy_output(&kGumboDefaultOptions, output);
 
-    return std::tuple<std::string, std::string>(title, body_text);
+    return {title, body_text};
 }
 }

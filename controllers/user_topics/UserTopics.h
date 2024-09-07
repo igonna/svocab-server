@@ -39,7 +39,7 @@ public:
 	METHOD_ADD(UserTopics::addTopicSourceText, "/add_topic_source_text", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::addTopicSourceDocument, "/add_topic_source_document", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::addTopicSourceWebsiteUrl, "/add_topic_source_website_url", Post, "JwtFilter");
-	METHOD_ADD(UserTopics::addTopicSourceYoutubeUrl, "/add_topic_source_youtube_url", Post, "JwtFilter");
+	METHOD_ADD(UserTopics::addTopicSourceYoutubeUrl, "/add_topic_source_youtube", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::deleteTopicSource, "/delete_topic_source", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::deleteTopicFailedSource, "/delete_topic_failed_source", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getTopicSourceTextContent, "/get_topic_source_text_content", Get, "JwtFilter");

@@ -16,6 +16,9 @@ namespace local_constants {
     static constexpr uint32_t secret_key_expire_seconds = 60*60*2;
 
 
+    static constexpr uint32_t title_max_length = 32;
+
+
 namespace languages {
     static constexpr uint32_t lang_tag_size = 2;
 

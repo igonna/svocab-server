@@ -16,7 +16,7 @@ Task<> UserLanguages::setLanguagePairEnabled(HttpRequestPtr req, std::function<v
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
-        auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         co_await users_db->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled) "
             "values ($1, $2, $3, $4) on conflict (user_id, src_lang, dst_lang) do update "
@@ -42,7 +42,7 @@ Task<> UserLanguages::setLanguagePairMixValue(HttpRequestPtr req, std::function<
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
-        auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto value = std::stof(value_str);
 
         co_await users_db->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, mix_value) "

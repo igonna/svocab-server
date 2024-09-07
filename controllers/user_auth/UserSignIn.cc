@@ -123,7 +123,7 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    uint32_t user_id;
+    uint64_t user_id;
     uint32_t device_num;
     std::string device_refresh_token = core::token::create_device_token();
 
@@ -185,7 +185,7 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    uint32_t user_id;
+    uint64_t user_id;
     uint32_t device_num;
     std::string device_refresh_token = core::token::create_device_token();
     

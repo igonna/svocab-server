@@ -11,7 +11,7 @@ Task<> UserDeleteAccount::deleteAccount(HttpRequestPtr req, std::function<void(c
     auto refresh_token = req->getHeader("refreshToken");
 
     try {
-        auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
         auto [user_id_1, device_num_1, device_refresh_token] = core::token::decode_device_refresh_token(refresh_token);
 

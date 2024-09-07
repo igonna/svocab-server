@@ -1,18 +1,7 @@
 #pragma once
-#include <drogon/HttpRequest.h>
-#include <random>
-#include <tuple>
-#include <curl/curl.h>
-#include <unicode/unistr.h>
-#include <unicode/normalizer2.h>
-#include <regex>
-#include <iostream>
 #include <drogon/HttpClient.h>
 #include <chrono>
 #include "utils/constants.h"
-#include <drogon/nosql/RedisClient.h>
-#include <drogon/orm/DbClient.h>
-
 
 namespace local_utils {
 
@@ -60,7 +49,7 @@ namespace url {
             throw std::runtime_error("not_valid_host");
         }
 
-        return std::tuple<std::string, std::string>(host, path);
+        return {host, path};
     }
 }
 
@@ -93,6 +82,38 @@ namespace redis {
 
     static inline std::string create_supported_languages_key(const std::string& lang_tag) {
         return std::string("supported_languages-") + lang_tag;
+    }
+}
+
+namespace postgres {
+    static std::vector<std::string> parse_array_string(const std::string& array_str) {
+        std::vector<std::string> result;
+
+        auto str_size = array_str.size();
+
+        std::string current_item;
+        char prev_char = 0;
+
+        bool started = false;
+
+        for (uint32_t i = 0; i < str_size; ++i) {
+            if (array_str[i] == '"' && prev_char != '\\') {
+                if (started) {
+                    result.push_back(current_item);
+                    current_item = "";
+                    started = false;
+                } else {
+                    started = true;
+                    continue;
+                }
+            }
+
+            if (started) {
+                current_item += array_str[i];
+                prev_char = array_str[i];
+            }
+        }
+        return result;
     }
 }
 

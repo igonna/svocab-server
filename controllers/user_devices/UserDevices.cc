@@ -12,7 +12,7 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
     auto device_os_version = req->getHeader("deviceOsVersion");
     auto device_model = req->getHeader("deviceModel");
 
-    uint32_t user_id;
+    uint64_t user_id;
     uint32_t device_num;
     std::string device_refresh_token;
     
@@ -69,13 +69,13 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
 }
 
 Task<> UserDevices::getDevices(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    uint32_t user_id;
+    uint64_t user_id;
     uint32_t device_num;
 
     Json::Value response;
 
     try {
-        user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+        user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
 
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -128,7 +128,7 @@ Task<> UserDevices::revokeDevice(HttpRequestPtr req, std::function<void(const Ht
     uint32_t device_num_to_delete = std::stoi(device_num_to_delete_str);
 
     try {
-        uint32_t user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+        uint64_t user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto users_db = app().getDbClient(local_constants::users_db);
         // delete device

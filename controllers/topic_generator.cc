@@ -7,6 +7,7 @@
 #include <unicode/brkiter.h>
 #include <memory>
 #include "utils/utils.h"
+#include <random>
 
 std::vector<char> get_bytes_from_file(const char* file_data, size_t file_length) {
     std::unique_ptr<poppler::document> doc{ poppler::document::load_from_raw_data(file_data, file_length) };
@@ -181,60 +182,4 @@ void TopicGenerator::asyncHandleHttpRequest(const HttpRequestPtr& req, std::func
     LOG_INFO << "The uploaded file has been saved to the ./uploads "
                 "directory";
     callback(resp);
-
-
-
-
-
-    //     // Example URLs to fetch
-    // std::vector<std::string> urlss = {
-    //     "http://example.com",
-    //     "http://example.org"
-    // };
-
-    // // Shared pointer to collect extracted text from multiple URLs
-    // auto collectedText = std::make_shared<std::vector<std::string>>();
-    // auto responsesRemaining = std::make_shared<std::atomic<size_t>>(urls.size());
-
-    // for (const auto &url : urlss)
-    // {
-    //     auto client = HttpClient::newHttpClient(url);
-    //     auto request = HttpRequest::newHttpRequest();
-    //     request->setMethod(Get);
-
-    //     client->sendRequest(request, [callback, collectedText, responsesRemaining](ReqResult result, const HttpResponsePtr &response)
-    //     {
-    //         if (result == ReqResult::Ok)
-    //         {
-    //             std::string readBuffer = std::string(response->getBody());
-    //             // Parse HTML and extract text using Gumbo
-    //             GumboOutput *output = gumbo_parse(readBuffer.c_str());
-    //             std::string extractedText;
-    //             extractText(output->root, extractedText);
-    //             gumbo_destroy_output(&kGumboDefaultOptions, output);
-    //             collectedText->emplace_back(extractedText);
-    //         }
-    //         else
-    //         {
-    //             collectedText->emplace_back("Failed to fetch URL");
-    //         }
-
-    //         // Check if all responses have been processed
-    //         if (--(*responsesRemaining) == 0)
-    //         {
-    //             std::string combinedText;
-    //             for (const auto &text : *collectedText)
-    //             {
-    //                 combinedText += text + "\n";
-    //             }
-
-    //             // Send the combined text as the response
-    //             auto resp = HttpResponse::newHttpResponse();
-    //             resp->setStatusCode(k200OK);
-    //             resp->setContentTypeCode(CT_TEXT_PLAIN);
-    //             resp->setBody(combinedText);
-    //             callback(resp);
-    //         }
-    //     });
-    // }
 }

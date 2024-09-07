@@ -123,7 +123,7 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
     }
 
     // update email
-    auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+    auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
     try {
         auto user_db = app().getDbClient(local_constants::users_db);
 
@@ -185,7 +185,7 @@ Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void
     }
 
     // update email
-    auto user_id = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::user_id);
+    auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
     try {
         auto user_db = app().getDbClient(local_constants::users_db);
 
