@@ -21,7 +21,6 @@ public:
 	Task<> addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> deleteTopicSource(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
-	Task<> deleteTopicFailedSource(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getTopicSourceTextContent(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicOption(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
@@ -41,7 +40,6 @@ public:
 	METHOD_ADD(UserTopics::addTopicSourceWebsiteUrl, "/add_topic_source_website_url", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::addTopicSourceYoutubeUrl, "/add_topic_source_youtube", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::deleteTopicSource, "/delete_topic_source", Post, "JwtFilter");
-	METHOD_ADD(UserTopics::deleteTopicFailedSource, "/delete_topic_failed_source", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getTopicSourceTextContent, "/get_topic_source_text_content", Get, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicSourceText, "/set_topic_source_text", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicOption, "/set_topic_option", Post, "JwtFilter");
@@ -51,5 +49,6 @@ public:
     METHOD_LIST_END
 private:
 	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row);
+	Json::Value createTopicsList(const drogon::orm::Result& rows);
 };
 }

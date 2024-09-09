@@ -46,6 +46,7 @@ CREATE TABLE user_language_pairs (
     dst_lang CHAR(2) NOT NULL,
     mix_value REAL NOT NULL DEFAULT 1.0,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    last_enable_time INT NOT NULL,
     PRIMARY KEY (user_id, src_lang, dst_lang)
 ) PARTITION BY HASH (user_id);
 
@@ -89,24 +90,13 @@ CREATE TABLE user_topics (
     exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
     exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
 
-    texts_sources TEXT[] DEFAULT '{}',
-
-    texts_processed TEXT[] DEFAULT '{}',
-    documents_processed TEXT[] DEFAULT '{}',
-    website_urls_processed TEXT[] DEFAULT '{}',
-    youtube_urls_processed TEXT[] DEFAULT '{}',
-
-    texts_titles TEXT[] DEFAULT '{}',
-    documents_titles TEXT[] DEFAULT '{}',
-    website_urls_titles TEXT[] DEFAULT '{}',
-    youtube_urls_titles TEXT[] DEFAULT '{}',
-
-    texts_fail_title_status TEXT[] DEFAULT '{}', -- 'text_title','status'
-    documents_fail_title_status TEXT[] DEFAULT '{}',
-    website_urls_fail_title_status TEXT[] DEFAULT '{}',
-    youtube_urls_fail_title_status TEXT[] DEFAULT '{}',
+    sources_metadata JSONB NOT NULL DEFAULT '{}',
+    sources_unprocessed JSONB NOT NULL DEFAULT '{}',
+    sources_processed JSONB NOT NULL DEFAULT '{}',
 
     topic_words_sequence TEXT NOT NULL DEFAULT '',
+
+    last_source_id INT NOT NULL DEFAULT 0,
 
     last_gen_id INT NOT NULL DEFAULT 0,
     last_update_id INT NOT NULL DEFAULT 0,

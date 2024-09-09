@@ -27,16 +27,18 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        uint32_t position = 0;
+
+        auto result_position = co_await users_db->execSqlCoro("select COALESCE(MIN(position), 0) AS biggest_position "
+            "from user_topics where user_id = $1", user_id
+        );
+
+        auto position = result_position[0]["biggest_position"].as<int32_t>() - 1;
 
         auto result = co_await users_db->execSqlCoro("insert into user_topics (user_id, src_lang, dst_lang, position) "
             "values ($1, $2, $3, $4) returning "
             "topic_id, src_lang, topic_title, count_word_as, order_words_by, "
             "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
-            "texts_titles, texts_fail_title_status, "
-            "documents_titles, documents_fail_title_status, "
-            "website_urls_titles, website_urls_fail_title_status, "
-            "youtube_urls_titles, youtube_urls_fail_title_status"
+            "sources_metadata, sources_unprocessed, sources_processed"
             , user_id, src_lang, dst_lang, position
         );
 
@@ -66,7 +68,6 @@ Task<> UserTopics::deleteTopic(HttpRequestPtr req, std::function<void(const Http
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         co_await users_db->execSqlCoro("delete from user_topics where user_id = $1 and topic_id = $2", user_id, std::stoull(topic_id_str));
-
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -78,7 +79,31 @@ Task<> UserTopics::deleteTopic(HttpRequestPtr req, std::function<void(const Http
 
 Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    co_return;
+    Json::Value result_body;
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        auto result = co_await users_db->execSqlCoro(
+            "select ut.topic_id, ut.src_lang, ut.dst_lang, ulp.mix_value as lang_mix_value, ut.topic_title, ut.mix_value, ut.skip_value, ut.is_enabled, ut.position "
+            "from user_topics as ut "
+            "join user_language_pairs as ulp "
+            "on ut.user_id = ulp.user_id "
+            "and ut.src_lang = ulp.src_lang "
+            "and ut.dst_lang = ulp.dst_lang "
+            "where ulp.is_enabled = true "
+            "and ulp.user_id = $1 "
+            "order by ulp.last_enable_time desc, ut.position asc",
+            user_id
+        );
+
+        result_body = createTopicsList(result);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -98,10 +123,7 @@ Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<vo
             "select "
             "topic_id, src_lang, topic_title, count_word_as, order_words_by, "
             "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
-            "texts_titles, texts_fail_title_status, "
-            "documents_titles, documents_fail_title_status, "
-            "website_urls_titles, website_urls_fail_title_status, "
-            "youtube_urls_titles, youtube_urls_fail_title_status "
+            "sources_metadata "
             "from user_topics where user_id = $1 and topic_id = $2"
             , user_id, topic_id
         );
@@ -159,7 +181,6 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
 
     auto title = text.substr(0, local_constants::title_max_length);
 
-    std::string processed_words;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -169,29 +190,16 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
 
-        auto result = co_await users_db->execSqlCoro(
-            "update user_topics set "
-            "texts_sources = array_append(texts_sources, $1), "
-            "texts_processed = array_append(texts_processed, $2), "
-            "texts_titles =  array_append(texts_titles, $3), "
-            "last_update_id = last_update_id + 1 "
-            "where user_id = $4 and topic_id = $5",
-            text, processed_words, title, user_id, topic_id
-        );
-
-        if (!result.affectedRows()) {
-            throw std::runtime_error("can_not_update");
-        }
-
+        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "text", processed_words, text);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, processed_words);
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -229,7 +237,6 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_supported_content_type");
     }
 
-    std::string processed_words;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -239,28 +246,16 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
 
-        auto result = co_await users_db->execSqlCoro(
-            "update user_topics set "
-            "documents_processed = array_append(documents_processed, $1), "
-            "documents_titles =  array_append(documents_titles, $2), "
-            "last_update_id = last_update_id + 1 "
-            "where user_id = $3 and topic_id = $4",
-            processed_words, title, user_id, topic_id
-        );
-
-        if (!result.affectedRows()) {
-            throw std::runtime_error("can_not_update");
-        }
-
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
+        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "document", processed_words);
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, processed_words);
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -302,7 +297,6 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    std::string processed_words;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -312,28 +306,16 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
 
-        auto result = co_await users_db->execSqlCoro(
-            "update user_topics set "
-            "website_urls_processed = array_append(website_urls_processed, $1), "
-            "website_urls_titles =  array_append(website_urls_titles, $2), "
-            "last_update_id = last_update_id + 1 "
-            "where user_id = $3 and topic_id = $4",
-            processed_words, title, user_id, topic_id
-        );
-
-        if (!result.affectedRows()) {
-            throw std::runtime_error("can_not_update");
-        }
-
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
+        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "website_url", processed_words);
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, processed_words);
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -350,7 +332,6 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
     }
 
-    std::string processed_words;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -360,54 +341,163 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
 
-        auto result = co_await users_db->execSqlCoro(
-            "update user_topics set "
-            "youtube_urls_processed = array_append(youtube_urls_processed, $1), "
-            "youtube_urls_titles = array_append(youtube_urls_titles, $2), "
-            "last_update_id = last_update_id + 1 "
-            "where user_id = $3 and topic_id = $4",
-            processed_words, title, user_id, topic_id
-        );
-
-        if (!result.affectedRows()) {
-            throw std::runtime_error("can_not_update");
-        }
-
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
+        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "youtube_url", processed_words);
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, processed_words);
+    co_return local_utils::Response::OK(callback, "");
 }
 
 
 Task<> UserTopics::deleteTopicSource(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    co_return;
-}
+    auto topic_id_str = req->getHeader("topicId");
+    auto source_id = req->getHeader("sourceId");
 
-Task<> UserTopics::deleteTopicFailedSource(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    co_return;
+    if (!(topic_id_str.size())) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto topic_id = std::stoull(topic_id_str);
+
+        co_await users_db->execSqlCoro(
+            "update user_topics set "
+            "sources_metadata = sources_metadata - $1, "
+            "sources_unprocessed = sources_unprocessed - $1, "
+            "sources_processed = sources_processed - $1, "
+            "last_update_id = last_update_id + 1 "
+            "where user_id = $2 and topic_id = $3", 
+            source_id, user_id, topic_id
+        );
+
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::getTopicSourceTextContent(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    co_return;
+    auto topic_id_str = req->getHeader("topicId");
+    auto source_id = req->getHeader("sourceId");
+
+    if (!(topic_id_str.size())) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    std::string result_body;
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto topic_id = std::stoull(topic_id_str);
+
+        auto result = co_await users_db->execSqlCoro(
+            "select sources_unprocessed->> $1 as body from user_topics where user_id = $2 and topic_id = $3", 
+            source_id, user_id, topic_id
+        );
+
+        if (!result.size()) {
+            throw std::runtime_error("not_found");
+        }
+        
+        result_body = result[0]["body"].as<std::string>();
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, result_body);
 }
 
 Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    co_return;
+    auto topic_id_str = req->getHeader("topicId");
+    auto text = std::string(req->getBody());
+    auto source_id = req->getHeader("sourceId");
+
+    if (!(topic_id_str.size())) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    if (!text.size()) {
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
+    }
+
+    auto title = text.substr(0, local_constants::title_max_length);
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto topic_id = std::stoull(topic_id_str);
+
+        auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+
+        auto unicode_str = core::text_processing::string_to_unicode(text);
+        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+
+        co_await core::sql::update_topic_source(users_db, user_id, topic_id, std::stoi(source_id), title, "text", processed_words, text);
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    co_return;
+    auto topic_id_str = req->getHeader("topicId");
+    auto option_name = req->getHeader("optionName");
+    auto value = req->getHeader("value");
+
+    if (!(topic_id_str.size() && option_name.size() && value.size())) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        auto query = "update user_topics set " + option_name + " = $1, "
+            "last_update_id = last_update_id + 1 where user_id = $2 and topic_id = $3";
+
+        static const std::unordered_set<std::string> bolean_options = {"exclude_word_if_not_present_in_all_sources", "exclude_word_if_very_rare"};
+        static const std::unordered_set<std::string> int16_options = {"count_word_as", "order_words_by"};
+
+        if (int16_options.contains(option_name)) {
+            auto result = co_await users_db->execSqlCoro(query, static_cast<int16_t>(std::stoi(value)), user_id, std::stoull(topic_id_str));
+            if (!result.affectedRows()) throw std::runtime_error("not_updated");
+
+        } else if (bolean_options.contains(option_name)){
+            auto result = co_await users_db->execSqlCoro(query, value == "t" ? true : false, user_id, std::stoull(topic_id_str));
+            if (!result.affectedRows()) throw std::runtime_error("not_updated");
+
+        } else {
+            co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "unknown_option");
+        }
+
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::setTopicEnabled(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -415,7 +505,7 @@ Task<> UserTopics::setTopicEnabled(HttpRequestPtr req, std::function<void(const 
     auto topic_id_str = req->getHeader("topicId");
     auto value = req->getHeader("value");
 
-    if (!topic_id_str.size()) {
+    if (!topic_id_str.size() || !value.size()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
@@ -428,7 +518,6 @@ Task<> UserTopics::setTopicEnabled(HttpRequestPtr req, std::function<void(const 
             throw std::runtime_error("not_updated");
         }
 
-        // update sequence last_update_id
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -440,7 +529,36 @@ Task<> UserTopics::setTopicEnabled(HttpRequestPtr req, std::function<void(const 
 
 Task<> UserTopics::setTopicPosition(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    co_return;
+    auto topic_id_str = req->getHeader("topicId");
+    auto position_str = req->getHeader("position");
+
+    if (!topic_id_str.size() || !position_str.size()) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto position = std::stoi(position_str);
+        auto topic_id = std::stoull(topic_id_str);
+
+        auto result = co_await users_db->execSqlCoro("update user_topics set position = $1 where user_id = $2 and topic_id = $3", position, user_id, topic_id);
+        if (!result.affectedRows()) {
+            throw std::runtime_error("not_updated");
+        }
+
+        result = co_await users_db->execSqlCoro("update user_topics set position = position + 1 where user_id = $1 and topic_id != $2 and position >= $3", user_id, topic_id, position);
+        if (!result.affectedRows()) {
+            throw std::runtime_error("not_updated");
+        }
+
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserTopics::getTopicWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -475,9 +593,7 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
 {
     Json::Value result;
     result["topic_id"] = row["topic_id"].as<uint32_t>();
-
     result["src_lang"] = row["src_lang"].as<std::string>();
-
     result["topic_title"] = row["topic_title"].as<std::string>();
 
     auto& options = result["options"];
@@ -488,56 +604,60 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
 
     auto& sources = result["sources"] = Json::arrayValue;
 
-    static auto new_source = [](const std::string& title, std::string from, std::string type) {
-        Json::Value source;
-        source["title"] = title;
-        source["from"] = from; // text, document, website, youtube
-        source["type"] = type; // source, fail
-        return source;
-    };
+    auto sources_metadata_str = row["sources_metadata"].as<std::string>();
 
-    // text
-    auto texts_titles = local_utils::postgres::parse_array_string(row["texts_titles"].as<std::string>());
-
-    for (auto& i : texts_titles) {
-        sources.append(new_source(i, "text", "source"));
+    Json::Value sources_metadata_root;
+    if (!Json::Reader().parse(sources_metadata_str, sources_metadata_root)) {
+        throw std::runtime_error("metadata_parse_error");
     }
 
-    auto texts_fail_title_status = row["texts_fail_title_status"].asArray<std::string>();
-    for (auto& i : texts_fail_title_status) {
-        sources.append(new_source(*i, "text", "fail"));
-    }
-    
-    // document
-    auto documents_titles = local_utils::postgres::parse_array_string(row["documents_titles"].as<std::string>());
-    for (auto& i : documents_titles) {
-        sources.append(new_source(i, "document", "source"));
+    for (const auto& id : sources_metadata_root.getMemberNames()) {
+        auto& ref = sources_metadata_root[id];
+        ref["id"] = std::stoi(id);
+        sources.append(ref);
     }
 
-    auto documents_fail_title_status = row["documents_fail_title_status"].asArray<std::string>();
-    for (auto& i : documents_fail_title_status) {
-        sources.append(new_source(*i, "document", "fail"));
-    }
-    
-    // website
-    auto website_urls_titles = local_utils::postgres::parse_array_string(row["website_urls_titles"].as<std::string>());
-    for (auto& i : website_urls_titles) {
-        sources.append(new_source(i, "website_url", "source"));
-    }
+    return result;
+}
 
-    auto website_urls_fail_title_status = row["website_urls_fail_title_status"].asArray<std::string>();
-    for (auto& i : website_urls_fail_title_status) {
-        sources.append(new_source(*i, "website_url", "fail"));
-    }
-    
-    auto youtube_urls_titles = local_utils::postgres::parse_array_string(row["youtube_urls_titles"].as<std::string>());
-    for (auto& i : youtube_urls_titles) {
-        sources.append(new_source(i, "youtube_url", "source"));
-    }
-    
-    auto youtube_urls_fail_title_status = row["youtube_urls_fail_title_status"].asArray<std::string>();
-    for (auto& i : youtube_urls_fail_title_status) {
-        sources.append(new_source(*i, "youtube_url", "fail"));
+Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows)
+{
+    Json::Value result;
+    auto& topics = result["topics"] = Json::arrayValue;
+    auto& language_pairs = result["language_pairs"] = Json::arrayValue;
+
+    uint32_t last_lang_pair_id = 0;
+    std::unordered_map<std::string, uint32_t> language_pairs_ids;
+
+    for (auto& row : rows) {
+        auto src_lang = row["src_lang"].as<std::string>();
+        auto dst_lang = row["dst_lang"].as<std::string>();
+        
+        auto key = src_lang + dst_lang;
+        uint32_t current_lang_pair_id;
+
+        if (language_pairs_ids.contains(key)) {
+            current_lang_pair_id = language_pairs_ids[key];
+        } else {
+            language_pairs_ids[key] = current_lang_pair_id = last_lang_pair_id++;
+
+            Json::Value new_lang_pair;
+            new_lang_pair["src_lang"] = src_lang;
+            new_lang_pair["dst_lang"] = dst_lang;
+            new_lang_pair["lang_mix_value"] = row["lang_mix_value"].as<float>();
+            language_pairs.append(new_lang_pair);
+        }
+
+        Json::Value new_topic;
+        new_topic["topic_id"] = row["topic_id"].as<uint64_t>();
+        new_topic["topic_title"] = row["topic_title"].as<std::string>();
+        new_topic["mix_value"] = row["mix_value"].as<float>();
+        new_topic["skip_value"] = row["skip_value"].as<float>();
+        new_topic["is_enabled"] = row["is_enabled"].as<bool>();
+        new_topic["position"] = row["position"].as<int32_t>();
+        new_topic["lang_pair_index"] = current_lang_pair_id;
+
+        topics.append(new_topic);
     }
 
     return result;

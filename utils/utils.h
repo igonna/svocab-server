@@ -95,17 +95,25 @@ namespace postgres {
         char prev_char = 0;
 
         bool started = false;
+        char stop_symbol = 0;
 
         for (uint32_t i = 0; i < str_size; ++i) {
-            if (array_str[i] == '"' && prev_char != '\\') {
-                if (started) {
-                    result.push_back(current_item);
-                    current_item = "";
-                    started = false;
-                } else {
-                    started = true;
+            if (started && array_str[i] == stop_symbol || stop_symbol == ',' && array_str[i] == '}') {
+                if (stop_symbol == '"' && prev_char == '\\') {
                     continue;
                 }
+
+                result.push_back(current_item);
+                current_item = "";
+                started = false;
+                stop_symbol = 0;
+
+            } else if (!stop_symbol) {
+                if (!started && array_str[i] == ',') continue;
+                if (array_str[i] == '{' || array_str[i] == '}') continue;
+                stop_symbol = (array_str[i] == '"') ? '"' : ',';
+                started = true;
+                if (stop_symbol == '"') continue;
             }
 
             if (started) {
