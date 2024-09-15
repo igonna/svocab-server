@@ -173,15 +173,12 @@ USER TOPICS
 27.set_topic_position -> ok
     topic_id
 
+
+
 28.get_topic_words -> list
     topic_id
 
 36.delete_topic_source -> ok
-    topic_id
-    source_type
-    source_id
-
-37.delete_topic_failed_source -> ok
     topic_id
     source_type
     source_id
@@ -192,6 +189,43 @@ USER TOPICS
 40.enable_first_user_topic -> ok (topic_id) / not_found
     src_lang
     dst_lang
+
+FOCUS GROUP
+
+
+# 1. generate words sequence for current topic (for view topic)
+
+# 1. generate words sequence for all topics (for mix value)
+
+# 1. generate words sequence for current topic (for skip value)
+
+# 1. generate words sequence's for all topics (for main sequence)
+
+# 1. check if update required
+# 2. if yes, check on what topics
+# 3. generate words sequence for each topic, based on topic options
+# 4. generate final sequence
+# 5. update user sequence
+# 6. return focus group
+
+
+
+43.get_focus_group -> list
+
+44.complete_focus_group -> new_focus_group
+    focus_group_id
+
+45.flush_update_focus_group -> ok/new_focus_group_ready_status
+
+46.update_focus_group_hidden_word -> new_focus_group
+    focus_group_id
+    word_id
+
+GLOBAL TOPICS
+add_global_topic_with_user_topic
+    default_position
+
+update_global_topic_with_user_topic
 
 STATE INFO
 
@@ -214,20 +248,6 @@ PROGRESS WORDS
 20.remove_hidden_word -> ok
     src_lang
     word
-
-
-FOCUS GROUP
-
-43.get_focus_group -> list
-
-44.complete_focus_group -> new_focus_group
-    focus_group_id
-
-45.update_focus_group_hidden_word -> new_focus_group
-    focus_group_id
-    word_id
-
-46.update_focus_group -> ok/new_focus_group_ready_status
 
 
 

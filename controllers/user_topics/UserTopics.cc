@@ -23,7 +23,7 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
-    Json::Value resultTopic;
+    Json::Value result_topic;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
@@ -36,7 +36,7 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
 
         auto result = co_await users_db->execSqlCoro("insert into user_topics (user_id, src_lang, dst_lang, position) "
             "values ($1, $2, $3, $4) returning "
-            "topic_id, src_lang, topic_title, count_word_as, order_words_by, "
+            "topic_id, src_lang, topic_title, order_words_by, "
             "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
             "sources_metadata, sources_unprocessed, sources_processed"
             , user_id, src_lang, dst_lang, position
@@ -46,13 +46,13 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
             throw std::runtime_error("topic_not_created");
         }
 
-        resultTopic = createTopicGenerationWindow(result[0]);
+        result_topic = createTopicGenerationWindow(result[0]);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::JSON_OK(callback, resultTopic);
+    co_return local_utils::Response::JSON_OK(callback, result_topic);
 }
 
 Task<> UserTopics::deleteTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -121,7 +121,7 @@ Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<vo
 
         auto result = co_await users_db->execSqlCoro(
             "select "
-            "topic_id, src_lang, topic_title, count_word_as, order_words_by, "
+            "topic_id, src_lang, topic_title, order_words_by, "
             "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
             "sources_metadata "
             "from user_topics where user_id = $1 and topic_id = $2"
@@ -190,7 +190,7 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
         co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "text", processed_words, text);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
@@ -206,12 +206,12 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
 {
     auto topic_id_str = req->getHeader("topicId");
 
-    MultiPartParser multiPartParser;
-    if (multiPartParser.parse(req) != 0) {
+    MultiPartParser multi_part_parser;
+    if (multi_part_parser.parse(req) != 0) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "empty");
     }
 
-    auto &files = multiPartParser.getFiles();
+    auto &files = multi_part_parser.getFiles();
 
     if (!files.size()) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "no_files");
@@ -246,7 +246,7 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
         co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "document", processed_words);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
@@ -306,7 +306,7 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
         co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "website_url", processed_words);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
@@ -341,7 +341,7 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
         co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "youtube_url", processed_words);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
@@ -447,7 +447,7 @@ Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(con
         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
         auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_words(std::move(unicode_str), topic_src_lang.c_str());
+        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
         co_await core::sql::update_topic_source(users_db, user_id, topic_id, std::stoi(source_id), title, "text", processed_words, text);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
@@ -477,7 +477,7 @@ Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const H
             "last_update_id = last_update_id + 1 where user_id = $2 and topic_id = $3";
 
         static const std::unordered_set<std::string> bolean_options = {"exclude_word_if_not_present_in_all_sources", "exclude_word_if_very_rare"};
-        static const std::unordered_set<std::string> int16_options = {"count_word_as", "order_words_by"};
+        static const std::unordered_set<std::string> int16_options = {"order_words_by"};
 
         if (int16_options.contains(option_name)) {
             auto result = co_await users_db->execSqlCoro(query, static_cast<int16_t>(std::stoi(value)), user_id, std::stoull(topic_id_str));
@@ -597,7 +597,6 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
     result["topic_title"] = row["topic_title"].as<std::string>();
 
     auto& options = result["options"];
-    options["count_word_as"] = row["count_word_as"].as<uint32_t>();
     options["order_words_by"] = row["order_words_by"].as<uint32_t>();
     options["exclude_word_if_not_present_in_all_sources"] = row["exclude_word_if_not_present_in_all_sources"].as<bool>();
     options["exclude_word_if_very_rare"] = row["exclude_word_if_very_rare"].as<bool>();

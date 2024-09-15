@@ -4,12 +4,15 @@
 
 using namespace drogon;
 
+namespace v1
+{
 class UserStatistics : public drogon::HttpController<UserStatistics>
 {
-  public:
-    
-    METHOD_LIST_BEGIN
-    // list path definitions here;
-    // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
-    METHOD_LIST_END
+public:
+	Task<> getUserStatistics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+
+	METHOD_LIST_BEGIN
+	METHOD_ADD(UserStatistics::getUserStatistics, "/get", Get, "JwtFilter");
+	METHOD_LIST_END
 };
+}

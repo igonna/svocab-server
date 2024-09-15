@@ -10,23 +10,6 @@ CREATE TABLE users (
     UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
-CREATE TABLE user_sequence (
-    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    not_learned_words TEXT[], -- 200 words by default, but brough_back could increase, some of them could be NULL
-    brought_back_words TEXT[], -- words which user removed from learned or hidden words
-
-    was_cropped BOOLEAN NOT NULL DEFAULT FALSE,
-    lowest_not_learned_pointer INT NOT NULL DEFAULT 0,
-
-    last_gen_for_repeat_time INT NOT NULL DEFAULT 0, -- required to update every 6 hours, to mix words for repeat
-    last_gen_id INT NOT NULL DEFAULT 0, -- current state
-    last_update_id INT NOT NULL DEFAULT 0, -- >= last_gen_id
-
-    last_focus_group TEXT,
-    last_focus_group_gen_id INT NOT NULL DEFAULT 0,
-    last_focus_group_update_time INT NOT NULL DEFAULT 0
-) PARTITION BY HASH (user_id);
-
 CREATE TABLE user_state (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     learned_this_time INT NOT NULL DEFAULT 0,
@@ -72,6 +55,23 @@ CREATE TABLE user_words (
     PRIMARY KEY (user_id, lang_tag)
 ) PARTITION BY HASH (user_id);
 
+CREATE TABLE user_sequence (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    not_learned_words TEXT[], -- 200 words by default, but brough_back could increase, some of them could be NULL
+    brought_back_words TEXT[], -- words which user removed from learned or hidden words
+
+    was_cropped BOOLEAN NOT NULL DEFAULT FALSE,
+    lowest_not_learned_pointer INT NOT NULL DEFAULT 0,
+
+    last_gen_for_repeat_time INT NOT NULL DEFAULT 0, -- required to update every 6 hours, to mix words for repeat
+    last_gen_id INT NOT NULL DEFAULT 0, -- current state
+    last_update_id INT NOT NULL DEFAULT 0, -- >= last_gen_id
+
+    last_focus_group TEXT,
+    last_focus_group_gen_id INT NOT NULL DEFAULT 0,
+    last_focus_group_update_time INT NOT NULL DEFAULT 0
+) PARTITION BY HASH (user_id);
+
 CREATE TABLE user_topics (
     topic_id BIGSERIAL,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
@@ -85,8 +85,7 @@ CREATE TABLE user_topics (
     position INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
-    count_word_as SMALLINT NOT NULL DEFAULT 0, -- relative_to_the_source, total_sum_in_all_sources
-    order_words_by SMALLINT NOT NULL DEFAULT 0, -- popularity, first_appearance
+    order_words_by SMALLINT NOT NULL DEFAULT 0, -- first_appearance, relative_popularity, total_popularity
     exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
     exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
 

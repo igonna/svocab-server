@@ -4,12 +4,17 @@
 
 using namespace drogon;
 
+namespace v1
+{
 class UserFocusGroup : public drogon::HttpController<UserFocusGroup>
 {
-  public:
-    
-    METHOD_LIST_BEGIN
-    // list path definitions here;
-    // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
-    METHOD_LIST_END
+public:
+	Task<> getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> updateFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+
+	METHOD_LIST_BEGIN
+	METHOD_ADD(UserFocusGroup::getFocusGroup, "/get_focus_group", Post, "JwtFilter");
+	METHOD_ADD(UserFocusGroup::updateFocusGroup, "/update_focus_group", Post, "JwtFilter");
+	METHOD_LIST_END
 };
+}

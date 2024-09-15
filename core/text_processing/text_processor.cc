@@ -6,36 +6,15 @@
 #include <unordered_map>
 #include <map>
 
-
-// hello, hi, what, wow, hello, wow
-// what, where
-
-
-// total sum in all sources
-// relative to the source
-
-// sum: hello, wow, hi, what, where
-// balanced: hello, what, wow, where
-
-
-
-// count_word_as
-    // relative_to_the_source = popularity_order
-    // total_sum = number_of_words_per_source
-// order_words_by
-    // by_popularity 
-// exclude_word_if
-
-//word_by_relative_popularity;total_count;first_appearance
-
-// relative popularity = total_count -> position order
+#include <iostream>
 
 namespace core::text_processing
 {
-    std::string text_to_processed_words(icu::UnicodeString text, const char* language) {
+    std::string text_to_processed_source(icu::UnicodeString text, const char* language) {
         std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> words_data;
         
         uint32_t total_unique_words = 0;
+        static const uint32_t unique_words_limit = 1'000'000;
 
         UErrorCode status = U_ZERO_ERROR;
         std::unique_ptr<icu::BreakIterator> bi(icu::BreakIterator::createWordInstance(icu::Locale(language), status));
@@ -61,6 +40,7 @@ namespace core::text_processing
             } else {
                 words_data[std::move(utf8_word)] = {1, total_unique_words};
                 ++total_unique_words;
+                if (total_unique_words > unique_words_limit) break;
             }
         }
 
@@ -77,6 +57,48 @@ namespace core::text_processing
         for (auto& i : words_data_by_popularity) {
             // word, total_count, first_appearance
             result += i.second.first + ';' + std::to_string(i.first) + ';' + std::to_string(i.second.second) + '\n';
+        }
+
+        return result;
+    }
+
+    // word, total_count, first_appearance
+    std::vector<ProcessedWord> processed_words_str_to_binary(const std::string& processed_words_str) {
+        std::vector<ProcessedWord> result;
+
+        auto len = processed_words_str.size();
+
+        uint32_t part_num = 0;
+        std::string tmp_str;
+
+        std::string current_word;
+        uint32_t word_total_count;
+
+        for (uint32_t i = 0; i < len; ++i) {
+            auto current_char = processed_words_str[i];
+
+            if (current_char == ';') {
+                if (part_num == 1) {
+                    word_total_count = std::stoi(tmp_str);
+                }
+
+                ++part_num;
+                tmp_str.clear();
+                continue;
+            }
+
+            if (part_num == 0) {
+                current_word += current_char;
+            } else {
+                tmp_str += current_char;
+            }
+
+            if (current_char == '\n' || i == len) {
+                result.push_back(ProcessedWord(current_word, word_total_count, std::stoi(tmp_str)));
+                current_word.clear();
+                tmp_str.clear();
+                part_num = 0;
+            }
         }
 
         return result;
