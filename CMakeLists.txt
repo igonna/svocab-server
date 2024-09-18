@@ -3,15 +3,6 @@ project(svocab-server CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-
-SET(CMAKE_C_COMPILER "/opt/homebrew/Cellar/gcc/14.1.0_2/bin/gcc-14")
-SET(CMAKE_CXX_COMPILER "/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14")
-
-# cmake -DCMAKE_BUILD_TYPE=Release \
-#       -DCMAKE_C_COMPILER=/opt/homebrew/Cellar/gcc/14.1.0_2/bin/gcc-14 \
-#       -DCMAKE_CXX_COMPILER=/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14 \
-#       ..
-
 set(CMAKE_CXX_STANDARD 20)
 include(CheckIncludeFileCXX)
 
@@ -21,46 +12,49 @@ check_include_file_cxx(coroutine HAS_COROUTINE)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ##############################################################################
-# If you include the drogon source code locally in your project, use this method
-# to add drogon 
-# add_subdirectory(drogon) 
-# target_link_libraries(${PROJECT_NAME} PRIVATE drogon)
-#
-# and comment out the following lines
-find_package(Drogon CONFIG REQUIRED)
-include_directories(${POPPLER_INCLUDE_DIRS})
-# set(Poppler_LIBRARY /Users/c/Downloads/poppler-24.05.0/build/cpp/libpoppler-cpp.dylib)
-# set(Gumbo_LIBRARY /opt/homebrew/Cellar/gumbo-parser/0.10.1/lib/libgumbo.dylib)
-# set(ICU_INCLUDE_DIRS /opt/homebrew/opt/icu4c/include)
-find_package(CURL REQUIRED)
 
-include_directories(${ICU_INCLUDE_DIRS})
-include_directories(${Gumbo_INCLUDE_DIR})
-find_package(ICU COMPONENTS uc io REQUIRED)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
+    message(STATUS "macos")
+    set(CMAKE_CXX_COMPILER "/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14")
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c")
+    set(ICU_INCLUDE "/opt/homebrew/opt/icu4c/include")
+    set(Gumbo_INCLUDE "/opt/homebrew/Cellar/gumbo-parser/0.12.1/include")
+    set(Gumbo_LIBRARY "/opt/homebrew/Cellar/gumbo-parser/0.12.1/lib/libgumbo.a")
+    set(OPENSSL_INCLUDE "/opt/homebrew/opt/openssl@3/include")
+    set(OPENSSL_LIBRARY "/opt/homebrew/opt/openssl@3/lib")
+    set(Poppler_LIBRARY "/usr/local/lib/libpoppler-cpp.dylib")
 
+    find_package(Drogon CONFIG REQUIRED)
+    find_package(CURL REQUIRED)
+    find_package(ICU COMPONENTS uc io REQUIRED)
 
-# add_subdirectory(${JWT_CPP_DIR})
-# target_link_libraries(your_target_name jwt-cpp)
+    include_directories(${ICU_INCLUDE})
+    include_directories(${Gumbo_INCLUDE})
+    include_directories(${OPENSSL_INCLUDE})
+    # include_directories(${LibOAI_INCLUDE})
 
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux") # Linux
+    find_package(ICU COMPONENTS uc io REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    find_package(Drogon CONFIG REQUIRED)
+    find_package(CURL REQUIRED)
 
-# Specify OpenSSL include directories and libraries
-include_directories(${OPENSSL_INCLUDE})
-link_directories(${OPENSSL_LIB_DIR})
-include_directories(${JWT_CPP_INCLUDE})
-include_directories(${LibOAI_INCLUDE})
+    set(Poppler_LIBRARY "/usr/lib/x86_64-linux-gnu/libpoppler-cpp.so")
+    set(Gumbo_LIBRARY "/usr/local/lib/libgumbo.a")
 
-# set(SOURCE_FILES
-#    topic_generator.cc
-# )
+    include_directories()
 
-# set(SOURCE_DIR src)
-
-# foreach(SOURCE ${SOURCE_FILES})
-#     list(APPEND SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/controllers/${SOURCE})
-# endforeach()
-
-# Set the directory containing the source files
+    # target_include_directories(${PROJECT_NAME} PRIVATE
+        include_directories(${JSONCPP_INCLUDE_DIRS})
+        include_directories(${OPENSSL_INCLUDE_DIR})
+        include_directories(${POSTGRESQL_INCLUDE_DIR})
+        include_directories(${HIREDIS_INCLUDE_DIR})
+        include_directories(${ICU_INCLUDE_DIRS})
+        include_directories(${POPLER_INCLUDE_DIRS})
+    # )
+else()
+    message(FATAL_ERROR "Unsupported OS: ${CMAKE_SYSTEM_NAME}")
+endif()
 
 # Set the directories
 set(CONTROLLERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/controllers)
@@ -82,25 +76,17 @@ gather_sources(CORE_SOURCES ${CORE_DIR})
 gather_sources(UTILS_SOURCES ${UTILS_DIR})
 gather_sources(PLUGINS_SOURCES ${PLUGINS_DIR})
 
-
-# message(STATUS "Controller sources: ${CONTROLLER_SOURCES}")
-# message(STATUS "Filter sources: ${FILTER_SOURCES}")
-# message(STATUS "Core sources: ${CORE_SOURCES}")
-
-
 # Add the executable with all the source files
 add_executable(${PROJECT_NAME} main.cpp ${CONTROLLER_SOURCES} ${FILTER_SOURCES} ${CORE_SOURCES} ${UTILS_SOURCES} ${PLUGINS_SOURCES})
+
 target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon ${Poppler_LIBRARY} ${Gumbo_LIBRARY} ${ICU_LIBRARIES} CURL::libcurl)
 
-# Link jwt-cpp and OpenSSL
-# target_link_libraries(JWTExample PRIVATE jwt-cpp OpenSSL::SSL OpenSSL::Crypto)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/models)
 
 aux_source_directory(controllers CTL_SRC)
 aux_source_directory(filters FILTER_SRC)
 aux_source_directory(plugins PLUGIN_SRC)
 aux_source_directory(models MODEL_SRC)
-
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/models)
 
 target_sources(${PROJECT_NAME}
    PRIVATE
@@ -110,5 +96,3 @@ target_sources(${PROJECT_NAME}
    ${PLUGIN_SRC}
    ${MODEL_SRC}
 )
-
-# cmake -D ICU_ROOT=$(brew --prefix icu4c) -D CMAKE_PREFIX_PATH=$(brew --prefix icu4c) -D CMAKE_INCLUDE_PATH=$(brew --prefix icu4c)/include -D CMAKE_LIBRARY_PATH=$(brew --prefix icu4c)/lib ..

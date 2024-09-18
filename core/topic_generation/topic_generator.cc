@@ -7,14 +7,12 @@ namespace core::topic_generation {
 
 TopicGenerator::TopicGenerator(
     std::string src_lang,
-    float mix_value,
     float skip_value,
     OrderWordsBy order_words_by,
     bool exclude_word_if_not_present_in_all_sources,
     bool exclude_word_if_very_rare
 ) : 
     _src_lang(src_lang),
-    _mix_value(mix_value),
     _skip_value(skip_value),
     _order_words_by(order_words_by),
     _exclude_word_if_not_present_in_all_sources(exclude_word_if_not_present_in_all_sources),
@@ -51,7 +49,7 @@ void TopicGenerator::add_topic_words(const std::vector<core::text_processing::Pr
 
 std::string TopicGenerator::get_topic_sequence_as_string() {
     OrderWordsComparator<float> order_words_comparator(_order_words_by);
-    std::map<float, std::string, OrderWordsComparator<float>> ordered_words(order_words_comparator);
+    std::multimap<float, std::string, OrderWordsComparator<float>> ordered_words(order_words_comparator);
 
     for (auto& word : sources_words) {
         if (_exclude_word_if_not_present_in_all_sources && word.second.sources_count != sources_count) {
@@ -65,10 +63,16 @@ std::string TopicGenerator::get_topic_sequence_as_string() {
         }
     }
 
+    uint32_t skip_words_count = _skip_value * ordered_words.size();
+    uint32_t skipped_words = 0;
+
     std::string result;
     for (auto& i : ordered_words) {
+        if (++skipped_words <= skip_words_count) continue;
         result.append(i.second + ';');
     }
+
+    result.pop_back();
 
     return result;
 }

@@ -183,6 +183,9 @@ USER TOPICS
     source_type
     source_id
 
+37.get_topic_mix_words -> json
+    topic_id
+
 // generated topics + global topics
 16.get_topics -> JSON langs:topics (topic{type,title,enabled,})
 
@@ -193,13 +196,13 @@ USER TOPICS
 FOCUS GROUP
 
 
-# 1. generate words sequence for current topic (for view topic)
+# 1. generate words sequence for current topic (for view topic) - done
 
-# 1. generate words sequence for all topics (for mix value)
+# 1. generate words sequence for all topics (for mix value) - marked
 
-# 1. generate words sequence for current topic (for skip value)
+# 1. generate words sequence for current topic (for skip value) - done
 
-# 1. generate words sequence's for all topics (for main sequence)
+# 1. generate words sequence's for all topics (for main sequence) - done
 
 # 1. check if update required
 # 2. if yes, check on what topics

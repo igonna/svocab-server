@@ -478,6 +478,7 @@ Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const H
 
         static const std::unordered_set<std::string> bolean_options = {"exclude_word_if_not_present_in_all_sources", "exclude_word_if_very_rare"};
         static const std::unordered_set<std::string> int16_options = {"order_words_by"};
+        static const std::unordered_set<std::string> float_options = {"mix_value", "skip_value"};
 
         if (int16_options.contains(option_name)) {
             auto result = co_await users_db->execSqlCoro(query, static_cast<int16_t>(std::stoi(value)), user_id, std::stoull(topic_id_str));
@@ -485,6 +486,10 @@ Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const H
 
         } else if (bolean_options.contains(option_name)){
             auto result = co_await users_db->execSqlCoro(query, value == "t" ? true : false, user_id, std::stoull(topic_id_str));
+            if (!result.affectedRows()) throw std::runtime_error("not_updated");
+
+        } else if (float_options.contains(option_name)){
+            auto result = co_await users_db->execSqlCoro(query, std::stof(value), user_id, std::stoull(topic_id_str));
             if (!result.affectedRows()) throw std::runtime_error("not_updated");
 
         } else {
@@ -569,23 +574,47 @@ Task<> UserTopics::getTopicWords(HttpRequestPtr req, std::function<void(const Ht
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
+
     std::string result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto topic_id = std::stoull(topic_id_str);
 
-        auto result = co_await users_db->execSqlCoro("select topic_processed_words from user_topics where user_id = $1 and topic_id = $2", user_id, std::stoull(topic_id_str));
-        if (!result.size()) {
-            throw std::runtime_error("not_exists");
+        // check if generation required
+        auto result_update_required = co_await users_db->execSqlCoro(
+            "select last_update_id from user_topics "
+            "where user_id = $1 and topic_id = $2 and last_gen_id != last_update_id limit 1", 
+            user_id, topic_id
+        );
+
+        if (result_update_required.size()) {
+            auto topic_last_update_id = result_update_required[0]["last_update_id"].as<uint32_t>();
+            result_body = co_await core::sql::generate_topic_sequence_and_if_update(users_db, user_id, topic_id, topic_last_update_id);
+        } else {
+            auto result = co_await users_db->execSqlCoro("select topic_words_sequence from user_topics "
+                "where user_id = $1 and topic_id = $2", user_id, topic_id
+            );
+
+            if (!result.size()) {
+                throw std::runtime_error("not_exists");
+            }
+
+            result_body = result[0]["topic_words_sequence"].as<std::string>();
         }
-
-        result_body = result[0]["topic_processed_words"].as<std::string>();
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
     co_return local_utils::Response::OK(callback, result_body);
+}
+
+Task<> UserTopics::getTopicMixWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+{
+    // update all topics if required
+    // fetch all topics beside current and generate sequence
+    co_return local_utils::Response::OK(callback, "");
 }
 
 

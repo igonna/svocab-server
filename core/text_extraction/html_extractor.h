@@ -1,6 +1,7 @@
 #pragma once
 #include <tuple>
 #include <string>
+#include <cstdint>
 
 namespace core::text_extraction
 {

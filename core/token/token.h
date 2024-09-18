@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 
 namespace core::token {
     static constexpr uint32_t SECRET_PART_LEN = 6;

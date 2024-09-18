@@ -5,26 +5,6 @@
 namespace v1
 {
 
-// std::string generate_topic_sequence(
-//     const char* src_lang,
-//     float mix_value,
-//     float skip_value,
-//     uint16_t order_words_by,
-//     bool exclude_word_if_not_present_in_all_sources,
-//     bool exclude_word_if_very_rare,
-//     std::vector<std::string> sources_processed
-// ) {
-//     for (auto& source : sources_processed) {
-//         // std::cout << source << std::endl;
-//     }
-
-//     // convert text meta to binary meta
-//     // source mixing algorithm
-//     // convert mix result to text sequence
-//     // return result
-//     return "";
-// }
-
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value result_focus_group;
     try {
@@ -50,22 +30,30 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             for (const auto& i : topics_to_generate) {
                 auto topic_id = i["topic_id"].as<uint64_t>();
                 auto topic_last_update_id = i["last_update_id"].as<uint32_t>();
-                auto new_topic_sequence = co_await core::sql::generate_topic_sequence_and_if_update(users_db, user_id, topic_id, topic_last_update_id);
-
-                // debug
-                if (topic_id == 27) {
-                    co_return local_utils::Response::OK(callback, new_topic_sequence);
-                }
+                co_await core::sql::generate_topic_sequence_and_if_update(users_db, user_id, topic_id, topic_last_update_id);
             }
 
-
-            auto topics_sequences = co_await users_db->execSqlCoro(
-                "select topic_id from user_topics "
-                "where user_id = $1 and is_enabled = true order by src_lang, dst_lang", 
+            auto topics_sequences_result = co_await users_db->execSqlCoro(
+                "select ut.src_lang, ut.dst_lang, ulp.mix_value as lang_mix_value, ut.mix_value as topic_mix_value, ut.topic_words_sequence "
+                "from user_topics as ut "
+                "join user_language_pairs as ulp "
+                "on ut.user_id = ulp.user_id "
+                "and ut.src_lang = ulp.src_lang "
+                "and ut.dst_lang = ulp.dst_lang "
+                "where ulp.is_enabled = true "
+                "and ulp.user_id = $1 and ut.last_update_id != 0 "
+                "order by ulp.last_enable_time desc, ut.position asc",
                 user_id
             );
 
+            std::unordered_map<std::string, std::unordered_map<std::string, std::string>> topics_sequences;
 
+
+            // std::vector<>
+
+            for (auto& topic_sequence : topics_sequences_result) {
+                
+            }
 
             // fetch user topic_words_sequence's
             // and generate final sequence

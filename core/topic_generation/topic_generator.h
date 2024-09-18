@@ -7,20 +7,12 @@
 
 namespace core::topic_generation {
 
-class SequenceGeneratorUnit {
-public:
-    // basicTopicCoef
-    float mix_value;
-    SequenceGeneratorUnit() {}
-};
-
 class TopicGenerator {
 public:
     enum class OrderWordsBy : uint32_t {first_appearance, relative_popularity, total_popularity};
 
     TopicGenerator(
         std::string src_lang,
-        float mix_value,
         float skip_value,
         OrderWordsBy order_words_by,
         bool exclude_word_if_not_present_in_all_sources,
@@ -36,10 +28,9 @@ public:
     TopicGenerator(TopicGenerator&&) = delete;
     TopicGenerator& operator=(const TopicGenerator&) = delete;
     TopicGenerator& operator=(TopicGenerator&&) = delete;
-    
+
 private:
     std::string _src_lang;
-    float _mix_value;
     float _skip_value;
     OrderWordsBy _order_words_by;
     bool _exclude_word_if_not_present_in_all_sources;
