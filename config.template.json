@@ -14,29 +14,10 @@
     },*/
     "listeners": [
         {
-            //address: Ip address,0.0.0.0 by default
             "address": "0.0.0.0",
-            //port: Port number
-            "port": 5555,
-            //https: If true, use https for security,false by default
+            "port": "${SERVER_PORT}",
             "https": false
-        }
-        //,
-        // {
-        //     "address": "0.0.0.0",
-        //     "port": 443,
-        //     "https": true,
-        //     //cert,key: Cert file path and key file path, empty by default,
-        //     //if empty, use the global setting
-        //     "cert": "",
-        //     "key": "",
-        //     //use_old_tls: enable the TLS1.0/1.1, false by default
-        //     "use_old_tls": false,
-        //     "ssl_conf": [
-        //         //["MinProtocol", "TLSv1.3"]
-        //     ]
-        // }
-        
+        }        
     ],
     "db_clients": [
         {
@@ -47,15 +28,15 @@
             //filename: Sqlite3 db file name
             //"filename":"",
             //host: Server address,localhost by default
-            "host": "127.0.0.1",
+            "host": "${USERS_DB_HOST}",
             //port: Server port, 5432 by default
             "port": 5432,
             //dbname: Database name
-            "dbname": "svocab_users",
+            "dbname": "${USERS_DB_DBNAME}",
             //user: 'postgres' by default
-            "user": "svocab_manager",
+            "user": "${USERS_DB_USER}",
             //passwd: '' by default
-            "passwd": "HelloWorld1990",
+            "passwd": "${USERS_DB_PASSWORD}",
             //is_fast: false by default, if it is true, the client is faster but user can't call
             //any synchronous interface of it.
             "is_fast": false,
@@ -81,13 +62,13 @@
             //name: Name of the client,'default' by default
             "name": "default",
             //host: Server IP, 127.0.0.1 by default
-            "host": "127.0.0.1",
+            "host": "${REDIS_HOST}",
             //port: Server port, 6379 by default
             "port": 6379,
             //username: '' by default which means 'default' in redis ACL
-            "username": "",
+            "username": "${REDIS_USERNAME}",
             //passwd: '' by default
-            "passwd": "",
+            "passwd": "${REDIS_PASSWORD}",
             //db index: 0 by default
             "db": 0,
             //is_fast: false by default, if it is true, the client is faster but user can't call
@@ -340,30 +321,19 @@
                 "log_file": "access.log",
                 "log_size_limit": 0,
                 "use_local_time": true,
-                "log_index": 0,
+                "log_index": 0
                 // "show_microseconds": true,
                 // "custom_time_format": "",
                 // "use_real_ip": false
-            }
-        },
-        {
-            "name": "EmailSender",
-            "dependencies": [],
-            //config: The configuration of the plugin. This json object is the parameter to initialize the plugin.
-            //It can be commented out
-            "config": {
-                "server": "smtps://mail.hosting.reg.ru:465",
-                "user": "verify@svocab.com",
-                "password": "lqwkejrlqwkjflkasdjfqi12312341234jlkjasdfio1j32"
             }
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 
     "custom_config": {
         "smtp": {
-            "server": "smtps://mail.hosting.reg.ru:465",
-            "user": "verify@svocab.com",
-            "password": "lqwkejrlqwkjflkasdjfqi12312341234jlkjasdfio1j32"
+            "server": "${SMTP_SERVER}",
+            "user": "${SMTP_USER}",
+            "password": "${SMTP_PASSWORD}"
         },
         "realm": "drogonRealm",
         "opaque": "drogonOpaque",

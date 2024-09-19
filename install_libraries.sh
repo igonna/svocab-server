@@ -2,13 +2,18 @@
 
 # Define custom installation directory
 TMP_DIR="/tmp/svocab_install_libraries"
+APT_UPDATE_DONE=false
 
 install_if_missing_linux_package() {
     local pkg=$1
     if dpkg -s "$pkg" >/dev/null 2>&1; then
-        echo "$pkg is already installed."
+        echo "(+) installed: $pkg"
     else
-        echo "$pkg is not installed. Installing..."
+        if [ "$APT_UPDATE_DONE" = false ]; then
+            sudo apt update
+            APT_UPDATE_DONE=true
+        fi
+        echo "(-) not installed (Installing...): $pkg"
         sudo apt install -y "$pkg"
     fi
 }
@@ -30,15 +35,11 @@ install_linux() {
         libssl-dev
         postgresql-all
         libhiredis-dev
-        gumbo-parser
         libicu-dev
         libpoppler-cpp-dev
         libtool
         libcurl4-openssl-dev
     )
-
-    # Update package list
-    sudo apt update
 
     # Iterate over the list of packages
     for pkg in "${packages[@]}"; do

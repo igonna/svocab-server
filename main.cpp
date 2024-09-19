@@ -3,7 +3,7 @@
 using namespace drogon;
 
 int main() {
-    drogon::app().loadConfigFile("../config.json").run();
+    drogon::app().loadConfigFile("./config.json").run();
     return 0;
 }
 

@@ -62,3 +62,4 @@ out/
 # drogon
 drogon.log
 uploads/
+config.json
