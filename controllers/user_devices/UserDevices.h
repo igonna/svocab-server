@@ -15,7 +15,7 @@ public:
 	Task<> revokeDevice(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
 	METHOD_LIST_BEGIN
-	METHOD_ADD(UserDevices::getBareToken, "/get_bare_token", Post);
+	METHOD_ADD(UserDevices::getBareToken, "/get_bare_token", Get);
 	METHOD_ADD(UserDevices::getDevices, "/get_devices", Get, "JwtFilter");
 	METHOD_ADD(UserDevices::revokeDevice, "/revoke_device", Post, "JwtFilter");
 	METHOD_LIST_END

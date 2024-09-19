@@ -15,7 +15,7 @@
     "listeners": [
         {
             "address": "0.0.0.0",
-            "port": "${SERVER_PORT}",
+            "port": ${SERVER_PORT},
             "https": false
         }        
     ],
@@ -326,15 +326,21 @@
                 // "custom_time_format": "",
                 // "use_real_ip": false
             }
+        },
+        {
+            "name": "EmailSender",
+            "dependencies": [],
+            //config: The configuration of the plugin. This json object is the parameter to initialize the plugin.
+            //It can be commented out
+            "config": {
+                "server": "${SMTP_SERVER}",
+                "user": "${SMTP_USER}",
+                "password": "${SMTP_PASSWORD}"
+            }
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 
     "custom_config": {
-        "smtp": {
-            "server": "${SMTP_SERVER}",
-            "user": "${SMTP_USER}",
-            "password": "${SMTP_PASSWORD}"
-        },
         "realm": "drogonRealm",
         "opaque": "drogonOpaque",
         "credentials": [

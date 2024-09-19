@@ -14,7 +14,7 @@ public:
 	Task<> signInGoogle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
 	METHOD_LIST_BEGIN
-	METHOD_ADD(UserSignIn::getCodeForEmailSignIn, "/get_code_to_email", Post);
+	METHOD_ADD(UserSignIn::getCodeForEmailSignIn, "/get_code_to_email", Get);
 	METHOD_ADD(UserSignIn::signInEmail, "/sign_in_email", Post);
 	METHOD_ADD(UserSignIn::signInGoogle, "/sign_in_google", Post);
 	METHOD_LIST_END

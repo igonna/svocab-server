@@ -113,6 +113,10 @@ size_t EmailSender::readfunction(char *ptr, size_t size, size_t nmemb) {
 }
 
 void EmailSender::send_email(const std::string& email, const std::string& code) {
+    if (!(smtp_user.size() && smtp_password.size() && smtp_server.size())) {
+        throw std::runtime_error("not valid smtp config");
+    }
+
     payload = "To: " + email + "\r\n" +
         "From: svocab <" + smtp_user + ">\r\n" +
         "Subject: code " + code + "\r\n" +

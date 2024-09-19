@@ -15,7 +15,7 @@ public:
 	Task<> linkGoogleToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
 	METHOD_LIST_BEGIN
-	METHOD_ADD(UserLinkEmail::getCodeForEmailLink, "/get_code_to_email", Post, "JwtFilter");
+	METHOD_ADD(UserLinkEmail::getCodeForEmailLink, "/get_code_to_email", Get, "JwtFilter");
 	METHOD_ADD(UserLinkEmail::linkEmailToAccount, "/link_email", Post, "JwtFilter");
 	METHOD_ADD(UserLinkEmail::linkGoogleToAccount, "/link_google", Post, "JwtFilter");
 	METHOD_LIST_END
