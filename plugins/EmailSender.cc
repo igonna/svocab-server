@@ -6,6 +6,80 @@
 #include <drogon/HttpClient.h>
 #include <curl/curl.h>
 
+
+class CurlSendEmail {
+public:
+    CurlSendEmail(std::string payload) : payload_(payload) {}
+
+    void send_email(const std::string& smtp_server,
+        const std::string& smtp_user,
+        const std::string& smtp_password,
+        const std::string& email,
+        const std::string& code
+    ) {
+        CURL *curl;
+        CURLcode res = CURLE_OK;
+        struct curl_slist *recipients = nullptr;
+
+        curl = curl_easy_init();
+        if (curl) {
+            // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+            curl_easy_setopt(curl, CURLOPT_USERNAME, smtp_user.c_str());
+            curl_easy_setopt(curl, CURLOPT_PASSWORD, smtp_password.c_str());
+            curl_easy_setopt(curl, CURLOPT_URL, smtp_server.c_str());
+            curl_easy_setopt(curl, CURLOPT_MAIL_FROM, smtp_user.c_str());
+
+            recipients = curl_slist_append(recipients, email.c_str());
+            curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
+            curl_easy_setopt(curl, CURLOPT_READFUNCTION, CurlSendEmail::static_readfunction);
+
+            curl_easy_setopt(curl, CURLOPT_READDATA, this);
+            curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+
+            res = curl_easy_perform(curl);
+
+            if (res != CURLE_OK) {
+                throw std::runtime_error(curl_easy_strerror(res));
+            }
+
+            curl_slist_free_all(recipients);
+            curl_easy_cleanup(curl);
+        }
+    }
+
+private:
+    std::string payload_;
+
+    size_t bytes_read = 0;
+
+    size_t readfunction(char *ptr, size_t size, size_t nmemb) {
+        const char *data;
+        size_t room = size * nmemb;
+        
+        if((size == 0) || (nmemb == 0) || ((size*nmemb) < 1)) {
+            return 0;
+        }
+        
+        data = payload_.data() + bytes_read;
+        
+        if (data) {
+            size_t len = strlen(data);
+            if(room < len)
+                len = room;
+            memcpy(ptr, data, len);
+            bytes_read += len;
+        
+            return len;
+        }
+        
+        return 0;
+    }
+
+    static size_t static_readfunction(void *buffer, size_t size, size_t nmemb, void *user_data) {
+        return static_cast<CurlSendEmail*>(user_data)->readfunction(reinterpret_cast<char*>(buffer), size, nmemb);
+    }
+};
+
 using namespace drogon;
 
 void EmailSender::initAndStart(const Json::Value &config)
@@ -89,69 +163,19 @@ Task<std::string> EmailSender::get_email_from_google_token(const std::string &to
     co_return email;
 }
 
-size_t EmailSender::readfunction(char *ptr, size_t size, size_t nmemb) {
-    const char *data;
-    size_t room = size * nmemb;
-    
-    if((size == 0) || (nmemb == 0) || ((size*nmemb) < 1)) {
-        return 0;
-    }
-    
-    data = payload.data() + bytes_read;
-    
-    if (data) {
-        size_t len = strlen(data);
-        if(room < len)
-            len = room;
-        memcpy(ptr, data, len);
-        bytes_read += len;
-    
-        return len;
-    }
-    
-    return 0;
-}
-
 void EmailSender::send_email(const std::string& email, const std::string& code) {
     if (!(smtp_user.size() && smtp_password.size() && smtp_server.size())) {
         throw std::runtime_error("not valid smtp config");
     }
 
-    payload = "To: " + email + "\r\n" +
-        "From: svocab <" + smtp_user + ">\r\n" +
+    std::string payload = "From: svocab <" + smtp_user + ">\r\n" +
+        "To: <" + email + ">\r\n" +
         "Subject: code " + code + "\r\n" +
         "Content-Type: text/html\r\n" +
         "\r\n" +
         "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
 
-    CURL *curl;
-    CURLcode res = CURLE_OK;
-    struct curl_slist *recipients = nullptr;
-
-    curl = curl_easy_init();
-    if (curl) {
-        // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-        curl_easy_setopt(curl, CURLOPT_USERNAME, smtp_user.c_str());
-        curl_easy_setopt(curl, CURLOPT_PASSWORD, smtp_password.c_str());
-        curl_easy_setopt(curl, CURLOPT_URL, smtp_server.c_str());
-        curl_easy_setopt(curl, CURLOPT_MAIL_FROM, smtp_user.c_str());
-
-        recipients = curl_slist_append(recipients, email.c_str());
-        curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
-        curl_easy_setopt(curl, CURLOPT_READFUNCTION, EmailSender::static_readfunction);
-
-        curl_easy_setopt(curl, CURLOPT_READDATA, this);
-        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-
-        res = curl_easy_perform(curl);
-
-        if (res != CURLE_OK) {
-            throw std::runtime_error(curl_easy_strerror(res));
-        }
-
-        curl_slist_free_all(recipients);
-        curl_easy_cleanup(curl);
-    }
+    CurlSendEmail(std::move(payload)).send_email(smtp_server, smtp_user, smtp_password, email, code);
 }
 
 std::string EmailSender::get_email_type(const std::string& email) {

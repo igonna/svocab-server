@@ -12,8 +12,16 @@ CREATE TABLE users (
 
 CREATE TABLE user_state (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    learned_this_time INT NOT NULL DEFAULT 0,
-    check_points SMALLINT NOT NULL DEFAULT 0
+    learned_this_time INT NOT NULL DEFAULT 0
+) PARTITION BY HASH (user_id);
+
+CREATE TABLE user_checkpoints (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    first_lang_pair_created BOOLEAN NOT NULL DEFAULT FALSE,
+    principles_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    flow_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    filter_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
 ) PARTITION BY HASH (user_id);
 
 -- check_points:
@@ -120,7 +128,7 @@ CREATE TABLE ranks (
 
 CREATE TABLE user_statistics (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    -- app_sessions JSONB NOT NULL, -- i am not sure that we need it
+    -- app_sessions JSONB NOT NULL, -- do not think that we need it
     last_learn_time INT NOT NULL DEFAULT 0,
     learned_today INT NOT NULL DEFAULT 0,
     learned_words_total INT NOT NULL DEFAULT 0,
@@ -162,6 +170,11 @@ CREATE TABLE user_state_p0 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, R
 CREATE TABLE user_state_p1 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_state_p2 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_state_p3 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE TABLE user_checkpoints_p0 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_checkpoints_p1 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_checkpoints_p2 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_checkpoints_p3 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_language_pairs_p0 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_language_pairs_p1 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 1);

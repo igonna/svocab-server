@@ -2,8 +2,6 @@
 #include <drogon/plugins/Plugin.h>
 #include <drogon/utils/coroutine.h>
 
-
-
 class EmailSender : public drogon::Plugin<EmailSender>
 {
 public:
@@ -33,13 +31,4 @@ private:
     std::string smtp_server;
     std::string smtp_user;
     std::string smtp_password;
-
-    std::string payload;
-
-    size_t bytes_read = 0;
-
-    size_t readfunction(char *ptr, size_t size, size_t nmemb);
-    static size_t static_readfunction(void *buffer, size_t size, size_t nmemb, void *user_data) {
-        return static_cast<EmailSender*>(user_data)->readfunction(reinterpret_cast<char*>(buffer), size, nmemb);
-    }
 };

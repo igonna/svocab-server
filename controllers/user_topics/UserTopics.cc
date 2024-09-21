@@ -18,8 +18,9 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
 {
     auto src_lang = req->getHeader("srcLang");
     auto dst_lang = req->getHeader("dstLang");
+    auto to_translate_lang = req->getHeader("toTranslateLang");
 
-    if (!(src_lang.size() && dst_lang.size())) {
+    if (!(src_lang.size() && dst_lang.size()) || to_translate_lang.size() != local_constants::languages::lang_tag_size) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
@@ -46,7 +47,7 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
             throw std::runtime_error("topic_not_created");
         }
 
-        result_topic = createTopicGenerationWindow(result[0]);
+        result_topic = createTopicGenerationWindow(result[0], to_translate_lang);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -79,6 +80,12 @@ Task<> UserTopics::deleteTopic(HttpRequestPtr req, std::function<void(const Http
 
 Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
+    auto to_translate_lang = req->getHeader("toTranslateLang");
+
+    if (to_translate_lang.size() != local_constants::languages::lang_tag_size) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
     Json::Value result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -97,7 +104,7 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
             user_id
         );
 
-        result_body = createTopicsList(result);
+        result_body = createTopicsList(result, to_translate_lang);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -109,8 +116,9 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
 Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto topic_id = req->getHeader("topicId");
+    auto to_translate_lang = req->getHeader("toTranslateLang");
 
-    if (!topic_id.size()) {
+    if (!topic_id.size() || to_translate_lang.size() != local_constants::languages::lang_tag_size) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
@@ -132,7 +140,7 @@ Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<vo
             throw std::runtime_error("topic_not_exists");
         }
 
-        result_body = createTopicGenerationWindow(result[0]);
+        result_body = createTopicGenerationWindow(result[0], to_translate_lang);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -618,11 +626,12 @@ Task<> UserTopics::getTopicMixWords(HttpRequestPtr req, std::function<void(const
 }
 
 
-Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::Reference& row)
+Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang)
 {
     Json::Value result;
     result["topic_id"] = row["topic_id"].as<uint32_t>();
-    result["src_lang"] = row["src_lang"].as<std::string>();
+    auto src_lang = row["src_lang"].as<std::string>();
+    result["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
     result["topic_title"] = row["topic_title"].as<std::string>();
 
     auto& options = result["options"];
@@ -648,7 +657,7 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
     return result;
 }
 
-Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows)
+Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const std::string& to_translate_lang)
 {
     Json::Value result;
     auto& topics = result["topics"] = Json::arrayValue;
@@ -673,6 +682,9 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows)
             new_lang_pair["src_lang"] = src_lang;
             new_lang_pair["dst_lang"] = dst_lang;
             new_lang_pair["lang_mix_value"] = row["lang_mix_value"].as<float>();
+
+            new_lang_pair["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
+            new_lang_pair["dst_lang_name"] = local_utils::supported_languages::get_language_title_localized(dst_lang, to_translate_lang);
             language_pairs.append(new_lang_pair);
         }
 

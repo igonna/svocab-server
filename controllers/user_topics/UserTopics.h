@@ -50,7 +50,7 @@ public:
 	METHOD_ADD(UserTopics::getTopicMixWords, "/get_topic_mix_words", Get, "JwtFilter");
     METHOD_LIST_END
 private:
-	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row);
-	Json::Value createTopicsList(const drogon::orm::Result& rows);
+	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang_tag);
+	Json::Value createTopicsList(const drogon::orm::Result& rows, const std::string& to_translate_lang_tag);
 };
 }
