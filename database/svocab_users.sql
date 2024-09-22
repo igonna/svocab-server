@@ -94,6 +94,7 @@ CREATE TABLE user_topics (
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
     order_words_by SMALLINT NOT NULL DEFAULT 0, -- first_appearance, relative_popularity, total_popularity
+    exclude_word_if_word_learned BOOLEAN NOT NULL DEFAULT TRUE,
     exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
     exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
 

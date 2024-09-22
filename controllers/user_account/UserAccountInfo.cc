@@ -29,7 +29,7 @@ Task<> UserAccountInfo::getAccountInfo(HttpRequestPtr req, std::function<void(co
     Json::Value response;
     response["email"] = email;
     response["email_type"] = app().getPlugin<EmailSender>()->get_email_type(email);
-    response["has_subsciption"] = has_subscription;
+    response["has_subscription"] = has_subscription;
     co_return callback(HttpResponse::newHttpJsonResponse(response));
 }
 }

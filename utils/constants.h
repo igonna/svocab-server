@@ -31,6 +31,70 @@ namespace languages {
         "sk", "sl", "lt", "lv", "et", "mk", "ta", "te", "ur", "mr", "gu", "ml", "kk", 
         "mn", "my", "tl", "am", "kn", "so", "bg", "pa"
     };
+
+    // ISO 639-1 to ISO 3166-1 alpha-2
+    static const std::unordered_map<const char*, const char*> language_to_country = {
+        {"en", "US"},  // English -> United States
+        {"es", "ES"},  // Spanish -> Spain
+        {"fr", "FR"},  // French -> France
+        {"de", "DE"},  // German -> Germany
+        {"zh", "CN"},  // Chinese -> China
+        {"ja", "JP"},  // Japanese -> Japan
+        {"it", "IT"},  // Italian -> Italy
+        {"pt", "PT"},  // Portuguese -> Portugal
+        {"ru", "RU"},  // Russian -> Russia
+        {"ko", "KR"},  // Korean -> South Korea
+        {"ar", "SA"},  // Arabic -> Saudi Arabia
+        {"nl", "NL"},  // Dutch -> Netherlands
+        {"sv", "SE"},  // Swedish -> Sweden
+        {"tr", "TR"},  // Turkish -> Turkey
+        {"hi", "IN"},  // Hindi -> India
+        {"no", "NO"},  // Norwegian -> Norway
+        {"el", "GR"},  // Greek -> Greece
+        {"pl", "PL"},  // Polish -> Poland
+        {"vi", "VN"},  // Vietnamese -> Vietnam
+        {"id", "ID"},  // Indonesian -> Indonesia
+        {"da", "DK"},  // Danish -> Denmark
+        {"th", "TH"},  // Thai -> Thailand
+        {"uk", "UA"},  // Ukrainian -> Ukraine
+        {"fa", "IR"},  // Persian -> Iran
+        {"cs", "CZ"},  // Czech -> Czech Republic
+        {"fi", "FI"},  // Finnish -> Finland
+        {"ro", "RO"},  // Romanian -> Romania
+        {"sw", "SE"},  // Swahili -> Sweden
+        {"hu", "HU"},  // Hungarian -> Hungary
+        {"ca", "ES"},  // Catalan -> Spain
+        {"bn", "BD"},  // Bengali -> Bangladesh
+        {"is", "IS"},  // Icelandic -> Iceland
+        {"ms", "MY"},  // Malay -> Malaysia
+        {"sr", "RS"},  // Serbian -> Serbia
+        {"hr", "HR"},  // Croatian -> Croatia
+        {"hy", "AM"},  // Armenian -> Armenia
+        {"ka", "GE"},  // Georgian -> Georgia
+        {"sq", "AL"},  // Albanian -> Albania
+        {"bs", "BA"},  // Bosnian -> Bosnia and Herzegovina
+        {"sk", "SK"},  // Slovak -> Slovakia
+        {"sl", "SI"},  // Slovenian -> Slovenia
+        {"lt", "LT"},  // Lithuanian -> Lithuania
+        {"lv", "LV"},  // Latvian -> Latvia
+        {"et", "EE"},  // Estonian -> Estonia
+        {"mk", "MK"},  // Macedonian -> North Macedonia
+        {"ta", "IN"},  // Tamil -> India
+        {"te", "IN"},  // Telugu -> India
+        {"ur", "PK"},  // Urdu -> Pakistan
+        {"mr", "IN"},  // Marathi -> India
+        {"gu", "IN"},  // Gujarati -> India
+        {"ml", "IN"},  // Malayalam -> India
+        {"kk", "KZ"},  // Kazakh -> Kazakhstan
+        {"mn", "MN"},  // Mongolian -> Mongolia
+        {"my", "MM"},  // Burmese -> Myanmar
+        {"tl", "PH"},  // Tagalog -> Philippines
+        {"am", "ET"},  // Amharic -> Ethiopia
+        {"kn", "IN"},  // Kannada -> India
+        {"so", "SO"},  // Somali -> Somalia
+        {"bg", "BG"},  // Bulgarian -> Bulgaria
+        {"pa", "IN"}   // Punjabi -> India
+    };
 }
 
 namespace redis {

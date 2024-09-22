@@ -41,7 +41,19 @@ namespace supported_languages {
         std::string result;
         for (auto i : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
             if (supported_locales.contains(i)) {
-                result += std::string(i) + ";" + local_utils::supported_languages::get_language_title_localized(i, to_translate_lang_tag) + "\n";
+                result += std::string(i) + ';' + local_utils::supported_languages::get_language_title_localized(i, to_translate_lang_tag);
+
+                try {
+                    std::string country_code = local_constants::languages::language_to_country.at(i);
+
+                    std::transform(country_code.begin(), country_code.end(), country_code.begin(), 
+                        [](unsigned char c) { return std::tolower(c); }
+                    );
+
+                    result += std::string(";") + country_code;
+                } catch (...) {}
+
+                result += '\n';
             }
         }
         return result;

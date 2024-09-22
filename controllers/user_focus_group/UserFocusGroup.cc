@@ -21,18 +21,20 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
         // if generation required
         if (result.size()) {
+            // update not updated topics
             auto topics_to_generate = co_await users_db->execSqlCoro(
                 "select topic_id, last_update_id from user_topics "
                 "where user_id = $1 and last_gen_id != last_update_id and is_enabled = true", 
                 user_id
             );
-
+            
             for (const auto& i : topics_to_generate) {
                 auto topic_id = i["topic_id"].as<uint64_t>();
                 auto topic_last_update_id = i["last_update_id"].as<uint32_t>();
                 co_await core::sql::generate_topic_sequence_and_if_update(users_db, user_id, topic_id, topic_last_update_id);
             }
 
+            // fetch all topics words sequences
             auto topics_sequences_result = co_await users_db->execSqlCoro(
                 "select ut.src_lang, ut.dst_lang, ulp.mix_value as lang_mix_value, ut.mix_value as topic_mix_value, ut.topic_words_sequence "
                 "from user_topics as ut "
@@ -54,6 +56,8 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             for (auto& topic_sequence : topics_sequences_result) {
                 
             }
+
+            // sequence generation is just mix topics's sequences
 
             // fetch user topic_words_sequence's
             // and generate final sequence

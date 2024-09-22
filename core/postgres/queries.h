@@ -99,7 +99,7 @@ static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbCl
     // fetch topic gen data
     auto topic_sources = co_await users_db->execSqlCoro(
         "select src_lang, skip_value, order_words_by, "
-        "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
+        "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, exclude_word_if_word_learned, "
         "key, value from user_topics, jsonb_each_text(sources_processed) "
         "where user_id = $1 and topic_id = $2",
         user_id, topic_id
@@ -114,13 +114,15 @@ static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbCl
     auto order_words_by = topic_sources[0]["order_words_by"].as<uint16_t>();
     auto exclude_word_if_not_present_in_all_sources = topic_sources[0]["exclude_word_if_not_present_in_all_sources"].as<bool>();
     auto exclude_word_if_very_rare = topic_sources[0]["exclude_word_if_very_rare"].as<bool>();
+    auto exclude_word_if_word_learned = topic_sources[0]["exclude_word_if_word_learned"].as<bool>();
 
     auto topic_generator = core::topic_generation::TopicGenerator(
         src_lang,
         skip_value,
         static_cast<core::topic_generation::TopicGenerator::OrderWordsBy>(order_words_by),
         exclude_word_if_not_present_in_all_sources,
-        exclude_word_if_very_rare
+        exclude_word_if_very_rare,
+        exclude_word_if_word_learned
     );
 
     for (auto& source : topic_sources) {
