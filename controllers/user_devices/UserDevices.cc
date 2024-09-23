@@ -4,6 +4,7 @@
 #include "core/secret/secret_key.h"
 #include "core/token/token.h"
 #include "core/device/revoke.h"
+#include "core/devices_info/devices_info.h"
 
 namespace v1
 {
@@ -11,6 +12,11 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
     auto refresh_token = req->getHeader("refreshToken");
     auto device_os_version = req->getHeader("deviceOsVersion");
     auto device_model = req->getHeader("deviceModel");
+    auto device_name = req->getHeader("deviceName");
+
+    if (refresh_token.empty() || device_os_version.empty() || device_model.empty()) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
 
     uint64_t user_id;
     uint32_t device_num;
@@ -25,7 +31,9 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
 
     auto ip_addr = req->peerAddr().ipNetEndian();
     auto time_now = local_utils::time::get_unix_timestamp();
-    std::string device_name = "";
+    if (device_name.empty()) {
+        device_name = co_await core::devices_info::get_device_name_by_model(device_model);
+    }
 
     // check if valid device_refresh_token and update
     try {
@@ -103,7 +111,7 @@ Task<> UserDevices::getDevices(HttpRequestPtr req, std::function<void(const Http
             cur_device["device_os_version"] = cur_device_os_version;
 
             if (device_num == cur_device_num) {
-                response["this_device"].append(cur_device);
+                response["this_device"] = cur_device;
             } else {
                 response["other_devices"].append(cur_device);
             }

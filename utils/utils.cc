@@ -4,6 +4,8 @@
 #include <unicode/brkiter.h>
 #include <unicode/locid.h>
 #include <unordered_set>
+#include <drogon/utils/coroutine.h>
+#include <drogon/drogon.h>
 
 namespace local_utils {
 namespace supported_languages {

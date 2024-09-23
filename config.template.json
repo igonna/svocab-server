@@ -22,7 +22,7 @@
     "db_clients": [
         {
             //name: Name of the client,'default' by default
-            "name": "svocab_users",
+            "name": "${USERS_DB_DBNAME}",
             //rdbms: Server type, postgresql,mysql or sqlite3, "postgresql" by default
             "rdbms": "postgresql",
             //filename: Sqlite3 db file name
@@ -55,6 +55,19 @@
             //connect_options: extra options for the connection. Only works for PostgreSQL now.
             //For more information, see https://www.postgresql.org/docs/16/libpq-connect.html#LIBPQ-CONNECT-OPTIONS
             // "connect_options": { "statement_timeout": "8s" }
+        },
+        {
+            "name": "${DEVICES_INFO_DB_DBNAME}",
+            "rdbms": "postgresql",
+            "host": "${DEVICES_INFO_DB_HOST}",
+            "port": 5432,
+            "dbname": "${DEVICES_INFO_DB_DBNAME}",
+            "user": "${DEVICES_INFO_DB_USER}",
+            "passwd": "${DEVICES_INFO_DB_PASSWORD}",
+            "is_fast": false,
+            "number_of_connections": 1,
+            "timeout": 8.0,
+            "auto_batch": false
         }
     ],
     "redis_clients": [
@@ -341,6 +354,10 @@
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 
     "custom_config": {
+        "supported_devices": {
+            "host": "https://storage.googleapis.com",
+            "path": "/play_public/supported_devices.csv"
+        },
         "realm": "drogonRealm",
         "opaque": "drogonOpaque",
         "credentials": [

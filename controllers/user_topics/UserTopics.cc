@@ -29,13 +29,21 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto result_position = co_await users_db->execSqlCoro("select COALESCE(MIN(position), 0) AS biggest_position "
-            "from user_topics where user_id = $1", user_id
+        auto result = co_await users_db->execSqlCoro("select 1 from user_language_pairs "
+            "where user_id = $1 and src_lang = $2 and dst_lang = $3 limit 1", user_id, src_lang, dst_lang
         );
 
-        auto position = result_position[0]["biggest_position"].as<int32_t>() - 1;
+        if (result.empty()) {
+            co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "language_pair_not_exists");
+        }
 
-        auto result = co_await users_db->execSqlCoro("insert into user_topics (user_id, src_lang, dst_lang, position) "
+        auto result_position = co_await users_db->execSqlCoro("select COALESCE(MIN(position), 0) AS smallest_position "
+            "from user_topics where user_id = $1 and src_lang = $2 and dst_lang = $3", user_id, src_lang, dst_lang
+        );
+
+        auto position = result_position[0]["smallest_position"].as<int32_t>() - 1;
+
+        result = co_await users_db->execSqlCoro("insert into user_topics (user_id, src_lang, dst_lang, position) "
             "values ($1, $2, $3, $4) returning "
             "topic_id, src_lang, topic_title, order_words_by, "
             "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, exclude_word_if_word_learned, "
@@ -92,9 +100,10 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto result = co_await users_db->execSqlCoro(
-            "select ut.topic_id, ut.src_lang, ut.dst_lang, ulp.mix_value as lang_mix_value, ut.topic_title, ut.mix_value, ut.skip_value, ut.is_enabled, ut.position "
-            "from user_topics as ut "
-            "join user_language_pairs as ulp "
+            "select ut.topic_id, ulp.src_lang, ulp.dst_lang, ulp.mix_value as lang_mix_value, "
+            "ut.topic_title, ut.mix_value, ut.skip_value, ut.is_enabled, ut.position "
+            "from user_language_pairs as ulp "
+            "left join user_topics as ut "
             "on ut.user_id = ulp.user_id "
             "and ut.src_lang = ulp.src_lang "
             "and ut.dst_lang = ulp.dst_lang "
@@ -493,7 +502,7 @@ Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const H
             if (!result.affectedRows()) throw std::runtime_error("not_updated");
 
         } else if (bolean_options.contains(option_name)){
-            auto result = co_await users_db->execSqlCoro(query, value == "t" ? true : false, user_id, std::stoull(topic_id_str));
+            auto result = co_await users_db->execSqlCoro(query, value == "true" ? true : false, user_id, std::stoull(topic_id_str));
             if (!result.affectedRows()) throw std::runtime_error("not_updated");
 
         } else if (float_options.contains(option_name)){
@@ -560,7 +569,17 @@ Task<> UserTopics::setTopicPosition(HttpRequestPtr req, std::function<void(const
             throw std::runtime_error("not_updated");
         }
 
-        result = co_await users_db->execSqlCoro("update user_topics set position = position + 1 where user_id = $1 and topic_id != $2 and position >= $3", user_id, topic_id, position);
+        result = co_await users_db->execSqlCoro("select src_lang, dst_lang from user_topics where user_id = $1 and topic_id = $2", user_id, topic_id);
+        if (result.empty()) {
+            throw std::runtime_error("not_exists");
+        }
+        auto src_lang = result[0]["src_lang"].as<std::string>();
+        auto dst_lang = result[0]["dst_lang"].as<std::string>();
+
+        result = co_await users_db->execSqlCoro("update user_topics set position = position + 1 "
+            "where user_id = $1 and topic_id != $2 and src_lang = $3 and dst_lang = $4 and position >= $5", 
+            user_id, topic_id, src_lang, dst_lang, position
+        );
         if (!result.affectedRows()) {
             throw std::runtime_error("not_updated");
         }
@@ -689,16 +708,17 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const 
             language_pairs.append(new_lang_pair);
         }
 
-        Json::Value new_topic;
-        new_topic["topic_id"] = row["topic_id"].as<uint64_t>();
-        new_topic["topic_title"] = row["topic_title"].as<std::string>();
-        new_topic["mix_value"] = row["mix_value"].as<float>();
-        new_topic["skip_value"] = row["skip_value"].as<float>();
-        new_topic["is_enabled"] = row["is_enabled"].as<bool>();
-        new_topic["position"] = row["position"].as<int32_t>();
-        new_topic["lang_pair_index"] = current_lang_pair_id;
-
-        topics.append(new_topic);
+        if (!row["topic_id"].isNull()) {
+            Json::Value new_topic;
+            new_topic["topic_id"] = row["topic_id"].as<uint64_t>();
+            new_topic["topic_title"] = row["topic_title"].as<std::string>();
+            new_topic["mix_value"] = row["mix_value"].as<float>();
+            new_topic["skip_value"] = row["skip_value"].as<float>();
+            new_topic["is_enabled"] = row["is_enabled"].as<bool>();
+            new_topic["position"] = row["position"].as<int32_t>();
+            new_topic["lang_pair_index"] = current_lang_pair_id;
+            topics.append(new_topic);
+        }
     }
 
     return result;

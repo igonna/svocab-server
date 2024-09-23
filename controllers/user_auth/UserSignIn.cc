@@ -39,9 +39,9 @@ Task<> UserSignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(
 
     // check if email exists
     try {
-        auto transaction = app().getDbClient(local_constants::users_db)->newTransaction();
+        auto users_db = app().getDbClient(local_constants::users_db);
 
-        auto result = co_await transaction->execSqlCoro("select 1 from users where email = $1 limit 1", email);
+        auto result = co_await users_db->execSqlCoro("select 1 from users where email = $1 limit 1", email);
 
         if (!result.size()) {
             co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "email_not_exists");
@@ -130,14 +130,14 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
     // update user and insert device
     try {
         // update last device num
-        auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
-        auto updateResult = co_await transaction->execSqlCoro("update users set last_device_num = last_device_num + 1 where email = $1", email);
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto update_result = co_await users_db->execSqlCoro("update users set last_device_num = last_device_num + 1 where email = $1", email);
 
-        if (updateResult.affectedRows() == 0) {
+        if (update_result.affectedRows() == 0) {
             co_return local_utils::Response::Error::FORBIDDEN(callback, "user_not_exists");
         }
 
-        auto selectResult = co_await transaction->execSqlCoro("select id, last_device_num from users where email = $1", email);
+        auto selectResult = co_await users_db->execSqlCoro("select id, last_device_num from users where email = $1", email);
         
         if (selectResult.size() == 0) {
             throw std::runtime_error("failed_to_select_user_data");
@@ -146,7 +146,7 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
         user_id = selectResult[0]["id"].as<uint32_t>();
         device_num = selectResult[0]["last_device_num"].as<uint32_t>();
 
-        co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
+        co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
             user_id, device_num, device_refresh_token
         );
     } catch (const std::exception& e) {
@@ -192,14 +192,14 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
     // update user and insert device
     try {
         // update last device num
-        auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
-        auto updateResult = co_await transaction->execSqlCoro("update users set last_device_num = last_device_num + 1 where email = $1", email);
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto update_result = co_await users_db->execSqlCoro("update users set last_device_num = last_device_num + 1 where email = $1", email);
 
-        if (updateResult.affectedRows() == 0) {
+        if (update_result.affectedRows() == 0) {
             co_return local_utils::Response::Error::FORBIDDEN(callback, "user_not_exists");
         }
 
-        auto selectResult = co_await transaction->execSqlCoro("select id, last_device_num from users where email = $1", email);
+        auto selectResult = co_await users_db->execSqlCoro("select id, last_device_num from users where email = $1", email);
         
         if (selectResult.size() == 0) {
             throw std::runtime_error("failed_to_select_user_data");
@@ -208,7 +208,7 @@ Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const Htt
         user_id = selectResult[0]["id"].as<uint32_t>();
         device_num = selectResult[0]["last_device_num"].as<uint32_t>();
 
-        co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
+        co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
             user_id, device_num, device_refresh_token
         );
     } catch (const std::exception& e) {

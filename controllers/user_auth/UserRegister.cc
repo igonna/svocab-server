@@ -34,6 +34,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
         );
 
         co_await transaction->execSqlCoro("insert into user_statistics (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into user_checkpoints (user_id) values ($1)", user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

@@ -24,13 +24,6 @@ CREATE TABLE user_checkpoints (
     rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
 ) PARTITION BY HASH (user_id);
 
--- check_points:
--- first_lang_pair_created
--- principles_tutorial_passed
--- flow_tutorial_passed
--- filter_tutorial_passed
--- rate_us_passed
-
 CREATE TABLE user_language_pairs (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     src_lang CHAR(2) NOT NULL,

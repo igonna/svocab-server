@@ -114,7 +114,7 @@ static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbCl
     auto order_words_by = topic_sources[0]["order_words_by"].as<uint16_t>();
     auto exclude_word_if_not_present_in_all_sources = topic_sources[0]["exclude_word_if_not_present_in_all_sources"].as<bool>();
     auto exclude_word_if_very_rare = topic_sources[0]["exclude_word_if_very_rare"].as<bool>();
-    auto exclude_word_if_word_learned = topic_sources[0]["exclude_word_if_word_learned"].as<bool>();
+    auto exclude_word_if_word_learned = topic_sources[0]["exclude_word_if_word_learned"].as<bool>(); // TODO
 
     auto topic_generator = core::topic_generation::TopicGenerator(
         src_lang,

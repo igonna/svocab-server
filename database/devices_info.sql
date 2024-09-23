@@ -1,5 +1,4 @@
-CREATE TABLE devices (
-    model TEXT,
-    marketing_name TEXT NOT NULL,
-    PRIMARY KEY (model)
+CREATE TABLE devices_info (
+    model TEXT PRIMARY KEY,
+    marketing_name TEXT NOT NULL
 );

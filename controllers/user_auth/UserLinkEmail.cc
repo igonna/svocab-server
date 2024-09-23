@@ -38,9 +38,9 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
 
     // check if email already exists
     try {
-        auto transaction = app().getDbClient(local_constants::users_db)->newTransaction();
+        auto users_db = app().getDbClient(local_constants::users_db);
 
-        auto result = co_await transaction->execSqlCoro("select 1 from users where email = $1 limit 1", email);
+        auto result = co_await users_db->execSqlCoro("select 1 from users where email = $1 limit 1", email);
 
         if (result.size()) {
             co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
@@ -172,9 +172,9 @@ Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void
 
     // check if email already exists
     try {
-        auto transaction = app().getDbClient(local_constants::users_db)->newTransaction();
+        auto users_db = app().getDbClient(local_constants::users_db);
 
-        auto result = co_await transaction->execSqlCoro("select 1 from users where email = $1 limit 1", email);
+        auto result = co_await users_db->execSqlCoro("select 1 from users where email = $1 limit 1", email);
 
         if (result.size()) {
             co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");

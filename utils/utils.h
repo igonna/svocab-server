@@ -161,6 +161,12 @@ namespace Error {
 }
 }
 
+namespace language_pair {
+    static std::string create_lang_pair_key(const std::string& src_lang, const std::string& dst_lang) {
+        return src_lang + dst_lang;
+    }
+}
+
 namespace supported_languages{
     std::string get_language_title_localized(const std::string& lang_tag, const std::string& to_translate_lang_tag);
     std::string get_supported_languages_as_string(const std::string& to_translate_lang_tag);

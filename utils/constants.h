@@ -2,6 +2,7 @@
 
 namespace local_constants {
     static constexpr char users_db[] = "svocab_users";
+    static constexpr char devices_info_db[] = "devices_info";
 
     static constexpr char redis_db[] = "svocab";
 
@@ -14,6 +15,7 @@ namespace local_constants {
     static constexpr uint16_t code_expire_seconds = 16*60;
 
     static constexpr uint32_t secret_key_expire_seconds = 60*60*2;
+    static constexpr uint32_t devices_info_update_key_expire_seconds = 60*60*24;
 
     static constexpr uint32_t title_max_length = 60;
 
@@ -100,11 +102,11 @@ namespace languages {
 namespace redis {
     static constexpr std::string secret_key_name = "secret";
     static constexpr uint8_t secret_key_length = 16;
+    static const std::string devices_info_update_key_name = "devices_info_update";
 }
 
 namespace attributes {
     static constexpr std::string user_id = "user_id";
     static constexpr std::string device_num = "device_num";
 }
-    
 }

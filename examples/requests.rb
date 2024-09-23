@@ -234,6 +234,12 @@ STATE INFO
 
 15.get_state -> state
 
+16.get_checkpoints -> json
+
+17.set_checkpoint -> ok
+    checkpoint_name
+    value
+
 STATISTICS
 
 16.get_statistics -> statistics
@@ -632,3 +638,27 @@ UPDATE sal_emp SET words[4] = NULL, words[6] = NULL
 
 
 -- user_score BIGINT, -- total_learned * average_per_day_learned
+
+
+
+redis instances
+
+server-secrets 6379
+server-secrets 6380
+server-secrets 6381
+
+
+
+
+last_devices_models_update
+server_secret_key
+
+user_state
+
+last_global_rank_update
+
+
+supported_languages_keys
+users_emails_blocks
+users_codes
+users_revoked_devices
