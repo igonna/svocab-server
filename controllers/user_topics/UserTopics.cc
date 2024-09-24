@@ -101,7 +101,7 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
 
         auto result = co_await users_db->execSqlCoro(
             "select ut.topic_id, ulp.src_lang, ulp.dst_lang, ulp.mix_value as lang_mix_value, "
-            "ut.topic_title, ut.mix_value, ut.skip_value, ut.is_enabled, ut.position "
+            "ut.topic_title, ut.order_words_by, ut.mix_value, ut.skip_value, ut.is_enabled, ut.position "
             "from user_language_pairs as ulp "
             "left join user_topics as ut "
             "on ut.user_id = ulp.user_id "
@@ -198,6 +198,10 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
 
     auto title = text.substr(0, local_constants::title_max_length);
 
+    const std::string source_type = "text";
+
+    uint32_t source_id;
+
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -209,14 +213,15 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
         auto unicode_str = core::text_processing::string_to_unicode(text);
         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "text", processed_words, text);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, text);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -254,6 +259,9 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_supported_content_type");
     }
 
+    const std::string source_type = "document";
+    uint32_t source_id;
+
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -265,14 +273,15 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         auto unicode_str = core::text_processing::string_to_unicode(text);
         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "document", processed_words);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -314,6 +323,9 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
+    const std::string source_type = "website_url";
+    uint32_t source_id;
+
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -325,14 +337,15 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         auto unicode_str = core::text_processing::string_to_unicode(text);
         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "website_url", processed_words);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -349,6 +362,9 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
     }
 
+    const std::string source_type = "youtube_url";
+    uint32_t source_id;
+    
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
 
@@ -360,14 +376,15 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         auto unicode_str = core::text_processing::string_to_unicode(text);
         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-        co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, "youtube_url", processed_words);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 
@@ -645,6 +662,15 @@ Task<> UserTopics::getTopicMixWords(HttpRequestPtr req, std::function<void(const
 }
 
 
+Json::Value UserTopics::createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type)
+{
+    Json::Value result;
+    result["id"] = id;
+    result["title"] = title;
+    result["type"] = type;
+    return result;
+}
+
 Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang)
 {
     Json::Value result;
@@ -712,6 +738,7 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const 
             Json::Value new_topic;
             new_topic["topic_id"] = row["topic_id"].as<uint64_t>();
             new_topic["topic_title"] = row["topic_title"].as<std::string>();
+            new_topic["order_words_by"] = row["order_words_by"].as<int32_t>();
             new_topic["mix_value"] = row["mix_value"].as<float>();
             new_topic["skip_value"] = row["skip_value"].as<float>();
             new_topic["is_enabled"] = row["is_enabled"].as<bool>();

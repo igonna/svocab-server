@@ -51,6 +51,7 @@ public:
     METHOD_LIST_END
 private:
 	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang_tag);
+	Json::Value createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type);
 	Json::Value createTopicsList(const drogon::orm::Result& rows, const std::string& to_translate_lang_tag);
 };
 }
