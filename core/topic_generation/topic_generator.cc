@@ -73,8 +73,10 @@ std::string TopicGenerator::get_topic_sequence_as_string() {
         if (++skipped_words <= skip_words_count) continue;
         result.append(i.second + ';');
     }
-
-    result.pop_back();
+    
+    if (result.size()) {
+        result.pop_back();
+    }
 
     return result;
 }

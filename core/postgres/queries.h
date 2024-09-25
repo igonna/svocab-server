@@ -37,8 +37,8 @@ static drogon::Task<uint32_t> get_topic_new_source_id(drogon::orm::DbClientPtr u
     co_return result[0]["last_source_id"].as<uint32_t>();
 }
 
-static drogon::Task<uint32_t> add_topic_source(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id, std::string title, 
-    std::string type, std::string processed_words, std::string text = "", std::string fail_type = "") 
+static drogon::Task<uint32_t> add_topic_source(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id, const std::string& title, 
+    const std::string& type, const std::string& processed_words, const std::string& text = "", const std::string& fail_type = "") 
 {
     auto new_topic_source_id = co_await get_topic_new_source_id(users_db, user_id, topic_id);
     auto new_path = std::string("{") + std::to_string(new_topic_source_id) + "}";
@@ -67,8 +67,8 @@ static drogon::Task<uint32_t> add_topic_source(drogon::orm::DbClientPtr users_db
     co_return new_topic_source_id;
 }
 
-static drogon::Task<> update_topic_source(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id, uint32_t source_id, std::string title, 
-    std::string type, std::string processed_words, std::string text = "", std::string fail_type = "") 
+static drogon::Task<> update_topic_source(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id, uint32_t source_id, const std::string& title, 
+    const std::string& type, const std::string& processed_words, const std::string& text = "", const std::string& fail_type = "") 
 {
     auto path = std::string("{") + std::to_string(source_id) + "}";
 

@@ -244,6 +244,7 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
 
     std::string title;
     std::string text;
+    std::string fail_type;
 
     if (content_type == drogon::ContentType::CT_TEXT_PLAIN) {
         text = file.fileContent();
@@ -256,7 +257,7 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(content);
         title = title.substr(0, local_constants::title_max_length);
     } else {
-        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_supported_content_type");
+        fail_type = "not_supported_format";
     }
 
     const std::string source_type = "document";
@@ -268,24 +269,30 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto topic_id = std::stoull(topic_id_str);
 
-        auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+        std::string processed_words;
+        if (fail_type.empty()) {
+            auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+            auto unicode_str = core::text_processing::string_to_unicode(text);
+            processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+        
+            if (processed_words.empty()) {
+                fail_type = "no_words_found";
+            }
+        }
 
-        auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
-
-        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{   
+{
     auto topic_id_str = req->getHeader("topicId"); 
     auto url = req->getHeader("url");
 
@@ -295,6 +302,7 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
 
     std::string title;
     std::string text;
+    std::string fail_type;
 
     try {
         auto [host, path] = local_utils::url::extract_host_and_path_from_url(url);
@@ -308,15 +316,15 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         auto website_resp = co_await client->sendRequestCoro(website_request);
 
         if (website_resp->getStatusCode() != k200OK) {
-            co_return local_utils::Response::Error::FORBIDDEN(callback, "can_not_fetch_content");
+            fail_type = "failed_to_reach_website";
+        } else {
+            auto website_html = std::string(website_resp->getBody());
+            std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(website_html);
+            title = title.substr(0, local_constants::title_max_length);
         }
 
-        auto website_html = std::string(website_resp->getBody());
-        std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(website_html);
-        title = title.substr(0, local_constants::title_max_length);
-
         if (!(title.size() && text.size())) {
-            co_return local_utils::Response::Error::FORBIDDEN(callback, "can_not_fetch_content");
+            fail_type = "failed_to_fetch_content";
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -331,20 +339,27 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
 
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto topic_id = std::stoull(topic_id_str);
+        
+        std::string processed_words;
+        if (fail_type.empty()) {
+            auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
-        auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+            auto unicode_str = core::text_processing::string_to_unicode(text);
+            processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+        
+            if (processed_words.empty()) {
+                fail_type = "no_words_found";
+            }
+        }
 
-        auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
-
-        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
@@ -352,18 +367,20 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
 {
     auto topic_id_str = req->getHeader("topicId"); 
     auto title = req->getHeader("title").substr(0, local_constants::title_max_length);;
-    auto text = std::string(req->getBody());
 
     if (!title.size()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
-    if (!text.size()) {
-        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
-    }
-
     const std::string source_type = "youtube_url";
     uint32_t source_id;
+    std::string fail_type;
+
+    auto text = std::string(req->getBody());
+
+    if (text.empty()) {
+        fail_type = "failed_to_fetch_captions";
+    }
     
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -371,19 +388,26 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto topic_id = std::stoull(topic_id_str);
 
-        auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+        std::string processed_words;
+        if (fail_type.empty()) {
+            auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
-        auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+            auto unicode_str = core::text_processing::string_to_unicode(text);
+            processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+        
+            if (processed_words.empty()) {
+                fail_type = "no_words_found";
+            }
+        }
 
-        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words);
+        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
@@ -662,12 +686,15 @@ Task<> UserTopics::getTopicMixWords(HttpRequestPtr req, std::function<void(const
 }
 
 
-Json::Value UserTopics::createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type)
+Json::Value UserTopics::createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type, const std::string& fail_type)
 {
     Json::Value result;
     result["id"] = id;
     result["title"] = title;
     result["type"] = type;
+    if (fail_type.size()) {
+        result["fail_type"] = fail_type;
+    }
     return result;
 }
 

@@ -148,7 +148,9 @@ namespace core::devices_info {
                 for (auto& model_and_marketing_name : devices_models_and_marketing_names) {
                     values += "($$" + model_and_marketing_name.first + "$$," + "$$" + model_and_marketing_name.second + "$$),";
                 }
-                values.pop_back();
+                if (values.size()) {
+                    values.pop_back();
+                }
 
                 auto devices_info_db = drogon::app().getDbClient(local_constants::devices_info_db);
                 

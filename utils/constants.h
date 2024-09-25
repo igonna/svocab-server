@@ -35,7 +35,7 @@ namespace languages {
     };
 
     // ISO 639-1 to ISO 3166-1 alpha-2
-    static const std::unordered_map<const char*, const char*> language_to_country = {
+    static const std::unordered_map<std::string, const char*> language_to_country = {
         {"en", "US"},  // English -> United States
         {"es", "ES"},  // Spanish -> Spain
         {"fr", "FR"},  // French -> France
