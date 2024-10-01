@@ -1,618 +1,203 @@
+#REGISTER
+(+)1.register -> refresh_token
 
--context: none
-create_account_no_email (
-    device_id
-    lang_src
-    lang_dst
-    basic_topic_coeff OR None
-) -> refresh_token,user_id
-
--context: none
-attach_email_to_account (
-    email/google_token
-) -> success_result
-
-create_account_with_email (
-    email,
-    device_id
-) -> refresh_token,user_id
-
-
--context: another account without email, but sign in existing accoutn
-sign_in_to_account_with_email (
-    email,
-    device_id
-) -> refresh_token, user_id
-
-
-register_code_request-email@gmail.com
-register_attempts-email@gmail.com
-register_code-email@gmail.com
-
-sign_in_code-email@gmail.com
-attach_code-email@gmail.com
-register_attempts*
-
-user_auth
-
-user_account
-
-
-
-REGISTER USER DATABASE WORK
-
-CREATE ROW
-users
-user_sequence
-user_state
-user_language_pairs -> user_words
-user_devices
-user_statistics
-(optional)user_custom_global_topic_options
-
-
-
-DELETE USER DATABASE WORK
-
-
-
-REGISTER
-
-1. register -> refresh_token
-
-
-LINK
-
-2.get_code_for_email_link -> code
+#LINK
+(+)2.get_code_for_email_link -> code
     email
 
-3.link_email_to_account -> ok
+(+)3.link_email_to_account -> ok
     code
     email
 
-4.link_google_to_account -> ok
+(+)4.link_google_to_account -> ok
     google_token
 
-SIGNIN
-
-5.get_code_for_email_sign_in -> code
+#SIGNIN
+(+)5.get_code_for_email_sign_in -> code
     email
 
-6.sign_in_to_acccount_email -> refresh_token
+(+)6.sign_in_to_acccount_email -> refresh_token
     code
     email
 
-7.sign_in_to_account_google -> refresh_token
+(+)7.sign_in_to_account_google -> refresh_token
     google_token
 
+#ACCOUNT INFO
+(+)8.get_info -> email, has_plus
 
-ACCOUNT INFO
-
-8.get_info -> email, has_plus
-
-DELETE
-
-9.delete_account -> ok
+#DELETE
+(+)9.delete_account -> ok
     refresh_token
 
+#USER DEVICES
+(+)10.get_devices -> list
 
-USER DEVICES
-
-10.get_devices -> list
-
-11.revoke_device -> ok
+(+)11.revoke_device -> ok
     device_num
 
-12.get_bare_token -> bare_token
+(+)12.get_bare_token -> bare_token
     refresh_token
     device_os_version
     device_model
 
+#LANGAUGES
+(+)13.get_supported_languages -> list
 
-LANGAUGES
-13.get_supported_languages -> list
-
-
-USER LANGUAGES
-
-14.set_language_pair_enabled -> ok
+#USER LANGUAGES
+(+)14.set_language_pair_enabled -> ok
     src_lang
     dst_lang
     boolean
 
-15.set_language_pair_mix_value -> ok
+(+)15.set_language_pair_mix_value -> ok
     src_lang
     dst_lang
     float
 
-
-USER TOPICS
-
-16.create_topic -> get_topic_generation_window
+(***)16.get_language_pair_mix_value_options -> json
     src_lang
     dst_lang
 
-30.delete_topic -> ok
+#USER TOPICS
+(+)17.create_topic -> json
+    src_lang
+    dst_lang
+
+(+)18.delete_topic -> ok
     topic_id
 
-25.get_topic_generation_window -> json
+(+)19.get_topic_generation_window -> json
     topic_id
 
-17.set_topic_title -> ok
+(+)20.set_topic_title -> ok
     topic_id
     title
 
-18.add_topic_source -> ok
+(+)21.add_topic_source -> ok
     topic_id
     source_type
     body:content
 
-26.get_topic_source_text_content -> body
+(+)22.get_topic_source_text_content -> body
     topic_id
     text_id
 
-20.set_topic_source_text -> ok
+(+)23.set_topic_source_text -> ok
     topic_id
     source_id
     body:content
 
-19.add_topic_source_document -> ok
+(+)24.add_topic_source_document -> ok
     topic_id
     document
 
-
-11.set_topic_option -> ok
+(+)25.set_topic_option -> ok
     topic_id
     topic_option_name
     value
 
-24.set_topic_enabled -> ok
+(***)26.set_topic_enabled -> ok
     topic_id
     boolean
 
-27.set_topic_position -> ok
+(***)27.set_topic_position -> ok
     topic_id
 
-
-
-28.get_topic_words -> list
+(***)28.get_topic_words -> list
     topic_id
 
-36.delete_topic_source -> ok
+(+)29.delete_topic_source -> ok
     topic_id
     source_type
     source_id
 
-37.get_topic_mix_words -> json
+(***)30.get_user_topics -> json
+
+(***)31.get_topic_mix_options -> json
     topic_id
 
-// generated topics + global topics
-16.get_topics -> JSON langs:topics (topic{type,title,enabled,})
+(***)32.get_topic_skip_options -> json
+    topic_id
 
-40.enable_first_user_topic -> ok (topic_id) / not_found
-    src_lang
-    dst_lang
+(***)33.get_first_user_topic_mix_options -> json/not_found
 
-FOCUS GROUP
+#GLOBAL TOPICS
+(***)36.add_global_topic_with_user_topic -> ok
+    user_topic_id
+    popularity
 
+(***)37.update_global_topic_with_user_topic -> ok
+    user_topic_id
+    -*-global_topic_id
 
-# 1. generate words sequence for current topic (for view topic) - done
+(***)37.delete_global_topic -> ok
+    -*-global_topic_id
 
-# 1. generate words sequence for all topics (for mix value) - marked
+#FOCUS GROUP
+(***)38.prepare_focus_group -> ok
 
-# 1. generate words sequence for current topic (for skip value) - done
+(***)39.get_focus_group -> json
 
-# 1. generate words sequence's for all topics (for main sequence) - done
+(***)40.get_focus_group_id -> int
 
-# 1. check if update required
-# 2. if yes, check on what topics
-# 3. generate words sequence for each topic, based on topic options
-# 4. generate final sequence
-# 5. update user sequence
-# 6. return focus group
-
-
-
-43.get_focus_group -> list
-
-44.complete_focus_group -> new_focus_group
+(***)41.set_word_phase_passed -> ok
     focus_group_id
+    word_id
+    phase_num
+    mistake:bool
 
-45.flush_update_focus_group -> ok/new_focus_group_ready_status
-
-46.update_focus_group_hidden_word -> new_focus_group
+(***)42.get_focus_group_with_hidden_word -> json
     focus_group_id
     word_id
 
-GLOBAL TOPICS
-add_global_topic_with_user_topic
-    default_position
+(***)43.complete_focus_group -> json
+    focus_group_id
 
-update_global_topic_with_user_topic
+(***)44.get_previous_focus_group_result -> json
 
-STATE INFO
+(***)?.set_item_passed -> ok
+    item_type
 
-15.get_state -> state
+#USER CHECKPOINTS
+(+)45.get_checkpoints -> json
 
-16.get_checkpoints -> json
-
-17.set_checkpoint -> ok
+(+)46.set_checkpoint -> ok
     checkpoint_name
     value
 
-STATISTICS
+#USER STATISTICS
+(***)47.get_statistics -> json
 
-16.get_statistics -> statistics
+#PROGRESS WORDS
+(***)48.get_learned_words -> list
 
-PROGRESS WORDS
-
-17.get_learned_words -> list
-
-18.remove_learned_word -> ok
+(***)49.remove_learned_word -> ok
     src_lang
     word
 
-19.get_hidden_words -> list
+(***)50.get_hidden_words -> list
 
-20.remove_hidden_word -> ok
+(***)51.remove_hidden_word -> ok
     src_lang
     word
 
+#USER SUBSCRIPTION
+(***)52.add_subscription -> ok
+    purchase_token
+    # just send purchase token to google api
+    # get response and set expiration time
 
+(***)53.update_subscription_status -> ok
+    # can update subscription status only if subscription exists
 
+(***)54.is_subscription_cancelled -> json
 
-get_topic_sources -> json_titles:texts;documents;website_urls;youtube_urls
 
-titles;failed_titles;ids
 
-topics_basic {
-    title
-    type
-    position
-    enabled
-}
 
-topic_advanced {
-    mix_value
-    skip_value
-}
 
-topic_gen_advanced {
-    mix_value
-    skip_value
-    order_type
-}
-
-topic: {
-    type: 0 // 1 = gen, 0 = glob
-    title:hello_world
-    position:0
-    (1)order: 0 // 0 = populrity, 1 = appearance
-    skip_value: 0.1
-    mix_value: 0.5
-}
-
-
-
-
-create_new_topic -> topic_id
-
-add_new_topic_source -> ok/error
-add_new_topic_file -> ok/error
-update_topic_source -> ok/error
-delete_topic_source -> ok/error
-
-change_topic_options -> ok/error
-change_topic_title -> ok/error
-
-
-
-state:
-subscriber = 0
-learned_this_time
-check_points = 16
-focus_group = en;ru;hello;16;en;ru;hi;9;
-
-revoked=1;2;3 // only on server
-
-
-----------state 2.0:
-seq_id=0
-learned_this_time=9012
-check_points=16
-focus_group=190;16; // word_id;state;
-
-
-lang_src;lang_dst;word;word_status;word_pointer;
-
-word_pointer;word_status
-
-
-sequence_id required to update focus_group on change of sequence_id
-IMPORTANT NOTE:
-focus group is bound to sequence_id
-if sequence generated and sequence_id updated, focus group must be cleaned
-
-
-focus group example:
-hello 0
-hi 0
-wow 1
-what 1
-
-we already have 2 words in focus group,
-but our focus size is 4,
-so we need to fetch new words len = focus_size - words_left_in_focus_group_size
-from last learned word
-
-new focus group:
-
-hello 20
-hi 0
-good 1
-well 2
-
-
-
-page 15,16,17
-
-focus_group
-
-word;phase_num;phase_1_error;phase_2_error;page_pointer;word_pointer;
-
-word:1;1;0;1950;20
-
-
-
-
-sync state:
-seq_id
-word_id;state
-
-word_phase:
-    technical:
-        int seq_id
-        int word_id
-        int phase_num (0-2)
-        bool was_error
-        bool is_open
-        bool is_completed
-    user_friendly:
-        string lang_src
-        string lang_dst
-        string word_src
-        string word_dst
-        string phrase_src
-        string phrase_dst
-
-
-
-update_word:
-
-hello;16;
-hello = word
-
-word_phases:
-closed
-first_phase_opened
-second_phase_opened
-third_phase_opened
-
-16 is:
-0 bit and 1 bit = cur_phase_num
-2 bit = phase_0_error
-3 bit = phase_1_error
-4 bit = phase_2_error
-5 bit = hidden
-
-if phase != 0 for other devices phrase generation must be free
-
-
-
-get_focus_group
-
-read db user_generate_sequence
-read db focus_size
-read db least_not_learned_word_pointer
-
-but how to skip learned words after pointer ?
-
-after least_not_learned_word_pointer could be learned words
-
-sequence must be generated when topic changed
-sequence must be generated when repeat required
-sequence must be generated when hidden word
-
-
-
-generated sequence:
-
-word;lang;states
-
-
-
-
-
-
-on_hidden_word:
-    get_focus_group_with_hidden_word:
-        update_sequence_pointer
-        modify_state
-
-on_phase_update:
-    just_update_state
-
-
-
-
-on_last_word_in_focus_group_update:
-    show_local_focus_group_result
-    complete_focus_group -> saves_learned_words_on_server_side -> generates_new_focus_group
-
-
-get_focus_group:
-    check_if_topics_updated -> means_new_generation_required
-    check_if_repeat_time_reached -> means_new_generation_required
-
-
-
-
-get_focus_group (expanded):
-    take focus_size words from last_taken_page_pointer + last_taken_word_pointer - focus_size
-
-    but what if pointer were for focus_size = 3 but now focus size decreased to 2
-
-
-hello
-hi
-how
-what
-who
-where
-why - pointer
----
-buy
-world
-cup
-
-
-if focus_size not changed no problem
-hello
-hi
-how
-            who
-what
-where
-why
-buy  - pointer
----
-world
-cup
-
-if focus_size changed to 2 there is a problem
-
-hello
-hi
-how
-            who
-what
-where
-------
-why
-buy  - pointer
-------
-world
-cup
-
-
-
-
-
-hello
-hi
-how
-what
-who
-where
-why - pointer
----
-buy
-world
-cup
-
-
-if focus_size not changed no problem
-hello
-hi
-how
-            who
-what
-where
-why
-buy  - pointer
----
-world
-cup
-
-if focus_size changed to 2 there is a problem
-
-hello
-hi
-how
-            who
-what
-where
-------
-why
-buy  - pointer
-------
-world
-cup
-
-
-least_seq_in_focus_pointer
-last_seq_in_focus_pointer
-
-seq_pointer_last could shrink to seq_least_pointer and we will 
-lose information about words that were already learned or hidden, 
-and on next future expand they will be again in the focus_group which is wrong
-
-
-
-how to mix learned and to_repeat
-
-
-
-not_learned
-to_repeat
-
-
-50% not_learned
-50% to_repeat
-
-
-
-
-hello----lowest_not_learned
-hi - learned
-what - not_learned
-wow - learned
-where----highest_learned
-
-
-hello----lowest_not_learned
-hi - learned ----lowest_learned
-what - not_learned
-wow ----highest_learned
-where - not learned
-
-
-hello----highest_learned
-hi----lowest_not_learned
-what
-wow
-where
-
-
-how much to fetch?
-lowest_not_learned+between_pointer_count
-highest_learned - lowest_not_learned
-
-
-how many to fetch?
-lowest_not_learned_pointer + focus_size + count_learned_between_pointers
-
-
-
-
-every Pointer which is bigger than lowest_not_learned must be removed
-
-
-if (pointer <= lowest_not_learned_pointer)
-    remove(pointer)
-
-
-
+#POSTGRES
 // fetch only not null words
 SELECT 
     ARRAY(
@@ -628,37 +213,12 @@ WHERE id = 1;
 
 LIMIT = focus_size + len(brought_back_words)
 
-
-
 // set array values
 UPDATE sal_emp SET words[4] = NULL, words[6] = NULL
     WHERE user_id = 1829;
 
-
-
-
--- user_score BIGINT, -- total_learned * average_per_day_learned
-
-
-
-redis instances
-
-server-secrets 6379
-server-secrets 6380
-server-secrets 6381
-
-
-
-
+#REDIS
 last_devices_models_update
 server_secret_key
-
 user_state
-
 last_global_rank_update
-
-
-supported_languages_keys
-users_emails_blocks
-users_codes
-users_revoked_devices

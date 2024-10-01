@@ -11,8 +11,6 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
     auto token = req->getHeader("Authorization");
 
     drogon::async_run([this, req, fcb = std::move(fcb), fccb = std::move(fccb), token = std::move(token)]() mutable -> drogon::Task<> {
-        HttpResponsePtr resp;
-
         static constexpr std::string redis_error = "redis_error";
 
         try {

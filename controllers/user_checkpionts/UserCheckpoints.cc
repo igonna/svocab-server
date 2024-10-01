@@ -1,10 +1,10 @@
-#include "UserState.h"
+#include "UserCheckpoints.h"
 #include "utils/constants.h"
 #include "utils/utils.h"
 
 namespace v1
 {
-Task<> UserState::getCheckpoints(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> UserCheckpoints::getCheckpoints(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto db = app().getDbClient(local_constants::users_db);
 
     Json::Value response;
@@ -33,7 +33,7 @@ Task<> UserState::getCheckpoints(HttpRequestPtr req, std::function<void(const Ht
     co_return callback(HttpResponse::newHttpJsonResponse(response));
 }
 
-Task<> UserState::setCheckpoint(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+Task<> UserCheckpoints::setCheckpoint(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto checkpoint_name = req->getHeader("checkpointName");
     auto value = req->getHeader("value");

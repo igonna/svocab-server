@@ -167,8 +167,46 @@ namespace language_pair {
     }
 }
 
-namespace supported_languages{
+namespace supported_languages {
     std::string get_language_title_localized(const std::string& lang_tag, const std::string& to_translate_lang_tag);
     std::string get_supported_languages_as_string(const std::string& to_translate_lang_tag);
+}
+
+namespace topics {
+    enum class TopicType : uint32_t {user_topic = 0, global_topic = 1};
+
+    static inline std::string topic_type_to_str(TopicType topic_type) {
+        return topic_type == TopicType::user_topic ? "user_topic" : "global_topic";
+    }
+
+    static inline std::tuple<uint64_t, TopicType> decode_topic_id_str(const std::string& encoded_topic_id) {
+        auto dot_pos = encoded_topic_id.find('.');
+        if (dot_pos == std::string::npos) throw std::invalid_argument("invalid format");
+        return {std::stoull(encoded_topic_id.substr(dot_pos + 1)), static_cast<TopicType>(std::stoull(encoded_topic_id.substr(0, dot_pos)))};
+    }
+
+    static inline uint64_t decode_user_topic_id_str(const std::string& encoded_topic_id) {
+        auto [topic_id, topic_type] = decode_topic_id_str(encoded_topic_id);
+
+        if (topic_type != TopicType::user_topic) {
+            throw std::runtime_error("not_user_topic");
+        }
+
+        return topic_id;
+    }
+
+    static inline uint64_t decode_global_topic_id_str(const std::string& encoded_topic_id) {
+        auto [topic_id, topic_type] = decode_topic_id_str(encoded_topic_id);
+
+        if (topic_type != TopicType::global_topic) {
+            throw std::runtime_error("not_global_topic");
+        }
+
+        return topic_id;
+    }
+
+    static inline std::string encode_topic_id(uint64_t topic_id, TopicType topic_type) {
+        return std::to_string(static_cast<uint64_t>(topic_type)) + '.' + std::to_string(topic_id);
+    }
 }
 }

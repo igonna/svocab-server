@@ -10,5 +10,14 @@ namespace v1
 class GlobalTopics : public drogon::HttpController<GlobalTopics>
 {
 public:
+    Task<> addGlobalTopicWithUserTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+    Task<> deleteGlobalTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+    Task<> updateGlobalTopicWithUserTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+
+    METHOD_LIST_BEGIN
+    METHOD_ADD(GlobalTopics::addGlobalTopicWithUserTopic, "/add_global_topic_with_user_topic", Post, "JwtFilter", "AdminFilter");
+    METHOD_ADD(GlobalTopics::deleteGlobalTopic, "/delete_global_topic", Post, "JwtFilter", "AdminFilter");
+    METHOD_ADD(GlobalTopics::updateGlobalTopicWithUserTopic, "/update_global_topic_with_user_topic", Post, "JwtFilter", "AdminFilter");
+    METHOD_LIST_END
 };
 }

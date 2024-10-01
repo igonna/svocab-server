@@ -21,6 +21,8 @@ Task<> UserStatistics::getUserStatistics(HttpRequestPtr req, std::function<void(
 
     result_body["rank"] = 0;
 
+    // -- user_score BIGINT, -- total_learned * average_per_day_learned (or streak)
+
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 }

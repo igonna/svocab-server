@@ -31,7 +31,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
     include_directories(${ICU_INCLUDE})
     include_directories(${Gumbo_INCLUDE})
     include_directories(${OPENSSL_INCLUDE})
-    # include_directories(${LibOAI_INCLUDE})
 
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux") # Linux
     find_package(ICU COMPONENTS uc io REQUIRED)

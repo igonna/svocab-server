@@ -146,4 +146,39 @@ static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbCl
 
     co_return new_sequence;
 }
+
+static Task<bool> is_user_of_sepcial_user_type(drogon::orm::DbClientPtr users_db, uint64_t user_id, std::string special_user_type) {
+    auto result = co_await users_db->execSqlCoro("select 1 from users where id = $1 and "
+        "special_user_type = '" + special_user_type + "'::SpecialUserType limit 1", user_id
+    );
+
+    co_return result.size();
+}
+
+static Task<std::string> get_topic_words_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id) {
+    // check if generation required
+    auto result_update_required = co_await users_db->execSqlCoro(
+        "select last_update_id from user_topics "
+        "where user_id = $1 and topic_id = $2 and last_gen_id != last_update_id limit 1", 
+        user_id, topic_id
+    );
+
+    std::string topic_words_sequence;
+    if (result_update_required.size()) {
+        auto topic_last_update_id = result_update_required[0]["last_update_id"].as<uint32_t>();
+        topic_words_sequence = co_await core::sql::generate_topic_sequence_and_if_update(users_db, user_id, topic_id, topic_last_update_id);
+    } else {
+        auto result = co_await users_db->execSqlCoro("select topic_words_sequence from user_topics "
+            "where user_id = $1 and topic_id = $2", user_id, topic_id
+        );
+
+        if (!result.size()) {
+            throw std::runtime_error("not_exists");
+        }
+
+        topic_words_sequence = result[0]["topic_words_sequence"].as<std::string>();
+    }
+
+    co_return topic_words_sequence;
+}
 }

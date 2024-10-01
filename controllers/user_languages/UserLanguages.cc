@@ -48,9 +48,8 @@ Task<> UserLanguages::setLanguagePairMixValue(HttpRequestPtr req, std::function<
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto value = std::stof(value_str);
 
-        co_await users_db->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, mix_value) "
-            "values ($1, $2, $3, $4) on conflict (user_id, src_lang, dst_lang) do update "
-            "set mix_value = excluded.mix_value", user_id, src_lang, dst_lang, value
+        co_await users_db->execSqlCoro("update user_language_pairs set mix_value = $4 "
+            "where user_id = $1 and src_lang = $2 and dst_lang = $3", user_id, src_lang, dst_lang, value
         );
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {

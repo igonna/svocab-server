@@ -8,8 +8,8 @@ namespace v1
 class TopicMixer {
 public:
     void add_topic(std::string src_lang, std::string dst_lang, float lang_mix_value, float topic_mix_value,
-        std::string topic_words_sequence
-    ) {
+        std::string topic_words_sequence)
+    {
 
     }
 
@@ -27,7 +27,38 @@ private:
     static constexpr float topic_mix_coef = 1.0;
 };
 
+Task<> UserFocusGroup::prepareFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    co_return local_utils::Response::OK(callback, "");
+}
+
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
+    // TO FINISH START
+
+    // 1. generate words sequence for current topic (for view topic) - done
+
+    // 1. generate words sequence for all topics (for mix value) - marked
+
+    // 1. generate words sequence for current topic (for skip value) - done
+
+    // 1. generate words sequence's for all topics (for main sequence) - done
+
+    // 1. check if update required
+    // 2. if yes, check on what topics
+    // 3. generate words sequence for each topic, based on topic options
+    // 4. generate final sequence
+    // 5. update user sequence
+    // 6. return focus group
+
+    // TO FINISH END
+
+    // how to mix learned and to_repeat ?
+
+    // check_if_topics_updated -> means_new_generation_required
+    // check_if_repeat_time_reached -> means_new_generation_required
+
+    // min focus size && max focus size
+
     Json::Value result_focus_group;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -134,8 +165,19 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
-Task<> UserFocusGroup::updateFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    co_return local_utils::Response::OK(callback, "");
+Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
 }
 
+Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
+}
+
+Task<> UserFocusGroup::updateWordPhase(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
+}
+
+Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
+}
 }

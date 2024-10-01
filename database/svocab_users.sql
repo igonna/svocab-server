@@ -10,11 +10,6 @@ CREATE TABLE users (
     UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
-CREATE TABLE user_state (
-    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    learned_this_time INT NOT NULL DEFAULT 0
-) PARTITION BY HASH (user_id);
-
 CREATE TABLE user_checkpoints (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     first_lang_pair_created BOOLEAN NOT NULL DEFAULT FALSE,
@@ -53,7 +48,23 @@ CREATE TABLE user_words (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     lang_tag CHAR(2) NOT NULL,
     words TEXT NOT NULL DEFAULT '', -- word;16;160010120
+    last_update_id INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, lang_tag)
+) PARTITION BY HASH (user_id);
+
+CREATE TABLE user_hidden_words (
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    lang_tag CHAR(2) NOT NULL,
+    words TEXT NOT NULL DEFAULT '', -- word;0
+    last_update_id INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, lang_tag)
+) PARTITION BY HASH (user_id);
+
+CREATE TABLE user_phrase_generation_limit (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    generation_waves_passed SMALLINT NOT NULL DEFAULT 0,
+    generated_phrases_count SMALLINT NOT NULL DEFAULT 0,
+    generation_wave_start_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_sequence (
@@ -68,9 +79,12 @@ CREATE TABLE user_sequence (
     last_gen_id INT NOT NULL DEFAULT 0, -- current state
     last_update_id INT NOT NULL DEFAULT 0, -- >= last_gen_id
 
-    last_focus_group TEXT,
-    last_focus_group_gen_id INT NOT NULL DEFAULT 0,
-    last_focus_group_update_time INT NOT NULL DEFAULT 0
+    focus_group_size INT NOT NULL DEFAULT 3,
+    focus_group JSONB NOT NULL DEFAULT '{}',
+    -- focus_group_sequence_id INT NOT NULL DEFAULT 0,
+    focus_group_id INT NOT NULL DEFAULT 0,
+    focus_group_update_time INT NOT NULL DEFAULT 0,
+    previous_focus_group_result JSONB NOT NULL DEFAULT '{}'
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_topics (
@@ -86,7 +100,7 @@ CREATE TABLE user_topics (
     position INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
-    order_words_by SMALLINT NOT NULL DEFAULT 0, -- first_appearance, relative_popularity, total_popularity
+    order_words_by SMALLINT NOT NULL DEFAULT 1, -- 0 first_appearance, 1 relative_popularity, 2 total_popularity
     exclude_word_if_word_learned BOOLEAN NOT NULL DEFAULT TRUE,
     exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
     exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
@@ -104,12 +118,23 @@ CREATE TABLE user_topics (
     PRIMARY KEY (topic_id, user_id)
 ) PARTITION BY HASH (user_id);
 
-CREATE TABLE user_custom_global_topic_options (
+CREATE TABLE global_topics (
+    topic_id SERIAL PRIMARY KEY,
+    src_lang CHAR(2),
+    src_title_en TEXT NOT NULL,
+    default_position INT NOT NULL,
+    words TEXT NOT NULL,
+    UNIQUE(topic_id, src_lang)
+);
+
+CREATE TABLE user_global_topics (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    topic_id INT NOT NULL,
-    mix_value REAL,
-    skip_value REAL,
-    position INT,
+    topic_id INT REFERENCES global_topics(topic_id) ON DELETE CASCADE,
+    dst_lang CHAR(2) NOT NULL,
+    dst_title TEXT,
+    mix_value REAL NOT NULL,
+    skip_value REAL NOT NULL,
+    position INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     PRIMARY KEY (user_id, topic_id)
 ) PARTITION BY HASH (user_id);
@@ -123,6 +148,7 @@ CREATE TABLE ranks (
 CREATE TABLE user_statistics (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     -- app_sessions JSONB NOT NULL, -- do not think that we need it
+    learned_this_time INT NOT NULL DEFAULT 0,
     last_learn_time INT NOT NULL DEFAULT 0,
     learned_today INT NOT NULL DEFAULT 0,
     learned_words_total INT NOT NULL DEFAULT 0,
@@ -158,12 +184,12 @@ CREATE TABLE user_sequence_p1 PARTITION OF user_sequence FOR VALUES WITH (MODULU
 CREATE TABLE user_sequence_p2 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_sequence_p3 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE UNIQUE INDEX idx_unique_email ON users (id, email);
+CREATE TABLE user_phrase_generation_limit_p0 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_phrase_generation_limit_p1 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_phrase_generation_limit_p2 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_phrase_generation_limit_p3 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_state_p0 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_state_p1 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_state_p2 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_state_p3 PARTITION OF user_state FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE UNIQUE INDEX idx_unique_email ON users (id, email);
 
 CREATE TABLE user_checkpoints_p0 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_checkpoints_p1 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 1);
@@ -185,15 +211,20 @@ CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, R
 CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
+CREATE TABLE user_hidden_words_p0 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_hidden_words_p1 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_hidden_words_p2 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_hidden_words_p3 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
 CREATE TABLE user_topics_p0 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_topics_p1 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_topics_p2 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_topics_p3 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_custom_global_topic_options_p0 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_custom_global_topic_options_p1 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_custom_global_topic_options_p2 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_custom_global_topic_options_p3 PARTITION OF user_custom_global_topic_options FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_global_topics_p0 PARTITION OF user_global_topics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_global_topics_p1 PARTITION OF user_global_topics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_global_topics_p2 PARTITION OF user_global_topics FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_global_topics_p3 PARTITION OF user_global_topics FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_statistics_p0 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_statistics_p1 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
