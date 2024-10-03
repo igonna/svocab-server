@@ -130,13 +130,14 @@ CREATE TABLE global_topics (
 CREATE TABLE user_global_topics (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     topic_id INT REFERENCES global_topics(topic_id) ON DELETE CASCADE,
+    src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
     dst_title TEXT,
     mix_value REAL NOT NULL,
     skip_value REAL NOT NULL,
     position INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    PRIMARY KEY (user_id, topic_id)
+    PRIMARY KEY (user_id, topic_id, dst_lang)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE ranks (

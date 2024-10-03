@@ -10,7 +10,7 @@ namespace v1
 class UserTopics : public drogon::HttpController<UserTopics>
 {
 public:
-	Task<> getFirstUserTopicMixOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> getFirstUserTopicSkipOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> createTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> deleteTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getUserTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
@@ -28,12 +28,13 @@ public:
 	Task<> getTopicSkipOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicOption(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicEnabled(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> setUserGlobalTopicEnabled(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicPosition(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getTopicWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getTopicMixWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
     METHOD_LIST_BEGIN
-	METHOD_ADD(UserTopics::getFirstUserTopicMixOptions, "/get_first_topic_mix_options", Get, "JwtFilter");
+	METHOD_ADD(UserTopics::getFirstUserTopicSkipOptions, "/get_first_topic_skip_options", Get, "JwtFilter");
     METHOD_ADD(UserTopics::createTopic, "/create_topic", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::deleteTopic, "/delete_topic", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getUserTopics, "/get_user_topics", Get, "JwtFilter");
@@ -51,6 +52,7 @@ public:
 	METHOD_ADD(UserTopics::getTopicSkipOptions, "/get_topic_skip_options", Get, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicOption, "/set_topic_option", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicEnabled, "/set_topic_enabled", Post, "JwtFilter");
+	METHOD_ADD(UserTopics::setUserGlobalTopicEnabled, "/set_user_global_topic_enabled", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicPosition, "/set_topic_position", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getTopicWords, "/get_topic_words", Get, "JwtFilter");
 	METHOD_ADD(UserTopics::getTopicMixWords, "/get_topic_mix_words", Get, "JwtFilter");

@@ -83,6 +83,10 @@ namespace redis {
     static inline std::string create_supported_languages_key(const std::string& lang_tag) {
         return std::string("supported_languages-") + lang_tag;
     }
+
+    static inline std::string create_register_requests_key(const std::string& ip_addr) {
+        return std::string("register-ip-") + ip_addr;
+    }
 }
 
 namespace postgres {
@@ -195,7 +199,7 @@ namespace topics {
         return topic_id;
     }
 
-    static inline uint64_t decode_global_topic_id_str(const std::string& encoded_topic_id) {
+    static inline uint32_t decode_global_topic_id_str(const std::string& encoded_topic_id) {
         auto [topic_id, topic_type] = decode_topic_id_str(encoded_topic_id);
 
         if (topic_type != TopicType::global_topic) {

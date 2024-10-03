@@ -11,6 +11,34 @@ using namespace drogon;
 namespace v1
 {
 Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr&)> callback) {
+
+    auto rc = app().getRedisClient();
+
+    auto remote_addr = req->peerAddr().toIp();
+
+    // check if not requested too much
+    std::string register_requests_key = local_utils::redis::create_register_requests_key(remote_addr);
+    try {
+        auto result = co_await rc->execCommandCoro("get %s", register_requests_key.c_str());
+
+        uint8_t requests_count = result.isNil() ? 0 : std::stoi(result.asString());
+
+        if (requests_count >= local_constants::register_max_requests) {
+            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
+        }
+
+        co_await rc->execCommandCoro("set %s %d %s %d", 
+            register_requests_key.c_str(), 
+            requests_count + 1, 
+            "EX", 
+            local_constants::block_register_request_seconds
+        );
+    } catch (const std::exception &e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+
     uint64_t user_id;
     uint32_t device_num;
 

@@ -97,11 +97,16 @@
     topic_option_name
     value
 
-(***)26.set_topic_enabled -> ok
+(+)26.set_topic_enabled -> ok
     topic_id
     boolean
 
-(***)27.set_topic_position -> ok
+(+)26.set_user_global_topic_enabled -> ok
+    topic_id
+    dst_lang
+    boolean
+
+(+)27.set_topic_position -> ok
     topic_id
 
 (***)28.get_topic_words -> list
@@ -120,19 +125,19 @@
 (***)32.get_topic_skip_options -> json
     topic_id
 
-(***)33.get_first_user_topic_mix_options -> json/not_found
+(***)33.get_first_user_topic_skip_options -> json/not_found
 
 #GLOBAL TOPICS
-(***)36.add_global_topic_with_user_topic -> ok
+(+)36.add_global_topic_with_user_topic -> ok
     user_topic_id
     popularity
 
-(***)37.update_global_topic_with_user_topic -> ok
+(+)37.update_global_topic_with_user_topic -> ok
     user_topic_id
-    -*-global_topic_id
+    global_topic_id
 
-(***)37.delete_global_topic -> ok
-    -*-global_topic_id
+(+)37.delete_global_topic -> ok
+    global_topic_id
 
 #FOCUS GROUP
 (***)38.prepare_focus_group -> ok

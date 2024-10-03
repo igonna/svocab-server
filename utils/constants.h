@@ -8,8 +8,10 @@ namespace local_constants {
 
     static constexpr uint8_t device_token_length = 16;
 
+    static constexpr uint8_t register_max_requests = 100;
     static constexpr uint8_t code_max_requests = 3;
     static constexpr uint8_t verify_code_max_attempts = 3;
+    static constexpr uint16_t block_register_request_seconds = 10;
     static constexpr uint16_t block_code_request_seconds = 16*60;
     static constexpr uint16_t block_code_verify_attempts_seconds = 10*60;
     static constexpr uint16_t code_expire_seconds = 16*60;
@@ -108,5 +110,10 @@ namespace redis {
 namespace attributes {
     static constexpr std::string user_id = "user_id";
     static constexpr std::string device_num = "device_num";
+}
+
+namespace topics {
+    static constexpr float mix_value = 1.0f;
+    static constexpr float skip_value = 0.0f;
 }
 }

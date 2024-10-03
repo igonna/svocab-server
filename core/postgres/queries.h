@@ -181,4 +181,26 @@ static Task<std::string> get_topic_words_sequence_and_if_update(drogon::orm::DbC
 
     co_return topic_words_sequence;
 }
+
+static Task<int32_t> get_new_smallest_topic_position(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang) {
+    auto result_position = co_await users_db->execSqlCoro("SELECT COALESCE(MIN(position), 0) AS smallest_position "
+        "FROM (SELECT position FROM user_topics WHERE user_id = $1 AND src_lang = $2 AND dst_lang = $3 AND is_enabled = TRUE "
+        "UNION ALL "
+        "SELECT position FROM user_global_topics "
+        "WHERE user_id = $1 AND src_lang = $2 AND dst_lang = $3 AND is_enabled = TRUE) AS combined_positions", user_id, src_lang, dst_lang
+    );
+
+    co_return result_position[0]["smallest_position"].as<int32_t>() - 1;
+}
+
+static Task<int32_t> get_new_biggest_topic_position(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang) {
+    auto result_position = co_await users_db->execSqlCoro("SELECT COALESCE(MAX(position), 0) AS biggest_position "
+        "FROM (SELECT position FROM user_topics WHERE user_id = $1 AND src_lang = $2 AND dst_lang = $3 AND is_enabled = TRUE "
+        "UNION ALL "
+        "SELECT position FROM user_global_topics "
+        "WHERE user_id = $1 AND src_lang = $2 AND dst_lang = $3 AND is_enabled = TRUE) AS combined_positions", user_id, src_lang, dst_lang
+    );
+
+    co_return result_position[0]["biggest_position"].as<int32_t>() + 1;
+}
 }
