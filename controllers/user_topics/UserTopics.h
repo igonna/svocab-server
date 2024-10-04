@@ -31,7 +31,6 @@ public:
 	Task<> setUserGlobalTopicEnabled(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicPosition(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getTopicWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
-	Task<> getTopicMixWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
     METHOD_LIST_BEGIN
 	METHOD_ADD(UserTopics::getFirstUserTopicSkipOptions, "/get_first_topic_skip_options", Get, "JwtFilter");
@@ -55,7 +54,6 @@ public:
 	METHOD_ADD(UserTopics::setUserGlobalTopicEnabled, "/set_user_global_topic_enabled", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicPosition, "/set_topic_position", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getTopicWords, "/get_topic_words", Get, "JwtFilter");
-	METHOD_ADD(UserTopics::getTopicMixWords, "/get_topic_mix_words", Get, "JwtFilter");
     METHOD_LIST_END
 private:
 	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang_tag);

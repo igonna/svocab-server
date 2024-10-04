@@ -113,7 +113,13 @@ namespace attributes {
 }
 
 namespace topics {
+    static constexpr float mix_value_multiplier = 0.25f;
+    static constexpr float min_mix_value = 0.25f;
     static constexpr float mix_value = 1.0f;
+    static constexpr float max_mix_value = 4.0f;
+
+    static constexpr float min_skip_value = 0.0f;
     static constexpr float skip_value = 0.0f;
+    static constexpr float max_skip_value = 1.0f;
 }
 }

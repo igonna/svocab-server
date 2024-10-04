@@ -109,7 +109,7 @@
 (+)27.set_topic_position -> ok
     topic_id
 
-(***)28.get_topic_words -> list
+(+)28.get_topic_words -> list
     topic_id
 
 (+)29.delete_topic_source -> ok
@@ -117,12 +117,12 @@
     source_type
     source_id
 
-(***)30.get_user_topics -> json
+(+)30.get_user_topics -> json
 
 (***)31.get_topic_mix_options -> json
     topic_id
 
-(***)32.get_topic_skip_options -> json
+(+)32.get_topic_skip_options -> json
     topic_id
 
 (***)33.get_first_user_topic_skip_options -> json/not_found

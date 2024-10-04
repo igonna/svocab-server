@@ -155,6 +155,11 @@ static Task<bool> is_user_of_sepcial_user_type(drogon::orm::DbClientPtr users_db
     co_return result.size();
 }
 
+static Task<std::string> get_global_topic_words_sequence(drogon::orm::DbClientPtr users_db, uint32_t topic_id) {
+    auto result = co_await users_db->execSqlCoro("select words from global_topics where topic_id = $1", topic_id);
+    co_return result[0]["words"].as<std::string>();
+}
+
 static Task<std::string> get_topic_words_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id) {
     // check if generation required
     auto result_update_required = co_await users_db->execSqlCoro(

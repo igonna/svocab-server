@@ -99,16 +99,56 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto result = co_await users_db->execSqlCoro(
-            "select ut.topic_id, ulp.src_lang, ulp.dst_lang, ulp.mix_value as lang_mix_value, "
-            "ut.topic_title, ut.order_words_by, ut.mix_value, ut.skip_value, ut.is_enabled, ut.position "
-            "from user_language_pairs as ulp "
-            "left join user_topics as ut "
-            "on ut.user_id = ulp.user_id "
-            "and ut.src_lang = ulp.src_lang "
-            "and ut.dst_lang = ulp.dst_lang "
-            "where ulp.is_enabled = true "
-            "and ulp.user_id = $1 "
-            "order by ulp.last_enable_time desc, ut.position asc",
+            "( "
+                "select "
+                "ut.topic_id,"
+                "ulp.src_lang,"
+                "ulp.dst_lang,"
+                "ulp.mix_value as lang_mix_value,"
+                "ut.topic_title,"
+                "ut.order_words_by,"
+                "ut.mix_value,"
+                "ut.skip_value,"
+                "ut.is_enabled,"
+                "ut.position,"
+                "0 as topic_type,"
+                "ulp.last_enable_time as ulp_last_enable_time "
+                "from user_language_pairs as ulp "
+                "left join user_topics as ut "
+                "on ut.user_id = ulp.user_id "
+                "and ut.src_lang = ulp.src_lang "
+                "and ut.dst_lang = ulp.dst_lang "
+                "where ulp.is_enabled = true "
+                "and ulp.user_id = $1 "
+                "and topic_id is not null "
+            ") "
+            "UNION "
+                "( "
+                "select "
+                "gt.topic_id,"
+                "ulp.src_lang,"
+                "ulp.dst_lang,"
+                "ulp.mix_value as lang_mix_value,"
+                "gt.src_title_en as topic_title,"
+                "null as order_words_by,"
+                "COALESCE(ugt.mix_value, 1) as mix_value,"
+                "COALESCE(ugt.skip_value, 0) as skip_value,"
+                "COALESCE(ugt.is_enabled, false) as is_enabled,"
+                "gt.default_position as position,"
+                "1 as topic_type,"
+                "ulp.last_enable_time as ulp_last_enable_time "
+                "from user_language_pairs as ulp "
+                "left join global_topics as gt "
+                "on gt.src_lang = ulp.src_lang "
+                "left join user_global_topics as ugt "
+                "on gt.topic_id = ugt.topic_id "
+                "and gt.src_lang = ugt.src_lang "
+                "and ugt.dst_lang = ulp.dst_lang "
+                "and ugt.user_id = ulp.user_id "
+                "where ulp.is_enabled = true "
+                "and ulp.user_id = $1 "
+                ") "
+            "order by ulp_last_enable_time desc, is_enabled desc, position asc, topic_type asc",
             user_id
         );
 
@@ -533,24 +573,95 @@ Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(con
 }
 
 Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    auto topic_id_str = req->getHeader("topicId");
+   auto topic_id_str = req->getHeader("topicId");
 
     if (topic_id_str.empty()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
+    Json::Value result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
 
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+        std::string src_lang;
+        std::string dst_lang;
+        if (topic_type == local_utils::topics::TopicType::user_topic) {
+            auto result = co_await users_db->execSqlCoro("select src_lang, dst_lang from user_topics where user_id = $1 and topic_id = $2",
+                user_id, topic_id
+            );
 
+            if (result.empty()) {
+                throw std::runtime_error("not_exists");
+            }
+
+            src_lang = result[0]["src_lang"].as<std::string>();
+            dst_lang = result[0]["dst_lang"].as<std::string>();
+        } else if (topic_type == local_utils::topics::TopicType::global_topic) {
+            auto result = co_await users_db->execSqlCoro("select src_lang, dst_lang from user_global_topics where user_id = $1 and topic_id = $2",
+                user_id, static_cast<uint32_t>(topic_id)
+            );
+
+            if (result.empty()) {
+                throw std::runtime_error("not_exists");
+            }
+
+            src_lang = result[0]["src_lang"].as<std::string>();
+            dst_lang = result[0]["dst_lang"].as<std::string>();
+        }
+
+        auto result_topics = co_await users_db->execSqlCoro("("
+            " select "
+                "topic_id, src_lang, dst_lang, mix_value, is_enabled, position, 0 as topic_type,"
+                "topic_words_sequence as words_sequence "
+                "from user_topics "
+                "where user_id = $1 "
+                "and topic_id is not null "
+                "and is_enabled = true "
+                "and src_lang = $2 "
+                "and dst_lang = $3 "
+                "and topic_words_sequence != '' "
+            " ) "
+            " UNION "
+            " ( "
+            " select "
+                "ugt.topic_id, ugt.src_lang, dst_lang, mix_value, is_enabled, position, 1 as topic_type,"
+                "gt.words as words_sequence "
+                "from user_global_topics as ugt "
+                "left join global_topics as gt "
+                "on ugt.topic_id = gt.topic_id "
+                "and ugt.src_lang = gt.src_lang "
+                "where user_id = $1 "
+                "and is_enabled = true "
+                "and ugt.src_lang = $2 "
+                "and dst_lang = $3 "
+                ")"
+            " order by is_enabled desc, position asc",
+            user_id, src_lang, dst_lang
+        );
+
+        result_body["mix_value_multiplier"] = local_constants::topics::mix_value_multiplier;
+        result_body["min_mix_value"] = local_constants::topics::min_mix_value;
+        result_body["max_mix_value"] = local_constants::topics::max_mix_value;
+
+        auto& topics_words = result_body["topics_words"] = Json::arrayValue;
+        for (auto& topic : result_topics) {
+            Json::Value new_topic;
+            auto this_topic_id = topic["topic_id"].as<uint64_t>();
+            new_topic["this"] = this_topic_id == topic_id;
+            // update all user topics first !!!
+            // exclude duplicated words
+            new_topic["words"] = topic["words_sequence"].as<std::string>();
+            new_topic["mix_value"] = topic["mix_value"].as<float>();
+            topics_words.append(new_topic);
+        }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::getTopicSkipOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -560,18 +671,44 @@ Task<> UserTopics::getTopicSkipOptions(HttpRequestPtr req, std::function<void(co
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
+    Json::Value result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
 
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+        if (topic_type == local_utils::topics::TopicType::user_topic) {
+            auto result = co_await users_db->execSqlCoro("select skip_value from user_topics where user_id = $1 and topic_id = $2",
+                user_id, topic_id
+            );
 
+            if (result.empty()) {
+                throw std::runtime_error("not_exists");
+            }
+
+            result_body["skip_value"] = result[0]["skip_value"].as<float>();
+            result_body["words"] = co_await core::sql::get_topic_words_sequence_and_if_update(users_db, user_id, topic_id);
+        } else if (topic_type == local_utils::topics::TopicType::global_topic) {
+            auto result = co_await users_db->execSqlCoro("select skip_value from user_global_topics where user_id = $1 and topic_id = $2",
+                user_id, static_cast<uint32_t>(topic_id)
+            );
+
+            if (result.empty()) {
+                throw std::runtime_error("not_exists");
+            }
+
+            result_body["skip_value"] = result[0]["skip_value"].as<float>();
+            result_body["words"] = co_await core::sql::get_global_topic_words_sequence(users_db, topic_id);
+        }
+
+        result_body["min_skip_value"] = local_constants::topics::min_skip_value;
+        result_body["max_skip_value"] = local_constants::topics::max_skip_value;
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -817,9 +954,13 @@ Task<> UserTopics::getTopicWords(HttpRequestPtr req, std::function<void(const Ht
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+        auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
 
-        result_body = co_await core::sql::get_topic_words_sequence_and_if_update(users_db, user_id, topic_id);
+        if (topic_type == local_utils::topics::TopicType::user_topic) {
+            result_body = co_await core::sql::get_topic_words_sequence_and_if_update(users_db, user_id, topic_id);
+        } else if (topic_type == local_utils::topics::TopicType::global_topic) {
+            result_body = co_await core::sql::get_global_topic_words_sequence(users_db, topic_id);
+        }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -827,14 +968,6 @@ Task<> UserTopics::getTopicWords(HttpRequestPtr req, std::function<void(const Ht
 
     co_return local_utils::Response::OK(callback, result_body);
 }
-
-Task<> UserTopics::getTopicMixWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    // update all topics if required
-    // fetch all topics beside current and generate sequence
-    co_return local_utils::Response::OK(callback, "");
-}
-
 
 Json::Value UserTopics::createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type, const std::string& fail_type)
 {
@@ -915,24 +1048,28 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const 
             language_pairs.append(new_lang_pair);
         }
 
-        if (!row["topic_id"].isNull()) {
-            Json::Value new_topic;
+        Json::Value new_topic;
 
-            new_topic["topic_id"] = local_utils::topics::encode_topic_id(
-                row["topic_id"].as<uint64_t>(), 
-                local_utils::topics::TopicType::user_topic
-            );
+        new_topic["topic_id"] = local_utils::topics::encode_topic_id(
+            row["topic_id"].as<uint64_t>(), 
+            local_utils::topics::TopicType::user_topic
+        );
 
-            new_topic["topic_title"] = row["topic_title"].as<std::string>();
+        new_topic["topic_title"] = row["topic_title"].as<std::string>();
+        new_topic["mix_value"] = row["mix_value"].as<float>();
+        new_topic["skip_value"] = row["skip_value"].as<float>();
+        new_topic["is_enabled"] = row["is_enabled"].as<bool>();
+        new_topic["position"] = row["position"].as<int32_t>();
+        new_topic["lang_pair_index"] = current_lang_pair_id;
+
+        auto topic_type = static_cast<local_utils::topics::TopicType>(row["topic_type"].as<uint32_t>());
+        new_topic["type"] = local_utils::topics::topic_type_to_str(topic_type);
+
+        if (topic_type == local_utils::topics::TopicType::user_topic) {
             new_topic["order_words_by"] = row["order_words_by"].as<int32_t>();
-            new_topic["mix_value"] = row["mix_value"].as<float>();
-            new_topic["skip_value"] = row["skip_value"].as<float>();
-            new_topic["is_enabled"] = row["is_enabled"].as<bool>();
-            new_topic["position"] = row["position"].as<int32_t>();
-            new_topic["lang_pair_index"] = current_lang_pair_id;
-            new_topic["type"] = "user";
-            topics.append(new_topic);
         }
+
+        topics.append(new_topic);
     }
 
     return result;
