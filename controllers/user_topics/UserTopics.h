@@ -10,7 +10,7 @@ namespace v1
 class UserTopics : public drogon::HttpController<UserTopics>
 {
 public:
-	Task<> getFirstUserTopicSkipOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> getFirstUserGlobalTopicId(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> createTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> deleteTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getUserTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
@@ -33,7 +33,7 @@ public:
 	Task<> getTopicWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
     METHOD_LIST_BEGIN
-	METHOD_ADD(UserTopics::getFirstUserTopicSkipOptions, "/get_first_topic_skip_options", Get, "JwtFilter");
+	METHOD_ADD(UserTopics::getFirstUserGlobalTopicId, "/get_first_user_global_topic_id", Get, "JwtFilter");
     METHOD_ADD(UserTopics::createTopic, "/create_topic", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::deleteTopic, "/delete_topic", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getUserTopics, "/get_user_topics", Get, "JwtFilter");

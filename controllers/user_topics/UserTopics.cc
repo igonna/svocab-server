@@ -9,10 +9,39 @@
 
 namespace v1
 {
-Task<> UserTopics::getFirstUserTopicSkipOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+Task<> UserTopics::getFirstUserGlobalTopicId(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    // local_utils::Response::Error::ERROR(callback, k404NotFound, "");
-    co_return;
+    std::string topic_id_str;
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        auto result = co_await users_db->execSqlCoro("select src_lang from user_language_pairs "
+            "where user_id = $1 limit 1", user_id
+        );
+
+        if (result.empty()) {
+            co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "");
+        }
+
+        auto src_lang = result[0]["src_lang"].as<std::string>();
+
+        result = co_await users_db->execSqlCoro("select topic_id from global_topics "
+            "where src_lang = $1 limit 1", src_lang
+        );
+
+        if (result.empty()) {
+            co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "");
+        }
+        
+        auto topic_id = result[0]["topic_id"].as<uint32_t>();
+        topic_id_str = local_utils::topics::encode_topic_id(topic_id, local_utils::topics::TopicType::global_topic);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, topic_id_str);
 }
 
 Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -611,6 +640,8 @@ Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(con
             dst_lang = result[0]["dst_lang"].as<std::string>();
         }
 
+        co_await core::sql::update_all_user_topics_sequences(users_db, user_id);
+
         auto result_topics = co_await users_db->execSqlCoro("("
             " select "
                 "topic_id, src_lang, dst_lang, mix_value, is_enabled, position, 0 as topic_type,"
@@ -645,14 +676,17 @@ Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(con
         result_body["min_mix_value"] = local_constants::topics::min_mix_value;
         result_body["max_mix_value"] = local_constants::topics::max_mix_value;
 
+        std::unordered_set<std::string> words_to_exclude;
+
         auto& topics_words = result_body["topics_words"] = Json::arrayValue;
         for (auto& topic : result_topics) {
             Json::Value new_topic;
             auto this_topic_id = topic["topic_id"].as<uint64_t>();
             new_topic["this"] = this_topic_id == topic_id;
-            // update all user topics first !!!
-            // exclude duplicated words
-            new_topic["words"] = topic["words_sequence"].as<std::string>();
+
+            std::string words_sequence = topic["words_sequence"].as<std::string>();
+            new_topic["words"] = core::text_processing::get_words_sequence_without_duplicates(words_sequence, words_to_exclude);
+
             new_topic["mix_value"] = topic["mix_value"].as<float>();
             topics_words.append(new_topic);
         }
@@ -776,23 +810,9 @@ Task<> UserTopics::setTopicEnabled(HttpRequestPtr req, std::function<void(const 
 
         auto value = value_str == "true" ? true : false;
 
-        if (value) {
-            auto topic_langs = co_await users_db->execSqlCoro("select src_lang, dst_lang from user_topics where user_id = $1 and topic_id = $2 limit 1", user_id, topic_id);
-
-            auto src_lang = topic_langs[0]["src_lang"].as<std::string>();
-            auto dst_lang = topic_langs[0]["dst_lang"].as<std::string>();
-
-            auto new_position = co_await core::sql::get_new_biggest_topic_position(users_db, user_id, src_lang, dst_lang);
-
-            auto result = co_await users_db->execSqlCoro("update user_topics set is_enabled = $1, position = $2 where user_id = $3 and topic_id = $4", value, new_position, user_id, topic_id);
-            if (!result.affectedRows()) {
-                throw std::runtime_error("not_updated");
-            }
-        } else {
-            auto result = co_await users_db->execSqlCoro("update user_topics set is_enabled = $1 where user_id = $2 and topic_id = $3", value, user_id, topic_id);
-            if (!result.affectedRows()) {
-                throw std::runtime_error("not_updated");
-            }
+        auto result = co_await users_db->execSqlCoro("update user_topics set is_enabled = $1 where user_id = $2 and topic_id = $3", value, user_id, topic_id);
+        if (!result.affectedRows()) {
+            throw std::runtime_error("not_updated");
         }
 
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
@@ -823,28 +843,21 @@ Task<> UserTopics::setUserGlobalTopicEnabled(HttpRequestPtr req, std::function<v
 
         auto value = value_str == "true" ? true : false;
 
-        if (value) {
+        auto result = co_await users_db->execSqlCoro("update user_global_topics set is_enabled = $1 where user_id = $2 and topic_id = $3", value, user_id, topic_id);
+        if (!result.affectedRows()) {
+
             auto src_lang = (co_await users_db->execSqlCoro("select src_lang from global_topics where topic_id = $1 limit 1", topic_id))[0]["src_lang"].as<std::string>();
             auto new_position = co_await core::sql::get_new_biggest_topic_position(users_db, user_id, src_lang, dst_lang);
 
-            auto result = co_await users_db->execSqlCoro("update user_global_topics set is_enabled = $1, position = $2 where user_id = $3 and topic_id = $4", value, new_position, user_id, topic_id);
-            if (!result.affectedRows()) {
+            result = co_await users_db->execSqlCoro(
+                "INSERT INTO user_global_topics (user_id, topic_id, src_lang, dst_lang, dst_title, mix_value, skip_value, position, is_enabled) "
+                "SELECT $1, gt.topic_id, gt.src_lang, $2, gt.src_title_en, $3, $4, $5, $6 "
+                "FROM global_topics gt WHERE gt.topic_id = $7", 
+                user_id, dst_lang, local_constants::topics::mix_value, local_constants::topics::skip_value, new_position, value, topic_id
+            );
 
-                result = co_await users_db->execSqlCoro(
-                    "INSERT INTO user_global_topics (user_id, topic_id, src_lang, dst_lang, dst_title, mix_value, skip_value, position, is_enabled) "
-                    "SELECT $1, gt.topic_id, gt.src_lang, $2, gt.src_title_en, $3, $4, $5, $6 "
-                    "FROM global_topics gt WHERE gt.topic_id = $7", 
-                    user_id, dst_lang, local_constants::topics::mix_value, local_constants::topics::skip_value, new_position, value, topic_id
-                );
-
-                if (!result.affectedRows()) {
-                    throw std::runtime_error("not_updated");
-                }
-            }
-        } else {
-            auto result = co_await users_db->execSqlCoro("update user_global_topics set is_enabled = $1 where user_id = $2 and topic_id = $3", value, user_id, topic_id);
             if (!result.affectedRows()) {
-                co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "can_not_add_user_global_topic_with_false");
+                throw std::runtime_error("not_updated");
             }
         }
 

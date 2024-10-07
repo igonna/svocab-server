@@ -134,7 +134,7 @@ std::string text_to_processed_source(icu::UnicodeString text, const char* langua
 }
 
 // word, total_count, first_appearance
-std::vector<ProcessedWord> processed_words_str_to_binary(const std::string& processed_words_str) {
+std::vector<ProcessedWord> processed_words_str_to_vector(const std::string& processed_words_str) {
     std::vector<ProcessedWord> result;
 
     auto len = processed_words_str.size();
@@ -170,6 +170,34 @@ std::vector<ProcessedWord> processed_words_str_to_binary(const std::string& proc
             tmp_str.clear();
             part_num = 0;
         }
+    }
+
+    return result;
+}
+
+std::string get_words_sequence_without_duplicates(const std::string& words_sequence, std::unordered_set<std::string>& words_to_exclude) {
+    std::string result;
+
+    std::string word;
+    for (auto c : words_sequence) {
+        if (c == ';') {
+            if (!words_to_exclude.contains(word)) {
+                result += word + ';';
+                words_to_exclude.insert(word);
+            }
+            word.clear();
+        } else {
+            word += c;
+        }
+    }
+
+    if (word.size() && !words_to_exclude.contains(word)) {
+        result += word;
+        words_to_exclude.insert(word);
+    }
+
+    if (result.size() && result.back() == ';') {
+        result.pop_back();
     }
 
     return result;

@@ -2,6 +2,7 @@
 
 #include <unicode/unistr.h>
 #include <vector>
+#include <unordered_set>
 
 namespace core::text_processing
 {
@@ -23,5 +24,7 @@ namespace core::text_processing
 
     std::string text_to_processed_source(icu::UnicodeString text, const char* language);
 
-    std::vector<ProcessedWord> processed_words_str_to_binary(const std::string& processed_words_str);
+    std::vector<ProcessedWord> processed_words_str_to_vector(const std::string& processed_words_str);
+
+    std::string get_words_sequence_without_duplicates(const std::string& words_sequence, std::unordered_set<std::string>& words_to_exclude);
 }

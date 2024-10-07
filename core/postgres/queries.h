@@ -129,7 +129,7 @@ static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbCl
 
     for (auto& source : topic_sources) {
         auto source_processed_words = source["value"].as<std::string>();
-        auto words = core::text_processing::processed_words_str_to_binary(source_processed_words);
+        auto words = core::text_processing::processed_words_str_to_vector(source_processed_words);
         topic_generator.add_topic_words(words);
     }
 
@@ -207,5 +207,31 @@ static Task<int32_t> get_new_biggest_topic_position(drogon::orm::DbClientPtr use
     );
 
     co_return result_position[0]["biggest_position"].as<int32_t>() + 1;
+}
+
+static Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto topics_generation_required_result = co_await users_db->execSqlCoro("select last_update_id, last_gen_for_repeat_time from user_sequence "
+        "where user_id = $1 and last_gen_id != last_update_id", 
+        user_id
+    );
+
+    auto sequence_last_update_id = topics_generation_required_result[0]["last_update_id"].as<uint32_t>();
+    auto sequence_last_gen_for_repeat_time = topics_generation_required_result[0]["last_gen_for_repeat_time"].as<uint32_t>();
+
+    // if generation required
+    if (topics_generation_required_result.size()) {
+        // update not updated topics
+        auto topics_to_generate = co_await users_db->execSqlCoro(
+            "select topic_id, last_update_id from user_topics "
+            "where user_id = $1 and last_gen_id != last_update_id and is_enabled = true", 
+            user_id
+        );
+        
+        for (const auto& i : topics_to_generate) {
+            auto topic_id = i["topic_id"].as<uint64_t>();
+            auto topic_last_update_id = i["last_update_id"].as<uint32_t>();
+            co_await core::sql::generate_topic_sequence_and_if_update(users_db, user_id, topic_id, topic_last_update_id);
+        }
+    }
 }
 }

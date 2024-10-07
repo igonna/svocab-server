@@ -119,13 +119,13 @@
 
 (+)30.get_user_topics -> json
 
-(***)31.get_topic_mix_options -> json
+(+)31.get_topic_mix_options -> json
     topic_id
 
 (+)32.get_topic_skip_options -> json
     topic_id
 
-(***)33.get_first_user_topic_skip_options -> json/not_found
+(+)33.get_first_user_global_topic_id -> json/not_found
 
 #GLOBAL TOPICS
 (+)36.add_global_topic_with_user_topic -> ok
