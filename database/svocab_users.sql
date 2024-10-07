@@ -142,8 +142,7 @@ CREATE TABLE user_global_topics (
 
 CREATE TABLE ranks (
     rank_pos SMALLINT PRIMARY KEY,
-    rank_min_score BIGINT,
-    last_rank_update_time INT NOT NULL DEFAULT 0
+    rank_min_score BIGINT
 );
 
 CREATE TABLE user_statistics (

@@ -18,6 +18,7 @@ namespace local_constants {
 
     static constexpr uint32_t secret_key_expire_seconds = 60*60*2;
     static constexpr uint32_t devices_info_update_key_expire_seconds = 60*60*24;
+    static constexpr uint32_t global_rank_update_key_expire_seconds = 5*60;
 
     static constexpr uint32_t title_max_length = 60;
 
@@ -105,6 +106,7 @@ namespace redis {
     static constexpr std::string secret_key_name = "secret";
     static constexpr uint8_t secret_key_length = 16;
     static const std::string devices_info_update_key_name = "devices_info_update";
+    static const std::string global_rank_update_key_name = "global_rank_update";
 }
 
 namespace attributes {
