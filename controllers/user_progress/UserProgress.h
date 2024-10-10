@@ -4,12 +4,21 @@
 
 using namespace drogon;
 
+namespace v1
+{
 class UserProgress : public drogon::HttpController<UserProgress>
 {
-  public:
-    
-    METHOD_LIST_BEGIN
-    // list path definitions here;
-    // PATH_ADD("/path", "filter1", "filter2", HttpMethod1, HttpMethod2...);
-    METHOD_LIST_END
+public:
+	Task<> getLearnedWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> removeLearnedWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> getHiddenWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> removeHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+
+	METHOD_LIST_BEGIN
+	METHOD_ADD(UserProgress::getLearnedWords, "/get_learned_words", Get, "JwtFilter");
+	METHOD_ADD(UserProgress::removeLearnedWord, "/remove_learned_word", Post, "JwtFilter");
+	METHOD_ADD(UserProgress::getHiddenWords, "/get_hidden_words", Get, "JwtFilter");
+	METHOD_ADD(UserProgress::removeHiddenWord, "/remove_hidden_word", Post, "JwtFilter");
+	METHOD_LIST_END
 };
+}

@@ -155,6 +155,10 @@ namespace Error {
         ERROR(callback, drogon::k400BadRequest, "not_valid_headers");
     }
 
+    static inline void NOT_VALID_BODY(std::function<void (const drogon::HttpResponsePtr &)> &callback) {
+        ERROR(callback, drogon::k400BadRequest, "not_valid_body");
+    }
+
     static inline void SOMETHING_WRONG(std::function<void (const drogon::HttpResponsePtr &)> &callback) {
         ERROR(callback, drogon::k500InternalServerError, "something_wrong");
     }

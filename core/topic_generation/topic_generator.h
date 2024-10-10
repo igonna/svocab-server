@@ -16,9 +16,8 @@ public:
         float skip_value,
         OrderWordsBy order_words_by,
         bool exclude_word_if_not_present_in_all_sources,
-        bool exclude_word_if_very_rare,
-        bool exclude_word_if_word_learned
-    ); 
+        bool exclude_word_if_very_rare
+    );
 
     void add_topic_words(const std::vector<core::text_processing::ProcessedWord>& words);
 
@@ -36,7 +35,6 @@ private:
     OrderWordsBy _order_words_by;
     bool _exclude_word_if_not_present_in_all_sources;
     bool _exclude_word_if_very_rare;
-    bool _exclude_word_if_word_learned;
 
 private:
     struct WordData {

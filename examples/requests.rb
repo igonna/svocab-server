@@ -172,20 +172,20 @@
     value
 
 #USER STATISTICS
-(***)47.get_statistics -> json
+(+)47.get_statistics -> json
 
 #PROGRESS WORDS
-(***)48.get_learned_words -> list
+(+)48.get_learned_words -> list
 
-(***)49.remove_learned_word -> ok
+(+)49.remove_learned_word -> ok
     src_lang
-    word
+    body:word
 
-(***)50.get_hidden_words -> list
+(+)50.get_hidden_words -> list
 
-(***)51.remove_hidden_word -> ok
+(+)51.remove_hidden_word -> ok
     src_lang
-    word
+    body:word
 
 #USER SUBSCRIPTION
 (***)52.add_subscription -> ok
@@ -227,3 +227,6 @@ last_devices_models_update
 server_secret_key
 user_state
 last_global_rank_update
+
+#USER WORDS
+word;confirmation_level;hidden;last_update_time

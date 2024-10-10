@@ -72,7 +72,7 @@ Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const Http
         result = co_await users_db->execSqlCoro("insert into user_topics (user_id, src_lang, dst_lang, position) "
             "values ($1, $2, $3, $4) returning "
             "topic_id, src_lang, topic_title, order_words_by, "
-            "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, exclude_word_if_word_learned, "
+            "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
             "sources_metadata, sources_unprocessed, sources_processed"
             , user_id, src_lang, dst_lang, new_position
         );
@@ -209,7 +209,7 @@ Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<vo
         auto result = co_await users_db->execSqlCoro(
             "select "
             "topic_id, src_lang, topic_title, order_words_by, "
-            "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, exclude_word_if_word_learned, "
+            "exclude_word_if_not_present_in_all_sources, exclude_word_if_very_rare, "
             "sources_metadata "
             "from user_topics where user_id = $1 and topic_id = $2"
             , user_id, topic_id
@@ -762,7 +762,7 @@ Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const H
         auto query = "update user_topics set " + option_name + " = $1, "
             "last_update_id = last_update_id + 1 where user_id = $2 and topic_id = $3";
 
-        static const std::unordered_set<std::string> bolean_options = {"exclude_word_if_not_present_in_all_sources", "exclude_word_if_very_rare", "exclude_word_if_word_learned"};
+        static const std::unordered_set<std::string> bolean_options = {"exclude_word_if_not_present_in_all_sources", "exclude_word_if_very_rare"};
         static const std::unordered_set<std::string> int16_options = {"order_words_by"};
         static const std::unordered_set<std::string> float_options = {"mix_value", "skip_value"};
 
@@ -1010,7 +1010,6 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
     options["order_words_by"] = row["order_words_by"].as<uint32_t>();
     options["exclude_word_if_not_present_in_all_sources"] = row["exclude_word_if_not_present_in_all_sources"].as<bool>();
     options["exclude_word_if_very_rare"] = row["exclude_word_if_very_rare"].as<bool>();
-    options["exclude_word_if_word_learned"] = row["exclude_word_if_word_learned"].as<bool>();
 
     auto& sources = result["sources"] = Json::arrayValue;
 

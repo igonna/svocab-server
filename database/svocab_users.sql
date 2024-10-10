@@ -46,18 +46,10 @@ CREATE TABLE user_devices (
 
 CREATE TABLE user_words (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    lang_tag CHAR(2) NOT NULL,
-    words TEXT NOT NULL DEFAULT '', -- word;16;160010120
+    src_lang CHAR(2) NOT NULL,
+    words TEXT NOT NULL DEFAULT '', -- word;3;0;160010120
     last_update_id INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (user_id, lang_tag)
-) PARTITION BY HASH (user_id);
-
-CREATE TABLE user_hidden_words (
-    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    lang_tag CHAR(2) NOT NULL,
-    words TEXT NOT NULL DEFAULT '', -- word;0
-    last_update_id INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (user_id, lang_tag)
+    PRIMARY KEY (user_id, src_lang)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_phrase_generation_limit (
@@ -101,7 +93,6 @@ CREATE TABLE user_topics (
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
     order_words_by SMALLINT NOT NULL DEFAULT 1, -- 0 first_appearance, 1 relative_popularity, 2 total_popularity
-    exclude_word_if_word_learned BOOLEAN NOT NULL DEFAULT TRUE,
     exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
     exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
 
@@ -210,11 +201,6 @@ CREATE TABLE user_words_p0 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, R
 CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
-
-CREATE TABLE user_hidden_words_p0 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_hidden_words_p1 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_hidden_words_p2 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_hidden_words_p3 PARTITION OF user_hidden_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_topics_p0 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_topics_p1 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 1);

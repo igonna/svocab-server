@@ -10,15 +10,13 @@ TopicGenerator::TopicGenerator(
     float skip_value,
     OrderWordsBy order_words_by,
     bool exclude_word_if_not_present_in_all_sources,
-    bool exclude_word_if_very_rare,
-    bool exclude_word_if_word_learned
+    bool exclude_word_if_very_rare
 ) : 
     _src_lang(src_lang),
     _skip_value(skip_value),
     _order_words_by(order_words_by),
     _exclude_word_if_not_present_in_all_sources(exclude_word_if_not_present_in_all_sources),
-    _exclude_word_if_very_rare(exclude_word_if_very_rare),
-    _exclude_word_if_word_learned(exclude_word_if_word_learned) {}
+    _exclude_word_if_very_rare(exclude_word_if_very_rare) {}
 
 
 void TopicGenerator::add_topic_words(const std::vector<core::text_processing::ProcessedWord>& words) {
