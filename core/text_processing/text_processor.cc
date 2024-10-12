@@ -13,6 +13,8 @@
 #include <unicode/uscript.h>
 #include <unicode/uloc.h>
 #include <unordered_map>
+#include <unordered_set>
+#include <unicode/utypes.h>
 
 namespace core::text_processing
 {
@@ -62,6 +64,97 @@ inline bool is_char_script_desired(UChar c, uint32_t desired_script_code) {
     return script_code == desired_script_code;
 }
 
+UChar32 get_apostrophe_for_lang(const std::string& lang) {
+    static const std::unordered_map<std::string, UChar32> apostrophes_per_lang = {
+        // Languages with U+2019 (Typographic Apostrophe)
+        {"en", 0x2019},  // English
+        {"fr", 0x2019},  // French
+        {"de", 0x2019},  // German
+        {"it", 0x2019},  // Italian
+        {"pt", 0x2019},  // Portuguese
+        {"nl", 0x2019},  // Dutch
+        {"sv", 0x2019},  // Swedish
+        {"no", 0x2019},  // Norwegian
+        {"da", 0x2019},  // Danish
+        {"ro", 0x2019},  // Romanian
+        {"fi", 0x2019},  // Finnish
+        {"ca", 0x2019},  // Catalan
+        {"hu", 0x2019},  // Hungarian
+        {"pl", 0x2019},  // Polish
+        {"cs", 0x2019},  // Czech
+        {"sk", 0x2019},  // Slovak
+        {"sl", 0x2019},  // Slovenian
+        {"lt", 0x2019},  // Lithuanian
+        {"lv", 0x2019},  // Latvian
+        {"et", 0x2019},  // Estonian
+        {"sq", 0x2019},  // Albanian
+        {"bs", 0x2019},  // Bosnian
+        {"hr", 0x2019},  // Croatian
+        {"sr", 0x2019},  // Serbian
+        {"bg", 0x2019},  // Bulgarian
+
+        // Special Characters for Specific Languages
+        {"haw", 0x02BB}, // Hawaiian (ʻokina)
+        {"hy", 0x055A},  // Armenian apostrophe (U+055A)
+        {"ka", 0x2019},  // Georgian (generally uses U+2019 in modern typography)
+        {"kk", 0x02BC},  // Kazakh (glottal stop apostrophe)
+        {"mn", 0x0027},  // Mongolian uses straight apostrophe
+        {"my", 0x0027},  // Burmese (no strict apostrophe, U+0027 can be used informally)
+        {"tl", 0x2019},  // Filipino/Tagalog (Typographic apostrophe)
+        {"am", 0x0027},  // Amharic (informally uses straight apostrophe)
+
+        // Languages with U+0027 (Straight Apostrophe)
+        {"es", 0x0027},  // Spanish (uses straight apostrophe)
+        {"zh", 0x0027},  // Chinese (rarely uses apostrophes, U+0027 when needed)
+        {"ja", 0x0027},  // Japanese (rarely uses apostrophes, U+0027 when needed)
+        {"ru", 0x0027},  // Russian (rarely uses apostrophes, U+0027 when needed)
+        {"ko", 0x0027},  // Korean (U+0027, though rarely used)
+        {"ar", 0x0027},  // Arabic (informally U+0027, though apostrophes aren't common)
+        {"tr", 0x0027},  // Turkish (straight apostrophe)
+        {"hi", 0x0027},  // Hindi (informal use of U+0027)
+        {"vi", 0x0027},  // Vietnamese (straight apostrophe used in informal writing)
+        {"id", 0x0027},  // Indonesian (U+0027 is the default)
+        {"th", 0x0027},  // Thai (informal use of U+0027)
+        {"uk", 0x0027},  // Ukrainian (rarely used, U+0027 in informal contexts)
+        {"fa", 0x0027},  // Persian (rarely uses apostrophes, U+0027 when needed)
+        {"sw", 0x0027},  // Swahili (informal use of U+0027)
+        {"bn", 0x0027},  // Bengali (straight apostrophe used informally)
+        {"is", 0x0027},  // Icelandic (U+0027 is used for contractions)
+        {"ms", 0x0027},  // Malay (informal use of U+0027)
+        {"mk", 0x0027},  // Macedonian (rarely uses apostrophes, U+0027 when needed)
+        {"ta", 0x0027},  // Tamil (informal use of U+0027)
+        {"te", 0x0027},  // Telugu (informal use of U+0027)
+        {"ur", 0x0027},  // Urdu (informally uses straight apostrophe)
+        {"mr", 0x0027},  // Marathi (U+0027 is often used in informal contexts)
+        {"gu", 0x0027},  // Gujarati (informally uses U+0027)
+        {"ml", 0x0027},  // Malayalam (informal use of U+0027)
+        {"kn", 0x0027},  // Kannada (informal use of U+0027)
+        {"so", 0x0027},  // Somali (U+0027 is commonly used for contractions)
+        {"pa", 0x0027},  // Punjabi (informal use of U+0027)
+    };
+
+    try {
+        return apostrophes_per_lang.at(lang);
+    } catch (...) {
+        return 0x0027;
+    }
+}
+
+inline bool is_apostrophe(UChar32 c) {
+    static const std::unordered_set<UChar32> apostrophe_symbols = {
+        0x0027,  // Apostrophe (Straight single quote) - ' (U+0027)
+        0x2019,  // Right single quotation mark (Typographic apostrophe) - ’ (U+2019)
+        0x02BC,  // Modifier letter apostrophe (Glottal stop) - ʼ (U+02BC)
+        0x275C,  // Heavy single comma quotation mark ornament - ❜ (U+275C)
+        0xFF07,  // Fullwidth apostrophe - ＇ (U+FF07)
+        0x2018,  // Left single quotation mark (used as an opening apostrophe) - ‘ (U+2018)
+        0x02BB,  // Modifier letter turned comma (ʻokina, used in Hawaiian) - ʻ (U+02BB)
+        0xA78C   // Latin small letter saltillo (used in some native Latin American languages) - ꞌ (U+A78C)
+    };
+
+    return apostrophe_symbols.contains(c);
+}
+
 std::string text_to_processed_source(icu::UnicodeString text, const char* language) {
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> words_data;
     
@@ -93,9 +186,14 @@ std::string text_to_processed_source(icu::UnicodeString text, const char* langua
         for (int32_t i = 0; i < word.length(); ++i) {
             UChar32 c = word.char32At(i);
 
-            if (!(is_alpha_from_lang(c, lang_id) && is_char_script_desired(c, desired_script_code)) || u_isdigit(c)) {
+            bool is_apostr = is_apostrophe(c);
+            if (!(is_alpha_from_lang(c, lang_id) && is_char_script_desired(c, desired_script_code)) && !is_apostr || u_isdigit(c)) {
                 is_valid_word = false;
                 break;
+            }
+
+            if (is_apostr) {
+                word.setCharAt(i, get_apostrophe_for_lang(language));
             }
         }
 

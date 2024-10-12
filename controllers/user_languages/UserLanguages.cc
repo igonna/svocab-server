@@ -69,4 +69,8 @@ Task<> UserLanguages::setLanguagePairMixValue(HttpRequestPtr req, std::function<
 
     co_return local_utils::Response::OK(callback, "");
 }
+
+Task<> UserLanguages::getLanguagePairMixOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    co_return local_utils::Response::Error::ERROR(callback, k501NotImplemented, "");
+}
 }

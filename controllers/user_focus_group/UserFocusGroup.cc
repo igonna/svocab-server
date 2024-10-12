@@ -33,17 +33,7 @@ Task<> UserFocusGroup::prepareFocusGroup(HttpRequestPtr req, std::function<void(
 
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
 
-    // TO FINISH START
-
-    // 1. generate words sequence for current topic (for view topic) - done
-
-    // 1. generate words sequence for all topics (for mix value) - marked
-
-    // 1. generate words sequence for current topic (for skip value) - done
-
-    // 1. generate words sequence's for all topics (for main sequence) - done
-
-    // 1. check if update required
+    // 1. update required topics
     // 2. if yes, check on what topics
     // 3. generate words sequence for each topic, based on topic options
     // 4. generate final sequence
@@ -64,75 +54,120 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        co_await core::sql::update_all_user_topics_sequences(users_db, user_id);
+        auto sequence_update_info_result = co_await users_db->execSqlCoro("select last_gen_id, last_update_id from user_sequence where user_id = $1", user_id);
+        auto sequence_last_update_id = sequence_update_info_result[0]["last_update_id"].as<uint32_t>();
+        auto sequence_last_gen_id = sequence_update_info_result[0]["last_gen_id"].as<uint32_t>();
 
-        // TODO: fetch global topics
-        // add all topics words sequences to mixer
-        auto topics_sequences_result = co_await users_db->execSqlCoro(
-            "select ut.src_lang, ut.dst_lang, ulp.mix_value as lang_mix_value, ut.mix_value as topic_mix_value, ut.topic_words_sequence "
-            "from user_topics as ut "
-            "join user_language_pairs as ulp "
-            "on ut.user_id = ulp.user_id "
-            "and ut.src_lang = ulp.src_lang "
-            "and ut.dst_lang = ulp.dst_lang "
-            "where ulp.is_enabled = true "
-            "and ulp.user_id = $1 and ut.last_update_id != 0 "
-            "order by ulp.last_enable_time desc, ut.position asc",
-            user_id
-        );
+        // if sequence generation required
+        if (sequence_last_gen_id != sequence_last_update_id) {
+            co_await core::sql::update_all_user_topics_sequences(users_db, user_id);
 
-        TopicMixer topic_mixer;
-
-        for (auto& topic_sequence : topics_sequences_result) {
-            auto src_lang = topic_sequence["src_lang"].as<std::string>();
-            auto dst_lang = topic_sequence["dst_lang"].as<std::string>();
-            auto lang_mix_value = topic_sequence["lang_mix_value"].as<float>();
-            auto topic_mix_value = topic_sequence["topic_mix_value"].as<float>();
-            auto topic_words_sequence = topic_sequence["topic_words_sequence"].as<std::string>();
-
-            topic_mixer.add_topic(std::move(src_lang), std::move(dst_lang),
-                lang_mix_value, topic_mix_value, std::move(topic_words_sequence)
+            auto user_words_result = co_await users_db->execSqlCoro(
+                " select distinct ulp.src_lang, uw.words from user_language_pairs as ulp"
+                " left join user_words as uw"
+                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
+                " where ulp.user_id = $1", user_id
             );
+
+            auto topics_sequences_result = co_await users_db->execSqlCoro(" ("
+                " select"
+                    " ulp.src_lang,"
+                    " ulp.dst_lang,"
+                    " ulp.mix_value as lang_mix_value,"
+                    " ut.mix_value,"
+                    " ut.position,"
+                    " ulp.last_enable_time as ulp_last_enable_time,"
+                    " ut.topic_words_sequence as words_sequence"
+                    " from user_language_pairs as ulp"
+                    " left join user_topics as ut"
+                    " on ut.user_id = ulp.user_id"
+                    " and ut.src_lang = ulp.src_lang"
+                    " and ut.dst_lang = ulp.dst_lang"
+                    " where ulp.user_id = $1"
+                    " and ulp.is_enabled = true"
+                    " and topic_id is not null"
+                    " and ut.is_enabled = true"
+                    " and ut.topic_words_sequence != ''"
+                " )"
+                " UNION"
+                    " ("
+                    " select"
+                    " ulp.src_lang,"
+                    " ulp.dst_lang,"
+                    " ulp.mix_value as lang_mix_value,"
+                    " COALESCE(ugt.mix_value, 1) as mix_value,"
+                    " gt.default_position as position,"
+                    " ulp.last_enable_time as ulp_last_enable_time,"
+                    " gt.words as words_sequence"
+                    " from user_language_pairs as ulp"
+                    " left join global_topics as gt"
+                    " on gt.src_lang = ulp.src_lang"
+                    " left join user_global_topics as ugt"
+                    " on gt.topic_id = ugt.topic_id"
+                    " and gt.src_lang = ugt.src_lang"
+                    " and ugt.dst_lang = ulp.dst_lang"
+                    " and ugt.user_id = ulp.user_id"
+                    " where ulp.is_enabled = true"
+                    " and ulp.user_id = $1"
+                    " and ugt.is_enabled = true"
+                    " )"
+                " order by ulp_last_enable_time desc, position asc", user_id
+            );
+
         }
 
-        float current_lang_mix_value = 1.0;
-        float current_topic_mix_value = 1.0;
+        // TopicMixer topic_mixer;
 
-        uint32_t words_per_lang = 4;
-        uint32_t words_per_topic = 2;
+        // for (auto& topic_sequence : topics_sequences_result) {
+        //     auto src_lang = topic_sequence["src_lang"].as<std::string>();
+        //     auto dst_lang = topic_sequence["dst_lang"].as<std::string>();
+        //     auto lang_mix_value = topic_sequence["lang_mix_value"].as<float>();
+        //     auto topic_mix_value = topic_sequence["topic_mix_value"].as<float>();
+        //     auto topic_words_sequence = topic_sequence["topic_words_sequence"].as<std::string>();
 
-        std::vector<std::string> my_vector;
-        auto& x = my_vector.at(0);
-
-        // law: sum(words_per_topic) <= words_per_lang
-
-        // for (auto& lang : langs) {
-        //     for (auto& word : words) {
-
-        //     }
+        //     topic_mixer.add_topic(std::move(src_lang), std::move(dst_lang),
+        //         lang_mix_value, topic_mix_value, std::move(topic_words_sequence)
+        //     );
         // }
 
-        // array_1, mix_value_1
+        // float current_lang_mix_value = 1.0;
+        // float current_topic_mix_value = 1.0;
 
-        // array_2, mix_value_2
+        // uint32_t words_per_lang = 4;
+        // uint32_t words_per_topic = 2;
 
-        // lang_1_word_1, lang_1_word_2, lang_2_word_1, lang_2_word_2
+        // std::vector<std::string> my_vector;
+        // auto& x = my_vector.at(0);
 
-        // [languages, mix_values] -> [words_sequences, mix_values]
+        // // law: sum(words_per_topic) <= words_per_lang
 
-        std::unordered_map<std::string, std::unordered_map<std::string, std::string>> topics_sequences;
+        // // for (auto& lang : langs) {
+        // //     for (auto& word : words) {
+
+        // //     }
+        // // }
+
+        // // array_1, mix_value_1
+
+        // // array_2, mix_value_2
+
+        // // lang_1_word_1, lang_1_word_2, lang_2_word_1, lang_2_word_2
+
+        // // [languages, mix_values] -> [words_sequences, mix_values]
+
+        // std::unordered_map<std::string, std::unordered_map<std::string, std::string>> topics_sequences;
 
 
-        // std::vector<>
+        // // std::vector<>
 
-        for (auto& topic_sequence : topics_sequences_result) {
+        // for (auto& topic_sequence : topics_sequences_result) {
             
-        }
+        // }
 
-        // sequence generation is just mix topics's sequences
+        // // sequence generation is just mix topics's sequences
 
-        // fetch user topic_words_sequence's
-        // and generate final sequence
+        // // fetch user topic_words_sequence's
+        // // and generate final sequence
 
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();

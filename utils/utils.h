@@ -180,6 +180,10 @@ namespace supported_languages {
     std::string get_supported_languages_as_string(const std::string& to_translate_lang_tag);
 }
 
+namespace strings {
+    std::string get_title_from_str(const std::string& str, uint32_t length);
+}
+
 namespace topics {
     enum class TopicType : uint32_t {user_topic = 0, global_topic = 1};
 

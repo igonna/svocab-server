@@ -17,7 +17,7 @@ Task<> UserProgress::getLearnedWords(HttpRequestPtr req, std::function<void(cons
         {
             auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words from user_language_pairs as ulp"
                 " left join user_words as uw"
-                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang and ulp.user_id = uw.user_id"
+                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
                 " where ulp.user_id = $1",
                 user_id
             );
@@ -90,7 +90,7 @@ Task<> UserProgress::getHiddenWords(HttpRequestPtr req, std::function<void(const
         {
             auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words from user_language_pairs as ulp"
                 " left join user_words as uw"
-                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang and ulp.user_id = uw.user_id"
+                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
                 " where ulp.user_id = $1",
                 user_id
             );

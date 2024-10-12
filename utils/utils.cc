@@ -61,4 +61,24 @@ namespace supported_languages {
         return result;
     }
 }
+
+namespace strings {
+    std::string get_title_from_str(const std::string& str, uint32_t length) {
+        std::string title;
+
+        if (str.size() < length) {
+            length = str.size();
+        }
+
+        for (uint32_t i = 0; i < length; ++i) {
+            if (str[i] == '\n') {
+                title += ' ';
+            } else {
+                title += str[i];
+            }
+        }
+
+        return title;
+    }
+}
 }

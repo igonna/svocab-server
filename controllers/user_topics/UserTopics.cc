@@ -231,7 +231,7 @@ Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<vo
 Task<> UserTopics::setTopicTitle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto topic_id_str = req->getHeader("topicId");
-    auto topic_title = req->getHeader("topicTitle").substr(0, local_constants::title_max_length);
+    auto topic_title = local_utils::strings::get_title_from_str(req->getHeader("topicTitle"), local_constants::title_max_length);
 
     if (!topic_id_str.size()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
@@ -268,7 +268,7 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
     }
 
-    auto title = text.substr(0, local_constants::title_max_length);
+    auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
 
     const std::string source_type = "text";
 
@@ -332,14 +332,14 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
 
     if (content_type == drogon::ContentType::CT_TEXT_PLAIN) {
         text = file.fileContent();
-        title = file.getFileName().substr(0, local_constants::title_max_length);
+        title = local_utils::strings::get_title_from_str(file.getFileName(), local_constants::title_max_length);
     } else if (content_type == drogon::ContentType::CT_APPLICATION_PDF) {
         text = core::text_extraction::get_text_from_pdf(file.fileData(), file.fileLength());
-        title = file.getFileName().substr(0, local_constants::title_max_length);
+        title = local_utils::strings::get_title_from_str(file.getFileName(), local_constants::title_max_length);
     } else if (content_type == drogon::ContentType::CT_TEXT_HTML) {
         auto content = std::string(file.fileContent());
         std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(content);
-        title = title.substr(0, local_constants::title_max_length);
+        title = local_utils::strings::get_title_from_str(title, local_constants::title_max_length);
     } else {
         fail_type = "not_supported_format";
     }
@@ -402,12 +402,22 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         if (website_resp->getStatusCode() != k200OK) {
             fail_type = "failed_to_reach_website";
         } else {
-            auto website_html = std::string(website_resp->getBody());
-            std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(website_html);
-            title = title.substr(0, local_constants::title_max_length);
+            auto website_body = std::string(website_resp->getBody());
+
+            std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(website_body);
+            if (text.empty()) {
+                text = std::move(website_body);
+                website_body.clear();
+            }
+
+            title = local_utils::strings::get_title_from_str(title, local_constants::title_max_length);
+
+            if (title.empty()) {
+                title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
+            }
         }
 
-        if (!(title.size() && text.size())) {
+        if (title.empty() || text.empty()) {
             fail_type = "failed_to_fetch_content";
         }
     } catch (const std::exception& e) {
@@ -449,8 +459,8 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
 
 Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    auto topic_id_str = req->getHeader("topicId"); 
-    auto title = req->getHeader("title").substr(0, local_constants::title_max_length);;
+    auto topic_id_str = req->getHeader("topicId");
+    auto title = local_utils::strings::get_title_from_str(req->getHeader("title"), local_constants::title_max_length);
 
     if (!title.size()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
@@ -578,7 +588,7 @@ Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(con
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
     }
 
-    auto title = text.substr(0, local_constants::title_max_length);
+    auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
