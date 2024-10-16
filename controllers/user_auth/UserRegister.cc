@@ -55,7 +55,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
         device_num = result[0]["last_device_num"].as<uint32_t>();
 
         co_await transaction->execSqlCoro("insert into user_sequence (user_id) values ($1)", user_id);
-        co_await transaction->execSqlCoro("insert into user_state (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into user_phrase_generation_limit (user_id) values ($1)", user_id);
 
         co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
             user_id, device_num, device_refresh_token

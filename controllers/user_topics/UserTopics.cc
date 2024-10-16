@@ -127,7 +127,13 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto result = co_await users_db->execSqlCoro(
+        auto lang_pairs_result = co_await users_db->execSqlCoro(
+            " select src_lang, dst_lang, mix_value"
+            " from user_language_pairs"
+            " where user_id = $1 and is_enabled = true order by last_enable_time desc", user_id
+        );
+
+        auto topics_result = co_await users_db->execSqlCoro(
             "( "
                 "select "
                 "ut.topic_id,"
@@ -176,12 +182,13 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
                 "and ugt.user_id = ulp.user_id "
                 "where ulp.is_enabled = true "
                 "and ulp.user_id = $1 "
+                "and gt.topic_id is not null "
                 ") "
             "order by ulp_last_enable_time desc, is_enabled desc, position asc, topic_type asc",
             user_id
         );
 
-        result_body = createTopicsList(result, to_translate_lang);
+        result_body = createTopicsList(lang_pairs_result, topics_result, to_translate_lang);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -677,6 +684,7 @@ Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(con
                 "and is_enabled = true "
                 "and ugt.src_lang = $2 "
                 "and dst_lang = $3 "
+                "and ugt.topic_id is not null "
                 ")"
             " order by is_enabled desc, position asc",
             user_id, src_lang, dst_lang
@@ -1039,7 +1047,7 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
     return result;
 }
 
-Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const std::string& to_translate_lang)
+Json::Value UserTopics::createTopicsList(const drogon::orm::Result& lang_pairs_rows, const drogon::orm::Result& topics_rows, const std::string& to_translate_lang)
 {
     Json::Value result;
     auto& topics = result["topics"] = Json::arrayValue;
@@ -1048,34 +1056,31 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const 
     uint32_t last_lang_pair_id = 0;
     std::unordered_map<std::string, uint32_t> language_pairs_ids;
 
-    for (auto& row : rows) {
+    for (auto& row : lang_pairs_rows) {
+        auto src_lang = row["src_lang"].as<std::string>();
+        auto dst_lang = row["dst_lang"].as<std::string>();
+        auto lang_pair_key = src_lang + dst_lang;
+
+        language_pairs_ids[lang_pair_key] = last_lang_pair_id++;
+
+        Json::Value new_lang_pair;
+        new_lang_pair["src_lang"] = src_lang;
+        new_lang_pair["dst_lang"] = dst_lang;
+        new_lang_pair["lang_mix_value"] = row["mix_value"].as<float>();
+
+        new_lang_pair["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
+        new_lang_pair["dst_lang_name"] = local_utils::supported_languages::get_language_title_localized(dst_lang, to_translate_lang);
+        language_pairs.append(new_lang_pair);
+    }
+
+    for (auto& row : topics_rows) {
         auto src_lang = row["src_lang"].as<std::string>();
         auto dst_lang = row["dst_lang"].as<std::string>();
         
-        auto key = src_lang + dst_lang;
-        uint32_t current_lang_pair_id;
-
-        if (language_pairs_ids.contains(key)) {
-            current_lang_pair_id = language_pairs_ids[key];
-        } else {
-            language_pairs_ids[key] = current_lang_pair_id = last_lang_pair_id++;
-
-            Json::Value new_lang_pair;
-            new_lang_pair["src_lang"] = src_lang;
-            new_lang_pair["dst_lang"] = dst_lang;
-            new_lang_pair["lang_mix_value"] = row["lang_mix_value"].as<float>();
-
-            new_lang_pair["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
-            new_lang_pair["dst_lang_name"] = local_utils::supported_languages::get_language_title_localized(dst_lang, to_translate_lang);
-            language_pairs.append(new_lang_pair);
-        }
+        auto lang_pair_key = src_lang + dst_lang;
+        auto current_lang_pair_id = language_pairs_ids[lang_pair_key];
 
         Json::Value new_topic;
-
-        new_topic["topic_id"] = local_utils::topics::encode_topic_id(
-            row["topic_id"].as<uint64_t>(), 
-            local_utils::topics::TopicType::user_topic
-        );
 
         new_topic["topic_title"] = row["topic_title"].as<std::string>();
         new_topic["mix_value"] = row["mix_value"].as<float>();
@@ -1085,6 +1090,9 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& rows, const 
         new_topic["lang_pair_index"] = current_lang_pair_id;
 
         auto topic_type = static_cast<local_utils::topics::TopicType>(row["topic_type"].as<uint32_t>());
+
+        new_topic["topic_id"] = local_utils::topics::encode_topic_id(row["topic_id"].as<uint64_t>(), topic_type);
+
         new_topic["type"] = local_utils::topics::topic_type_to_str(topic_type);
 
         if (topic_type == local_utils::topics::TopicType::user_topic) {

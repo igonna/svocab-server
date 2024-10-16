@@ -2,11 +2,12 @@ CREATE TYPE SpecialUserType AS ENUM ('admin', 'tester');
 
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    email TEXT UNIQUE,
+    email TEXT,
     special_user_type SpecialUserType,
     register_date TIMESTAMP NOT NULL DEFAULT NOW(),
     token_last_request_time INT NOT NULL DEFAULT 0, -- dead user detection
-    last_device_num INT NOT NULL DEFAULT 0
+    last_device_num INT NOT NULL DEFAULT 0,
+    UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
 CREATE TABLE user_checkpoints (
@@ -164,10 +165,10 @@ CREATE TABLE users_p1 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 1
 CREATE TABLE users_p2 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE users_p3 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE UNIQUE INDEX idx_unique_email_p0 ON users_p0 (email);
-CREATE UNIQUE INDEX idx_unique_email_p1 ON users_p1 (email);
-CREATE UNIQUE INDEX idx_unique_email_p2 ON users_p2 (email);
-CREATE UNIQUE INDEX idx_unique_email_p3 ON users_p3 (email);
+CREATE UNIQUE INDEX idx_unique_email_p0 ON users_p0 (id, email);
+CREATE UNIQUE INDEX idx_unique_email_p1 ON users_p1 (id, email);
+CREATE UNIQUE INDEX idx_unique_email_p2 ON users_p2 (id, email);
+CREATE UNIQUE INDEX idx_unique_email_p3 ON users_p3 (id, email);
 
 CREATE TABLE user_sequence_p0 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_sequence_p1 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 1);

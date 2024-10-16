@@ -284,6 +284,7 @@ static Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::DbClient
             " where ulp.is_enabled = true"
             " and ulp.user_id = $1"
             " and ugt.is_enabled = true"
+            " and ugt.topic_id is not null"
             " )"
         " order by ulp_last_enable_time desc, position asc", user_id
     );

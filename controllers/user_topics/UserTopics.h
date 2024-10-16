@@ -58,6 +58,6 @@ public:
 private:
 	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang_tag);
 	Json::Value createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type, const std::string& fail_type = "");
-	Json::Value createTopicsList(const drogon::orm::Result& rows, const std::string& to_translate_lang_tag);
+	Json::Value createTopicsList(const drogon::orm::Result& lang_pairs_rows, const drogon::orm::Result& topics_rows, const std::string& to_translate_lang);
 };
 }
