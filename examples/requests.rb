@@ -55,7 +55,7 @@
     dst_lang
     float
 
-(***)16.get_language_pair_mix_value_options -> json
+(***)16.get_language_pair_mix_options -> json
     src_lang
     dst_lang
 
@@ -140,29 +140,25 @@
     global_topic_id
 
 #FOCUS GROUP
-(***)38.prepare_focus_group -> ok
-
 (***)39.get_focus_group -> json
 
-(***)40.get_focus_group_id -> int
+(***)44.get_previous_focus_group_result -> json
+
+(***)42.get_focus_group_with_hidden_word -> json
+    word_id
+
+(***)40.get_focus_group_last_update_time -> int
 
 (***)41.set_word_phase_passed -> ok
-    focus_group_id
     word_id
     phase_num
     mistake:bool
 
-(***)42.get_focus_group_with_hidden_word -> json
-    focus_group_id
-    word_id
-
 (***)43.complete_focus_group -> json
-    focus_group_id
 
-(***)44.get_previous_focus_group_result -> json
 
-(***)?.set_item_passed -> ok
-    item_type
+(***)45.set_offer_item_passed -> ok
+    type
 
 #USER CHECKPOINTS
 (+)45.get_checkpoints -> json

@@ -2,6 +2,7 @@
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include "core/progress_words/progress_words.h"
+#include "core/postgres/queries.h"
 
 namespace v1
 {
@@ -15,21 +16,16 @@ Task<> UserProgress::getLearnedWords(HttpRequestPtr req, std::function<void(cons
         std::multimap<uint32_t, std::string, std::greater<uint32_t>> result_words;
 
         {
-            auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words from user_language_pairs as ulp"
-                " left join user_words as uw"
-                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
-                " where ulp.user_id = $1",
-                user_id
-            );
+            auto result = co_await core::sql::get_user_words(users_db, user_id);
 
             for (auto& row : result) {
                 auto src_lang = row["src_lang"].as<std::string>();
                 auto words = row["words"].as<std::string>();
-                auto user_words = core::progress_words::get_user_words_from_str(words);
+                auto [d, user_words] = core::progress_words::get_user_words_from_str(words);
                 words.clear();
 
                 for (auto& user_word : user_words) {
-                    if (user_word.second.is_hidden) {
+                    if (user_word.second.is_hidden || !user_word.second.confirmation_level) {
                         continue;
                     }
                     result_words.insert({user_word.second.last_update_time, src_lang + ';'+ user_word.first});
@@ -88,17 +84,12 @@ Task<> UserProgress::getHiddenWords(HttpRequestPtr req, std::function<void(const
         std::multimap<uint32_t, std::string, std::greater<uint32_t>> result_words;
 
         {
-            auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words from user_language_pairs as ulp"
-                " left join user_words as uw"
-                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
-                " where ulp.user_id = $1",
-                user_id
-            );
+            auto result = co_await core::sql::get_user_words(users_db, user_id);
 
             for (auto& row : result) {
                 auto src_lang = row["src_lang"].as<std::string>();
                 auto words = row["words"].as<std::string>();
-                auto user_words = core::progress_words::get_user_words_from_str(words);
+                auto [d, user_words] = core::progress_words::get_user_words_from_str(words);
                 words.clear();
 
                 for (auto& user_word : user_words) {

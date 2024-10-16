@@ -1,0 +1,56 @@
+// request: FocusGroup/get_focus_group
+{
+    "id": 1,
+    "words": [
+        {
+            // phase: 1
+            "word_id": "1.1",
+            "src_lang": "en",
+            "word": "wolf",
+            "word_translation": "волк",
+            "phrase": "The wolf went into the forest after the wolf!",
+            "phrase_translation": "Волк ушёл в лес за волком!",
+            "last_phase_passed": 0,
+            "phases_mistakes": [false, false, false],
+            // phase: 2 (additions)
+            "guess_phrase": ["The ", null, " went into the forest after the ", null, "!"],
+            "guess_words": ["world", "wolf", "how"],
+            // phase: 3 (additions)
+            "guess_letters": ["w", "k", "a", "o", "f", "r", "l"]
+        }
+    ],
+    "special_item": { // could be null
+        "type": "phrase_generation_limit",
+        "reset_time_utc": 1727376861
+    },
+    "end_of_the_sequence": false
+}
+
+// {
+//     "type": "phrase_generation_limit",
+//     "reset_time_utc": 1727376861
+// },
+// {
+//     "type": "systems_are_busy"
+// },
+// {
+//     "type": "rate_us"
+// },
+// {
+//     "type": "link_account"
+// },
+// {
+//     "type": "add_another_topic"
+// }
+
+
+// request: FocusGroup/complete_focus_group
+{
+    // learned || failed || repeated could not exist
+    "learned": 3,
+    "mistaken": 2,
+    "repeated": 1,
+    "current_focus_size": 2,
+    "new_focus_size": 2,
+    "max_focus_size": 6
+}

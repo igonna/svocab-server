@@ -662,7 +662,7 @@ Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(con
                 "and is_enabled = true "
                 "and src_lang = $2 "
                 "and dst_lang = $3 "
-                "and topic_words_sequence != '' "
+                // "and topic_words_sequence != '' "
             " ) "
             " UNION "
             " ( "

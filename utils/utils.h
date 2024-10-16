@@ -87,6 +87,10 @@ namespace redis {
     static inline std::string create_register_requests_key(const std::string& ip_addr) {
         return std::string("register-ip-") + ip_addr;
     }
+
+    static inline std::string create_focus_group_update_lock_key(uint32_t user_id) {
+        return std::string("fgul-") + std::to_string(user_id);
+    }
 }
 
 namespace postgres {

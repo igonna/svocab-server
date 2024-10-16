@@ -1,41 +1,58 @@
 #include "UserFocusGroup.h"
 #include "utils/utils.h"
 #include "core/postgres/queries.h"
+#include "core/progress_words/progress_words.h"
+#include "core/sequence_generation/sequence_generator.h"
 
 namespace v1
 {
-
-class TopicMixer {
-public:
-    void add_topic(std::string src_lang, std::string dst_lang, float lang_mix_value, float topic_mix_value,
-        std::string topic_words_sequence)
-    {
-
-    }
-
-    void add_words_to_exclude(std::string src_lang, std::string dst_lang, std::unordered_set<std::string> words_to_exclude) {
-        excluded_words_by_lang_pair.insert({
-            local_utils::language_pair::create_lang_pair_key(src_lang, dst_lang), 
-            words_to_exclude
-        });
-    }
-
-private:
-    std::unordered_map<std::string, std::unordered_set<std::string>> excluded_words_by_lang_pair;
-
-    static constexpr float lang_mix_coef = 2.0;
-    static constexpr float topic_mix_coef = 1.0;
-};
-
-Task<> UserFocusGroup::prepareFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    co_return local_utils::Response::OK(callback, "");
+Task<> UserFocusGroup::getFocusGroupLastUpdateTime(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
 }
 
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    co_return local_utils::Response::OK(callback, "");
+    // TODO: check if phrase generation limit not reached
+
+
+    // check if phrase_generation_limit > focus_group
+
+    // check if sequence generation required
+        // fetch user_words
+        // compress user_words if many duplicates
+        // update required topics
+        // fetch generated topics sequences
+        // add user_words and topic_sequences to mixer 
+            // when adding words from topic_sequence to language_sequence exclude words that in user_words
+            // hidden are hidden and all words that time - last_learn_time > repeat_timeout...
+            // ... for current confirmation level considered also hidden, and other are learned
+            // ... unordered_map user_words, if user_words.contain(word) continue
+            // ... after language sequence formed with size of max_sequence_words exlucde words_to_repeat 
+            // ... from user_words and mix them into language_sequence
+            // ... mix language sequence to final sequence ['src_lang;dst_lang;word;current_confirmation_level']
+        // save sequence and update last_gen_id
+
+    // form current user_focus_group
+        // fetch words from user_sequence + lowest_not_passed_word_pointer of focus_size + random_words_count
+        // generate phrase for each word
+            // get word-phrase from translations
+            // check if word not error_word OR move next
+            // generate phrase with openai OR move next
+                // check if user paid
+                    // generate phrase OR systems_are_busy
+                // check if openai limit not reached
+                    // check if there is enough limit for free users
+                    // generate phrase OR systems_are_busy
+                    // if phrase valid add to translations, if not to error_words
+        // set current focus_group
+        // update_user_generation_limit on finished pack of phrases generation
+        // check if user-based items required to be added to focus group (link email, rate app, etc)
+            // check if time - last_user_offer_push_time > user_offer_push_timeout
+                // if added item update last_user_offer_push_time
+
 
     // 1. update required topics
-    // 2. if yes, check on what topics
-    // 3. generate words sequence for each topic, based on topic options
+
+
     // 4. generate final sequence
     // 5. update user sequence
     // 6. return focus group
@@ -49,72 +66,106 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
     // min focus size && max focus size
 
+    // compress user words (remove earlier duplicates)
+
     Json::Value result_focus_group;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto sequence_update_info_result = co_await users_db->execSqlCoro("select last_gen_id, last_update_id from user_sequence where user_id = $1", user_id);
+        auto sequence_update_info_result = co_await users_db->execSqlCoro(
+            "select last_gen_id, last_update_id, last_gen_time from user_sequence where user_id = $1", user_id
+        );
         auto sequence_last_update_id = sequence_update_info_result[0]["last_update_id"].as<uint32_t>();
         auto sequence_last_gen_id = sequence_update_info_result[0]["last_gen_id"].as<uint32_t>();
+        auto last_gen_time = sequence_update_info_result[0]["last_gen_time"].as<uint32_t>();
 
-        // if sequence generation required
-        if (sequence_last_gen_id != sequence_last_update_id) {
-            co_await core::sql::update_all_user_topics_sequences(users_db, user_id);
+        auto current_time = local_utils::time::get_unix_timestamp();
 
-            auto user_words_result = co_await users_db->execSqlCoro(
-                " select distinct ulp.src_lang, uw.words from user_language_pairs as ulp"
-                " left join user_words as uw"
-                " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
-                " where ulp.user_id = $1", user_id
-            );
+        // sequence generation required if time to repeat or if updated
+        if (current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds 
+            || sequence_last_gen_id != sequence_last_update_id) {
 
-            auto topics_sequences_result = co_await users_db->execSqlCoro(" ("
-                " select"
-                    " ulp.src_lang,"
-                    " ulp.dst_lang,"
-                    " ulp.mix_value as lang_mix_value,"
-                    " ut.mix_value,"
-                    " ut.position,"
-                    " ulp.last_enable_time as ulp_last_enable_time,"
-                    " ut.topic_words_sequence as words_sequence"
-                    " from user_language_pairs as ulp"
-                    " left join user_topics as ut"
-                    " on ut.user_id = ulp.user_id"
-                    " and ut.src_lang = ulp.src_lang"
-                    " and ut.dst_lang = ulp.dst_lang"
-                    " where ulp.user_id = $1"
-                    " and ulp.is_enabled = true"
-                    " and topic_id is not null"
-                    " and ut.is_enabled = true"
-                    " and ut.topic_words_sequence != ''"
-                " )"
-                " UNION"
-                    " ("
-                    " select"
-                    " ulp.src_lang,"
-                    " ulp.dst_lang,"
-                    " ulp.mix_value as lang_mix_value,"
-                    " COALESCE(ugt.mix_value, 1) as mix_value,"
-                    " gt.default_position as position,"
-                    " ulp.last_enable_time as ulp_last_enable_time,"
-                    " gt.words as words_sequence"
-                    " from user_language_pairs as ulp"
-                    " left join global_topics as gt"
-                    " on gt.src_lang = ulp.src_lang"
-                    " left join user_global_topics as ugt"
-                    " on gt.topic_id = ugt.topic_id"
-                    " and gt.src_lang = ugt.src_lang"
-                    " and ugt.dst_lang = ulp.dst_lang"
-                    " and ugt.user_id = ulp.user_id"
-                    " where ulp.is_enabled = true"
-                    " and ulp.user_id = $1"
-                    " and ugt.is_enabled = true"
-                    " )"
-                " order by ulp_last_enable_time desc, position asc", user_id
-            );
+            // lock concurrent generations
+            std::string focus_group_update_lock_key;
+            {
+                auto rc = app().getRedisClient();
+                auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        }
+                focus_group_update_lock_key = local_utils::redis::create_focus_group_update_lock_key(user_id);
+                
+                auto focus_group_update_lock_key_result = co_await rc->execCommandCoro("set %s %s ex %d nx", 
+                    focus_group_update_lock_key.c_str(), 
+                    "", 
+                    local_constants::focus_group_update_lock_key_expire_seconds
+                );
+
+                // if key already exists
+                if (focus_group_update_lock_key_result.isNil()) {
+                    co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
+                }
+            }
+
+            core::sequence_generation::TopicMixer topic_mixer;
+
+            // get user words
+            std::unordered_map<std::string, std::unordered_map<std::string, core::progress_words::UserWordData>> user_words_by_lang;
+            {
+                auto user_words_result = co_await core::sql::get_user_words(users_db, user_id);
+
+                for (auto& user_lang_words : user_words_result) {
+                    auto src_lang = user_lang_words["src_lang"].as<std::string>();
+                    auto words = user_lang_words["words"].as<std::string>();
+                    auto last_update_id = user_lang_words["last_update_id"].as<uint32_t>();
+
+                    auto [duplicates_count, user_words] = core::progress_words::get_user_words_from_str(words);
+
+                    // update words if many duplicates
+                    if (duplicates_count > static_cast<float>(user_words.size()) * local_constants::compress_user_words_on_percent) {
+                        auto new_user_words_str = core::progress_words::user_words_to_str(user_words);
+                        co_await users_db->execSqlCoro(
+                            "update user_words set words = $1 where user_id = $2 and last_update_id = $3",
+                            new_user_words_str, user_id, last_update_id
+                        );
+                    }
+
+                    topic_mixer.add_user_words(std::move(src_lang), std::move(user_words));
+                }
+            }
+
+            // get user topics sequences
+            {
+                co_await core::sql::update_all_user_topics_sequences(users_db, user_id);
+
+                auto topics_sequences_result = co_await core::sql::get_user_topics_sequences(users_db, user_id);
+
+                for (auto& topic_sequence : topics_sequences_result) {
+                    auto src_lang = topic_sequence["src_lang"].as<std::string>();
+                    auto dst_lang = topic_sequence["dst_lang"].as<std::string>();
+                    auto lang_mix_value = topic_sequence["lang_mix_value"].as<float>();
+                    auto mix_value = topic_sequence["mix_value"].as<float>();
+                    auto words_sequence = topic_sequence["words_sequence"].as<std::string>();
+
+                    topic_mixer.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
+                }
+            }
+
+            auto learning_sequence = topic_mixer.get_learning_sequence();
+
+            // co_await users_db->execSqlCoro(
+            //     " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2"
+            //     " where last_update_id = $3 and user_id = $4",
+            //     current_time, learning_sequence, sequence_last_update_id, user_id
+            // );
+
+            try {
+                auto rc = app().getRedisClient();
+                co_await rc->execCommandCoro("del %s", focus_group_update_lock_key.c_str());
+            } catch (...) {}
+        } // sequence update required END
+
+        // TODO: check if old focus_group exists and not expired
+
 
         // TopicMixer topic_mixer;
 
@@ -178,18 +229,60 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 }
 
 Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-
+    // request: FocusGroup/get_previous_focus_group_result
+    // {
+    //     "group_id": 0,
+    //     "mistakes": [
+    //         [false, false, false],
+    //         [false, false, false],
+    //         [false, false, false]
+    //     ],
+    //     "result": {
+    //         "learned": 3,
+    //         "failed": 2,
+    //         "repeated": 1,
+    //         "current_focus_size": 2,
+    //         "new_focus_size": 2
+    //     }
+    // }
 }
 
 Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-
+    // update focus group last update time in redis && db
 }
 
-Task<> UserFocusGroup::updateWordPhase(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    // check if 
+    // update focus group last update time in redis && db
 
+    // DESCRIPTION:
+    // request: FocusGroup/set_word_phrase_passed
+    // focusGroupId 0
+    // wordId 0
+    // phasePassed 0
+    // mistake false
+}
+
+Task<> UserFocusGroup::setSpecialItemPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    // get type
+    // verify if really passed for specific types
+    // return 200 aways when no server error
+    // update focus group last update time in redis && db
 }
 
 Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    // ...
+    // update focus group last update time in redis && db
 
+    // DESCRIPTION:
+    // request: FocusGroup/complete_focus_group
+    // {
+    //     // learned || failed || repeated could not exist
+    //     "learned": 3,
+    //     "failed": 2,
+    //     "repeated": 1,
+    //     "current_focus_size": 2,
+    //     "new_focus_size": 2
+    // }
 }
 }

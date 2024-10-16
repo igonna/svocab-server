@@ -53,28 +53,23 @@ CREATE TABLE user_words (
 
 CREATE TABLE user_phrase_generation_limit (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    generation_waves_passed SMALLINT NOT NULL DEFAULT 0,
+    generation_waves_passed_today SMALLINT NOT NULL DEFAULT 0,
     generated_phrases_count SMALLINT NOT NULL DEFAULT 0,
     generation_wave_start_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_sequence (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    not_learned_words TEXT[], -- 200 words by default, but brough_back could increase, some of them could be NULL
-    brought_back_words TEXT[], -- words which user removed from learned or hidden words
+    to_learn_words TEXT NOT NULL DEFAULT '', -- 150 words by default, but brough_back could increase, some of them could be NULL
 
-    was_cropped BOOLEAN NOT NULL DEFAULT FALSE,
-    lowest_not_learned_pointer INT NOT NULL DEFAULT 0,
-
-    last_gen_for_repeat_time INT NOT NULL DEFAULT 0, -- required to update every 6 hours, to mix words for repeat
-    last_gen_id INT NOT NULL DEFAULT 0, -- current state
-    last_update_id INT NOT NULL DEFAULT 0, -- >= last_gen_id
+    last_gen_id INT NOT NULL DEFAULT 0,
+    last_update_id INT NOT NULL DEFAULT 0,
+    last_gen_time INT NOT NULL DEFAULT 0,
 
     focus_group_size INT NOT NULL DEFAULT 3,
     focus_group JSONB NOT NULL DEFAULT '{}',
-    -- focus_group_sequence_id INT NOT NULL DEFAULT 0,
     focus_group_id INT NOT NULL DEFAULT 0,
-    focus_group_update_time INT NOT NULL DEFAULT 0,
+    focus_group_last_update_time INT NOT NULL DEFAULT 0,
     previous_focus_group_result JSONB NOT NULL DEFAULT '{}'
 ) PARTITION BY HASH (user_id);
 

@@ -232,4 +232,62 @@ static Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db
         }
     }
 }
+
+static Task<drogon::orm::Result> get_user_words(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words, last_update_id from user_language_pairs as ulp"
+        " left join user_words as uw"
+        " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
+        " where ulp.user_id = $1 and ulp.is_enabled = true", user_id
+    );
+    co_return result;
+}
+
+static Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto result = co_await users_db->execSqlCoro(" ("
+        " select"
+            " ulp.src_lang,"
+            " ulp.dst_lang,"
+            " ulp.mix_value as lang_mix_value,"
+            " ut.mix_value,"
+            " ut.position,"
+            " ulp.last_enable_time as ulp_last_enable_time,"
+            " ut.topic_words_sequence as words_sequence"
+            " from user_language_pairs as ulp"
+            " left join user_topics as ut"
+            " on ut.user_id = ulp.user_id"
+            " and ut.src_lang = ulp.src_lang"
+            " and ut.dst_lang = ulp.dst_lang"
+            " where ulp.user_id = $1"
+            " and ulp.is_enabled = true"
+            " and topic_id is not null"
+            " and ut.is_enabled = true"
+            " and ut.topic_words_sequence != ''"
+        " )"
+        " UNION"
+            " ("
+            " select"
+            " ulp.src_lang,"
+            " ulp.dst_lang,"
+            " ulp.mix_value as lang_mix_value,"
+            " COALESCE(ugt.mix_value, 1) as mix_value,"
+            " gt.default_position as position,"
+            " ulp.last_enable_time as ulp_last_enable_time,"
+            " gt.words as words_sequence"
+            " from user_language_pairs as ulp"
+            " left join global_topics as gt"
+            " on gt.src_lang = ulp.src_lang"
+            " left join user_global_topics as ugt"
+            " on gt.topic_id = ugt.topic_id"
+            " and gt.src_lang = ugt.src_lang"
+            " and ugt.dst_lang = ulp.dst_lang"
+            " and ugt.user_id = ulp.user_id"
+            " where ulp.is_enabled = true"
+            " and ulp.user_id = $1"
+            " and ugt.is_enabled = true"
+            " )"
+        " order by ulp_last_enable_time desc, position asc", user_id
+    );
+
+    co_return result;
+}
 }

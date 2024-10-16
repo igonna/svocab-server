@@ -1,8 +1,9 @@
 #include "progress_words.h"
+#include <map>
 
 namespace core::progress_words {
 
-std::unordered_map<std::string, UserWordData> get_user_words_from_str(const std::string& words_str) {
+std::tuple<uint32_t, std::unordered_map<std::string, UserWordData>> get_user_words_from_str(const std::string& words_str) {
     std::unordered_map<std::string, UserWordData> result;
 
     auto len = words_str.size();
@@ -14,6 +15,8 @@ std::unordered_map<std::string, UserWordData> get_user_words_from_str(const std:
     uint32_t confirmation_level;
     bool is_hidden;
     uint32_t last_update_time;
+
+    uint32_t duplicates_count = 0;
 
     for (uint32_t i = 0; i < len; ++i) {
         auto current_char = words_str[i];
@@ -29,6 +32,7 @@ std::unordered_map<std::string, UserWordData> get_user_words_from_str(const std:
                 last_update_time = std::stoul(tmp_str);
 
                 // add word
+                if (result.contains(word)) ++duplicates_count;
                 result[word] = UserWordData(confirmation_level, is_hidden, last_update_time);
                 part_num = 0;
                 tmp_str.clear();
@@ -42,6 +46,16 @@ std::unordered_map<std::string, UserWordData> get_user_words_from_str(const std:
 
         tmp_str += current_char;
     }
+    return {duplicates_count, result};
+}
+
+std::string user_words_to_str(const std::unordered_map<std::string, UserWordData>& user_words) {
+    std::string result;
+
+    for (auto& user_word : user_words) {
+        result += create_user_word_str(user_word.first, user_word.second.is_hidden, user_word.second.confirmation_level, user_word.second.last_update_time);
+    }
+
     return result;
 }
 }

@@ -20,11 +20,19 @@ namespace local_constants {
     static constexpr uint32_t devices_info_update_key_expire_seconds = 60*60*24;
     static constexpr uint32_t global_rank_update_key_expire_seconds = 5*60;
 
+    static constexpr uint32_t focus_group_update_lock_key_expire_seconds = 8;
+
     static constexpr uint32_t title_max_length = 60;
 
     static constexpr uint32_t first_phase_repeat_time_interval_in_seconds = 6*60*60;
 
     static constexpr uint16_t languages_str_expire_sconds = 3*60;
+
+    static constexpr uint32_t confirmation_level_1_repeat_timeout_seconds = 60*60*3;
+
+    static constexpr float compress_user_words_on_percent = 0.2f;
+
+    static constexpr uint32_t max_user_sequence_words = 200;
 
 namespace languages {
     static constexpr uint32_t lang_tag_size = 2;
@@ -115,7 +123,8 @@ namespace attributes {
 }
 
 namespace topics {
-    static constexpr float mix_value_multiplier = 0.25f;
+    static constexpr float lang_mix_value_multiplier = 2.0f;
+    static constexpr float mix_value_multiplier = 1.0f;
     static constexpr float min_mix_value = 0.25f;
     static constexpr float mix_value = 1.0f;
     static constexpr float max_mix_value = 4.0f;
