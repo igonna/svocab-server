@@ -10,7 +10,6 @@ Task<> UserFocusGroup::getFocusGroupLastUpdateTime(HttpRequestPtr req, std::func
 }
 
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    co_return local_utils::Response::OK(callback, "");
     // TODO: check if phrase generation limit not reached
 
 
@@ -86,30 +85,29 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         if (current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds 
             || sequence_last_gen_id != sequence_last_update_id) {
 
-            // lock concurrent generations
-            std::string focus_group_update_lock_key;
-            {
-                auto rc = app().getRedisClient();
-                auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+            // // lock concurrent generations
+            // std::string focus_group_update_lock_key;
+            // {
+            //     auto rc = app().getRedisClient();
+            //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-                focus_group_update_lock_key = local_utils::redis::create_focus_group_update_lock_key(user_id);
+            //     focus_group_update_lock_key = local_utils::redis::create_focus_group_update_lock_key(user_id);
                 
-                auto focus_group_update_lock_key_result = co_await rc->execCommandCoro("set %s %s ex %d nx", 
-                    focus_group_update_lock_key.c_str(), 
-                    "", 
-                    local_constants::focus_group_update_lock_key_expire_seconds
-                );
+            //     auto focus_group_update_lock_key_result = co_await rc->execCommandCoro("set %s %s ex %d nx", 
+            //         focus_group_update_lock_key.c_str(), 
+            //         "", 
+            //         local_constants::focus_group_update_lock_key_expire_seconds
+            //     );
 
-                // if key already exists
-                if (focus_group_update_lock_key_result.isNil()) {
-                    co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
-                }
-            }
+            //     // if key already exists
+            //     if (focus_group_update_lock_key_result.isNil()) {
+            //         co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
+            //     }
+            // }
 
             core::sequence_generation::TopicMixer topic_mixer;
 
             // get user words
-            std::unordered_map<std::string, std::unordered_map<std::string, core::progress_words::UserWordData>> user_words_by_lang;
             {
                 auto user_words_result = co_await core::sql::get_user_words(users_db, user_id);
 
@@ -158,10 +156,10 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             //     current_time, learning_sequence, sequence_last_update_id, user_id
             // );
 
-            try {
-                auto rc = app().getRedisClient();
-                co_await rc->execCommandCoro("del %s", focus_group_update_lock_key.c_str());
-            } catch (...) {}
+            // try {
+            //     auto rc = app().getRedisClient();
+            //     co_await rc->execCommandCoro("del %s", focus_group_update_lock_key.c_str());
+            // } catch (...) {}
         } // sequence update required END
 
         // TODO: check if old focus_group exists and not expired

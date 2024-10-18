@@ -208,13 +208,12 @@ static Task<int32_t> get_new_biggest_topic_position(drogon::orm::DbClientPtr use
 }
 
 static Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
-    auto topics_generation_required_result = co_await users_db->execSqlCoro("select last_update_id, last_gen_for_repeat_time from user_sequence "
+    auto topics_generation_required_result = co_await users_db->execSqlCoro("select last_update_id from user_sequence "
         "where user_id = $1 and last_gen_id != last_update_id", 
         user_id
     );
 
     auto sequence_last_update_id = topics_generation_required_result[0]["last_update_id"].as<uint32_t>();
-    auto sequence_last_gen_for_repeat_time = topics_generation_required_result[0]["last_gen_for_repeat_time"].as<uint32_t>();
 
     // if generation required
     if (topics_generation_required_result.size()) {

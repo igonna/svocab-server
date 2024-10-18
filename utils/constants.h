@@ -29,6 +29,8 @@ namespace local_constants {
     static constexpr uint16_t languages_str_expire_sconds = 3*60;
 
     static constexpr uint32_t confirmation_level_1_repeat_timeout_seconds = 60*60*3;
+    static constexpr uint32_t confirmation_level_2_repeat_timeout_seconds = 60*60*24;
+    static constexpr uint32_t confirmation_level_3_repeat_timeout_seconds = 60*60*72;
 
     static constexpr float compress_user_words_on_percent = 0.2f;
 

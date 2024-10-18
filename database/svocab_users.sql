@@ -47,7 +47,7 @@ CREATE TABLE user_devices (
 CREATE TABLE user_words (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     src_lang CHAR(2) NOT NULL,
-    words TEXT NOT NULL DEFAULT '', -- word;3;0;160010120
+    words TEXT NOT NULL DEFAULT '', -- word;1;0;1729174120;
     last_update_id INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, src_lang)
 ) PARTITION BY HASH (user_id);
@@ -61,7 +61,7 @@ CREATE TABLE user_phrase_generation_limit (
 
 CREATE TABLE user_sequence (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    to_learn_words TEXT NOT NULL DEFAULT '', -- 150 words by default, but brough_back could increase, some of them could be NULL
+    to_learn_words TEXT NOT NULL DEFAULT '', -- word;1;0;1729174120;0;
 
     last_gen_id INT NOT NULL DEFAULT 0,
     last_update_id INT NOT NULL DEFAULT 0,

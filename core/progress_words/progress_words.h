@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include <cstdint>
+#include "utils/constants.h"
 
 namespace core::progress_words {
 
@@ -21,6 +22,22 @@ struct UserWordData {
     uint32_t confirmation_level;
     bool is_hidden;
     uint32_t last_update_time;
+
+    inline bool is_ready_for_learn(uint32_t time) {
+        if (is_hidden) return false;
+
+        int32_t seconds_passed = time - last_update_time;
+
+        if (confirmation_level == 1) {
+            return seconds_passed > local_constants::confirmation_level_1_repeat_timeout_seconds;
+        } else if (confirmation_level == 2) {
+            return seconds_passed > local_constants::confirmation_level_2_repeat_timeout_seconds;
+        } else if (confirmation_level == 3) {
+            return seconds_passed > local_constants::confirmation_level_3_repeat_timeout_seconds;
+        } else {
+            return false;
+        }
+    }
 };
 
 std::tuple<uint32_t, std::unordered_map<std::string, UserWordData>> get_user_words_from_str(const std::string& words_str);
