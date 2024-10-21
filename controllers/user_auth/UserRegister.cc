@@ -6,6 +6,7 @@
 #include <drogon/drogon.h>
 #include "core/token/token.h"
 #include "core/postgres/queries.h"
+#include <chrono>
 
 using namespace drogon;
 
@@ -53,39 +54,34 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
     // create user
     try {
         // create user
-        {
-            auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
+        auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
 
-            auto result = co_await transaction->execSqlCoro("insert into users default values returning id, last_device_num");
+        auto result = co_await transaction->execSqlCoro("insert into users default values returning id, last_device_num");
 
-            user_id = result[0]["id"].as<uint64_t>();
-            device_num = result[0]["last_device_num"].as<uint32_t>();
+        user_id = result[0]["id"].as<uint64_t>();
+        device_num = result[0]["last_device_num"].as<uint32_t>();
 
-            co_await transaction->execSqlCoro("insert into user_sequence (user_id) values ($1)", user_id);
-            co_await transaction->execSqlCoro("insert into user_phrase_generation_limit (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into user_sequence (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into user_phrase_generation_limit (user_id) values ($1)", user_id);
 
-            co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
-                user_id, device_num, device_refresh_token
-            );
+        co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
+            user_id, device_num, device_refresh_token
+        );
 
-            co_await transaction->execSqlCoro("insert into user_statistics (user_id) values ($1)", user_id);
-            co_await transaction->execSqlCoro("insert into user_checkpoints (user_id) values ($1)", user_id);
-        }
+        co_await transaction->execSqlCoro("insert into user_statistics (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into user_checkpoints (user_id) values ($1)", user_id);
 
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-    
-    // enable first language pair
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-        auto ress = co_await users_db->execSqlCoro("select id, last_device_num from users where id = $1", user_id);
-        LOG_ERROR << "user_id: " << ress[0]["id"].as<uint32_t>() << " last_device_num: " << ress[0]["last_device_num"].as<uint32_t>();
-        {
-            co_await core::sql::set_user_lang_pair_enabled_transaction(users_db, user_id, src_lang, dst_lang, true);
-        }
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        auto last_enable_time = local_utils::time::get_unix_timestamp();
+
+        co_await transaction->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled, last_enable_time) "
+            "values ($1, $2, $3, $4, $5) on conflict (user_id, src_lang, dst_lang) do update "
+            "set is_enabled = excluded.is_enabled, last_enable_time = excluded.last_enable_time", 
+            user_id, src_lang, dst_lang, true, last_enable_time
+        );
+
+        co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)"
+            " on conflict (user_id, src_lang) do nothing", user_id, src_lang
+        );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

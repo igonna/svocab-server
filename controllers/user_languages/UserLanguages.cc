@@ -19,9 +19,23 @@ Task<> UserLanguages::setLanguagePairEnabled(HttpRequestPtr req, std::function<v
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto value = value_str == "true";
+
+        auto last_enable_time = local_utils::time::get_unix_timestamp();
+        
         {
-            co_await core::sql::set_user_lang_pair_enabled_transaction(users_db, user_id, src_lang, dst_lang, value);
+            auto transaction = co_await users_db->newTransactionCoro();
+
+            co_await transaction->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled, last_enable_time) "
+                "values ($1, $2, $3, $4, $5) on conflict (user_id, src_lang, dst_lang) do update "
+                "set is_enabled = excluded.is_enabled, last_enable_time = excluded.last_enable_time", 
+                user_id, src_lang, dst_lang, value, last_enable_time
+            );
+
+            co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)"
+                " on conflict (user_id, src_lang) do nothing", user_id, src_lang
+            );
         }
+
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();

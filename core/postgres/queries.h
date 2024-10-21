@@ -232,24 +232,6 @@ static Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db
     }
 }
 
-static Task<> set_user_lang_pair_enabled_transaction(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang, bool value) {
-    auto last_enable_time = local_utils::time::get_unix_timestamp();
-
-    {
-        auto transaction = co_await users_db->newTransactionCoro();
-
-        co_await transaction->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled, last_enable_time) "
-            "values ($1, $2, $3, $4, $5) on conflict (user_id, src_lang, dst_lang) do update "
-            "set is_enabled = excluded.is_enabled, last_enable_time = excluded.last_enable_time", 
-            user_id, src_lang, dst_lang, value, last_enable_time
-        );
-
-        co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)"
-            " on conflict (user_id, src_lang) do nothing", user_id, src_lang
-        );
-    }
-}
-
 static Task<drogon::orm::Result> get_user_words(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words, last_update_id from user_language_pairs as ulp"
         " left join user_words as uw"
