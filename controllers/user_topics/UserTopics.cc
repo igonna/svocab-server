@@ -197,6 +197,60 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
+Task<> UserTopics::getUserTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+{
+    auto topic_id_str = req->getHeader("topicId");
+
+    if (topic_id_str.empty()) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    Json::Value result_body;
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
+
+        if (topic_type == local_utils::topics::TopicType::user_topic) {
+
+            auto result = co_await users_db->execSqlCoro(
+                "select topic_id, topic_title, mix_value, skip_value,"
+                " is_enabled, 0 as topic_type, order_words_by"
+                " from user_topics where user_id = $1 and topic_id = $2",
+                user_id, topic_id
+            );
+
+            if (result.empty()) {
+                throw std::runtime_error("not_exists");
+            }
+
+            result_body = createTopicJson(result[0]);
+        } else if (topic_type == local_utils::topics::TopicType::global_topic) {
+            auto result = co_await users_db->execSqlCoro(
+                "select ugt.topic_id, gt.src_title_en as topic_title, ugt.mix_value, ugt.skip_value, ugt.is_enabled, 1 as topic_type"
+                " from user_global_topics as ugt"
+                " left join global_topics as gt"
+                " on ugt.topic_id = gt.topic_id"
+                " where ugt.user_id = $1 and ugt.topic_id = $2",
+                user_id, static_cast<uint32_t>(topic_id)
+            );
+
+            if (result.empty()) {
+                throw std::runtime_error("not_exists");
+            }
+            
+            result_body = createTopicJson(result[0]);
+        }
+
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::JSON_OK(callback, result_body);
+}
+
 Task<> UserTopics::getTopicGenerationWindow(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto topic_id_str = req->getHeader("topicId");
@@ -690,7 +744,7 @@ Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(con
             user_id, src_lang, dst_lang
         );
 
-        result_body["mix_value_multiplier"] = local_constants::topics::mix_value_multiplier;
+        result_body["mix_value_multiplier"] = local_constants::topics::topic_mix_value_multiplier;
         result_body["min_mix_value"] = local_constants::topics::min_mix_value;
         result_body["max_mix_value"] = local_constants::topics::max_mix_value;
 
@@ -1047,21 +1101,36 @@ Json::Value UserTopics::createTopicGenerationWindow(const drogon::orm::Result::R
     return result;
 }
 
+Json::Value UserTopics::createTopicJson(const drogon::orm::Row &row) {
+    Json::Value new_topic;
+    new_topic["topic_title"] = row["topic_title"].as<std::string>();
+    new_topic["mix_value"] = row["mix_value"].as<float>();
+    new_topic["skip_value"] = row["skip_value"].as<float>();
+    new_topic["is_enabled"] = row["is_enabled"].as<bool>();
+
+    auto topic_type = static_cast<local_utils::topics::TopicType>(row["topic_type"].as<uint32_t>());
+
+    new_topic["topic_id"] = local_utils::topics::encode_topic_id(row["topic_id"].as<uint64_t>(), topic_type);
+
+    new_topic["type"] = local_utils::topics::topic_type_to_str(topic_type);
+
+    if (topic_type == local_utils::topics::TopicType::user_topic) {
+        new_topic["order_words_by"] = row["order_words_by"].as<int32_t>();
+    }
+
+    return new_topic;
+}
+
 Json::Value UserTopics::createTopicsList(const drogon::orm::Result& lang_pairs_rows, const drogon::orm::Result& topics_rows, const std::string& to_translate_lang)
 {
     Json::Value result;
-    auto& topics = result["topics"] = Json::arrayValue;
     auto& language_pairs = result["language_pairs"] = Json::arrayValue;
 
-    uint32_t last_lang_pair_id = 0;
-    std::unordered_map<std::string, uint32_t> language_pairs_ids;
+    std::unordered_map<std::string, Json::Value*> lang_pair_topics;
 
     for (auto& row : lang_pairs_rows) {
         auto src_lang = row["src_lang"].as<std::string>();
         auto dst_lang = row["dst_lang"].as<std::string>();
-        auto lang_pair_key = src_lang + dst_lang;
-
-        language_pairs_ids[lang_pair_key] = last_lang_pair_id++;
 
         Json::Value new_lang_pair;
         new_lang_pair["src_lang"] = src_lang;
@@ -1070,7 +1139,12 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& lang_pairs_r
 
         new_lang_pair["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
         new_lang_pair["dst_lang_name"] = local_utils::supported_languages::get_language_title_localized(dst_lang, to_translate_lang);
-        language_pairs.append(new_lang_pair);
+
+        auto& ref_to_topics = new_lang_pair["topics"] = Json::arrayValue;
+        auto lang_pair_key = src_lang + dst_lang;
+        lang_pair_topics[lang_pair_key] = &ref_to_topics;
+
+        language_pairs.append(std::move(new_lang_pair));
     }
 
     for (auto& row : topics_rows) {
@@ -1078,28 +1152,11 @@ Json::Value UserTopics::createTopicsList(const drogon::orm::Result& lang_pairs_r
         auto dst_lang = row["dst_lang"].as<std::string>();
         
         auto lang_pair_key = src_lang + dst_lang;
-        auto current_lang_pair_id = language_pairs_ids[lang_pair_key];
 
-        Json::Value new_topic;
-
-        new_topic["topic_title"] = row["topic_title"].as<std::string>();
-        new_topic["mix_value"] = row["mix_value"].as<float>();
-        new_topic["skip_value"] = row["skip_value"].as<float>();
-        new_topic["is_enabled"] = row["is_enabled"].as<bool>();
-        new_topic["position"] = row["position"].as<int32_t>();
-        new_topic["lang_pair_index"] = current_lang_pair_id;
-
-        auto topic_type = static_cast<local_utils::topics::TopicType>(row["topic_type"].as<uint32_t>());
-
-        new_topic["topic_id"] = local_utils::topics::encode_topic_id(row["topic_id"].as<uint64_t>(), topic_type);
-
-        new_topic["type"] = local_utils::topics::topic_type_to_str(topic_type);
-
-        if (topic_type == local_utils::topics::TopicType::user_topic) {
-            new_topic["order_words_by"] = row["order_words_by"].as<int32_t>();
+        if (lang_pair_topics.contains(lang_pair_key)) {
+            auto& lang_pair_topics_ref = lang_pair_topics[lang_pair_key];
+            lang_pair_topics_ref->append(createTopicJson(row));
         }
-
-        topics.append(new_topic);
     }
 
     return result;

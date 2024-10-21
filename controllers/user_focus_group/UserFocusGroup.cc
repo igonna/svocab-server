@@ -105,7 +105,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             //     }
             // }
 
-            core::sequence_generation::TopicMixer topic_mixer;
+            core::sequence_generation::SequenceGenerator sequence_generator;
 
             // get user words
             {
@@ -127,7 +127,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                         );
                     }
 
-                    topic_mixer.add_user_words(std::move(src_lang), std::move(user_words));
+                    sequence_generator.add_user_words(std::move(src_lang), std::move(user_words));
                 }
             }
 
@@ -144,11 +144,11 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                     auto mix_value = topic_sequence["mix_value"].as<float>();
                     auto words_sequence = topic_sequence["words_sequence"].as<std::string>();
 
-                    topic_mixer.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
+                    sequence_generator.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
                 }
             }
 
-            auto learning_sequence = topic_mixer.get_learning_sequence();
+            auto learning_sequence = sequence_generator.get_learning_sequence();
 
             // co_await users_db->execSqlCoro(
             //     " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2"

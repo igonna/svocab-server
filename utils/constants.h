@@ -126,10 +126,10 @@ namespace attributes {
 
 namespace topics {
     static constexpr float lang_mix_value_multiplier = 2.0f;
-    static constexpr float mix_value_multiplier = 1.0f;
-    static constexpr float min_mix_value = 0.25f;
+    static constexpr float topic_mix_value_multiplier = 1.0f;
+    static constexpr float min_mix_value = 0.5f;
     static constexpr float mix_value = 1.0f;
-    static constexpr float max_mix_value = 4.0f;
+    static constexpr float max_mix_value = 2.0f;
 
     static constexpr float min_skip_value = 0.0f;
     static constexpr float skip_value = 0.0f;

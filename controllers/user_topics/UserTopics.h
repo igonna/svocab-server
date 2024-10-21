@@ -14,6 +14,7 @@ public:
 	Task<> createTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> deleteTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getUserTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> getUserTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getTopicGenerationWindow(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setTopicTitle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> addTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
@@ -37,6 +38,7 @@ public:
     METHOD_ADD(UserTopics::createTopic, "/create_topic", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::deleteTopic, "/delete_topic", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::getUserTopics, "/get_user_topics", Get, "JwtFilter");
+	METHOD_ADD(UserTopics::getUserTopic, "/get_user_topic", Get, "JwtFilter");
 	METHOD_ADD(UserTopics::getTopicGenerationWindow, "/get_topic_generation_window", Get, "JwtFilter");
 	METHOD_ADD(UserTopics::setTopicTitle, "/set_topic_title", Post, "JwtFilter");
 	METHOD_ADD(UserTopics::addTopicSourceText, "/add_topic_source_text", Post, "JwtFilter");
@@ -58,6 +60,7 @@ public:
 private:
 	Json::Value createTopicGenerationWindow(const drogon::orm::Result::Reference& row, const std::string& to_translate_lang_tag);
 	Json::Value createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type, const std::string& fail_type = "");
+	Json::Value createTopicJson(const drogon::orm::Row &row);
 	Json::Value createTopicsList(const drogon::orm::Result& lang_pairs_rows, const drogon::orm::Result& topics_rows, const std::string& to_translate_lang);
 };
 }

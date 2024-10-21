@@ -10,7 +10,7 @@ namespace attributes {
     template<typename T>
     T get_value(const drogon::HttpRequestPtr& req, const std::string& key) {
         if (!req->attributes()->find(key)) {
-            throw std::runtime_error("not_exists");
+            throw std::runtime_error("attribute_not_exists");
         }
 
         return req->attributes()->get<T>(key);

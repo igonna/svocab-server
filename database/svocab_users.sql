@@ -12,7 +12,6 @@ CREATE TABLE users (
 
 CREATE TABLE user_checkpoints (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    first_lang_pair_created BOOLEAN NOT NULL DEFAULT FALSE,
     principles_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
     flow_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
     filter_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -61,7 +60,7 @@ CREATE TABLE user_phrase_generation_limit (
 
 CREATE TABLE user_sequence (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    to_learn_words TEXT NOT NULL DEFAULT '', -- word;1;0;1729174120;0;
+    to_learn_words TEXT NOT NULL DEFAULT '', -- en;ru;word;1;0; -- src_lang;dst_lang;word;confirmation_level;is_passed
 
     last_gen_id INT NOT NULL DEFAULT 0,
     last_update_id INT NOT NULL DEFAULT 0,
