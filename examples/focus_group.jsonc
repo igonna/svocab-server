@@ -6,17 +6,17 @@
             // phase: 1
             "word_id": "1.1",
             "src_lang": "en",
-            "word": "wolf",
-            "word_translation": "волк",
-            "phrase": "The wolf went into the forest after the wolf!",
-            "phrase_translation": "Волк ушёл в лес за волком!",
+            "word": "perforator",
+            "word_translation": ["сверильный", "станок"],
+            "phrase": "The perforator is behind the perforator!",
+            "phrase_translation": "Cверлильный станок стоит за cверлильным станком!",
             "last_phase_passed": 0,
             "phases_mistakes": [false, false, false],
             // phase: 2 (additions)
             "guess_phrase": ["The ", null, " went into the forest after the ", null, "!"],
-            "guess_words": ["world", "wolf", "how"],
+            "guess_words": ["world", "perforator", "how"],
             // phase: 3 (additions)
-            "guess_letters": ["w", "k", "a", "o", "f", "r", "l"]
+            "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]
         }
     ],
     "special_item": { // could be null

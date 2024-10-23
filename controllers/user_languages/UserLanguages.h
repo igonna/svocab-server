@@ -19,5 +19,8 @@ public:
 	METHOD_ADD(UserLanguages::setLanguagePairMixValue, "/set_language_pair_mix_value", Post, "JwtFilter");
     METHOD_ADD(UserLanguages::getLanguagePairMixOptions, "/get_language_pair_mix_options", Get, "JwtFilter");
     METHOD_LIST_END
+
+private:
+    Json::Value createLangPairWordsJson(bool is_this, std::string&& words, float mix_value);
 };
 }

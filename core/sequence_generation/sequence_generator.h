@@ -44,22 +44,6 @@ public:
         }
 
         cur_pos += export_pack_size;
-
-		// cur_pack_size += pack_size;
-		// uint32_t export_pack_size = cur_pack_size;
-		// cur_pack_size -= static_cast<float>(export_pack_size);
-
-		// if (export_pack_size == 0) return;
-
-		// int end_pos = cur_pos + export_pack_size;
-
-		// if (end_pos > overall_size) end_pos = overall_size;
-
-        // for (auto it = words.begin() + cur_pos; it != words.begin() + end_pos; ++it) {
-        //     output.push_back(std::move(*it)); 
-        // }
-
-		// cur_pos += export_pack_size;
 	}
 
 	void get_rest(std::vector<WordMixUnit>& output) {
@@ -76,8 +60,7 @@ public:
         return cur_pos >= overall_size;
     }
 
-// private:
-public:
+private:
 	float pack_size;
 	float cur_pack_size = 0.0;
 	int cur_pos = 0;
@@ -85,13 +68,28 @@ public:
 	int overall_size;
 };
 
+struct LangPairMixData {
+    LangPairMixData(const std::string& src_lang, const std::string& dst_lang, float mix_value, const std::string&& words) 
+        : src_lang(src_lang), dst_lang(dst_lang), mix_value(mix_value), words(std::move(words)) {}
+
+    LangPairMixData(LangPairMixData&& other) 
+        : src_lang(std::move(other.src_lang)), dst_lang(std::move(other.dst_lang)), mix_value(other.mix_value), words(std::move(other.words)) {}
+
+    std::string src_lang;
+    std::string dst_lang;
+    float mix_value;
+    std::string words;
+};
+
 class SequenceGenerator {
 public:
     void add_user_words(std::string&& src_lang, std::unordered_map<std::string, core::progress_words::UserWordData> &&user_words);
     void add_topic_words(std::string&& src_lang, std::string&& dst_lang, float lang_mix_value, float topic_mix_value, std::string&& topic_words_sequence);
     std::string get_learning_sequence();
+    std::vector<LangPairMixData> get_words_sequences_by_lang_pair();
 
 private:
+    std::vector<WordsPack> get_mixed_language_packs();
     std::unordered_map<uint8_t, std::vector<WordMixUnit>> get_words_to_repeat_by_lang_pair();
 
     inline std::string get_lang_pair_key(const std::string& src_lang, const std::string& dst_lang);

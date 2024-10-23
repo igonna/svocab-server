@@ -55,7 +55,7 @@
     dst_lang
     float
 
-(***)16.get_language_pair_mix_options -> json
+(+)16.get_language_pair_mix_options -> json
     src_lang
     dst_lang
 

@@ -180,7 +180,7 @@ static std::vector<WordMixUnit> get_mixed_words(std::vector<WordsPack>& packs) {
 	return result;
 }
 
-std::string SequenceGenerator::get_learning_sequence() {
+std::vector<WordsPack> SequenceGenerator::get_mixed_language_packs() {
     added_words_by_src_lang.clear();
 
     auto words_to_repeat_by_lang_pair = get_words_to_repeat_by_lang_pair();
@@ -225,6 +225,12 @@ std::string SequenceGenerator::get_learning_sequence() {
 
     words_packs_by_lang_pairs_ids.clear();
 
+    return to_mix_lang_packs;
+}
+
+std::string SequenceGenerator::get_learning_sequence() {
+    auto to_mix_lang_packs = get_mixed_language_packs();
+
     auto result_sequence = get_mixed_words(to_mix_lang_packs);
 
     to_mix_lang_packs.clear();
@@ -239,6 +245,37 @@ std::string SequenceGenerator::get_learning_sequence() {
         result += src_lang + ';' + dst_lang + ';' + word_mix_unit.word + ';' + std::to_string(word_mix_unit.confirmation_level) + ";0;";
     }
     
+    return result;
+}
+
+std::vector<LangPairMixData> SequenceGenerator::get_words_sequences_by_lang_pair() {
+    auto to_mix_lang_packs = get_mixed_language_packs();
+
+    std::vector<LangPairMixData> result;
+
+    for (auto& lang_pack : to_mix_lang_packs) {
+        std::vector<WordMixUnit> lang_pack_words;
+        lang_pack.get_rest(lang_pack_words);
+
+        std::string words_str;
+
+        uint8_t lang_pair_id;
+
+        for (auto& word : lang_pack_words) {
+            lang_pair_id = word.lang_pair_id;
+            words_str += word.word + ';';
+        }
+
+        if (words_str.empty()) continue;
+
+        words_str.pop_back();
+
+        auto lang_pair = lang_pairs_by_id[lang_pair_id];
+        auto mix_value = get_lang_pair_mix_value_by_id(lang_pair_id);
+
+        result.push_back(LangPairMixData(lang_pair.first, lang_pair.second, mix_value, std::move(words_str)));
+    }
+
     return result;
 }
 }
