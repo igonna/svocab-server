@@ -15,7 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin") # MacOS
     message(STATUS "macos")
-    set(CMAKE_CXX_COMPILER "/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14")
+    set(CMAKE_CXX_COMPILER "/opt/homebrew/Cellar/gcc/14.2.0/bin/g++-14")
     list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c")
     set(ICU_INCLUDE "/opt/homebrew/opt/icu4c/include")
     set(Gumbo_INCLUDE "/opt/homebrew/Cellar/gumbo-parser/0.12.1/include")

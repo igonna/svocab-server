@@ -85,26 +85,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         if (current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds 
             || sequence_last_gen_id != sequence_last_update_id) {
 
-            // // lock concurrent generations
-            // std::string focus_group_update_lock_key;
-            // {
-            //     auto rc = app().getRedisClient();
-            //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-
-            //     focus_group_update_lock_key = local_utils::redis::create_focus_group_update_lock_key(user_id);
-                
-            //     auto focus_group_update_lock_key_result = co_await rc->execCommandCoro("set %s %s ex %d nx", 
-            //         focus_group_update_lock_key.c_str(), 
-            //         "", 
-            //         local_constants::focus_group_update_lock_key_expire_seconds
-            //     );
-
-            //     // if key already exists
-            //     if (focus_group_update_lock_key_result.isNil()) {
-            //         co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "");
-            //     }
-            // }
-
             core::sequence_generation::SequenceGenerator sequence_generator;
 
             // get user words
@@ -150,16 +130,13 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
             auto learning_sequence = sequence_generator.get_learning_sequence();
 
-            // co_await users_db->execSqlCoro(
-            //     " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2"
-            //     " where last_update_id = $3 and user_id = $4",
-            //     current_time, learning_sequence, sequence_last_update_id, user_id
-            // );
+            co_await users_db->execSqlCoro(
+                " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2"
+                " where last_update_id = $3 and user_id = $4",
+                current_time, learning_sequence, sequence_last_update_id, user_id
+            );
 
-            // try {
-            //     auto rc = app().getRedisClient();
-            //     co_await rc->execCommandCoro("del %s", focus_group_update_lock_key.c_str());
-            // } catch (...) {}
+            co_return local_utils::Response::OK(callback, learning_sequence);
         } // sequence update required END
 
         // TODO: check if old focus_group exists and not expired
@@ -229,7 +206,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     // request: FocusGroup/get_previous_focus_group_result
     // {
-    //     "group_id": 0,
+    //     "id": 0,
     //     "mistakes": [
     //         [false, false, false],
     //         [false, false, false],

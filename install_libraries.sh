@@ -82,8 +82,8 @@ install_linux() {
 
 # Function to install libraries on macOS
 install_macos() {
-    CXX_PATH=/opt/homebrew/Cellar/gcc/14.1.0_2/bin/g++-14
-    CC_PATH=/opt/homebrew/Cellar/gcc/14.1.0_2/bin/gcc-14
+    CXX_PATH=/opt/homebrew/Cellar/gcc/14.2.0/bin/g++-14
+    CC_PATH=/opt/homebrew/Cellar/gcc/14.2.0/bin/gcc-14
     REINSTALL=false
 
     # Check if Homebrew is installed

@@ -73,15 +73,13 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 
         auto last_enable_time = local_utils::time::get_unix_timestamp();
 
-        co_await transaction->execSqlCoro("insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled, last_enable_time) "
-            "values ($1, $2, $3, $4, $5) on conflict (user_id, src_lang, dst_lang) do update "
-            "set is_enabled = excluded.is_enabled, last_enable_time = excluded.last_enable_time", 
+        co_await transaction->execSqlCoro(
+            "insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled, last_enable_time)"
+            " values ($1, $2, $3, $4, $5)", 
             user_id, src_lang, dst_lang, true, last_enable_time
         );
 
-        co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)"
-            " on conflict (user_id, src_lang) do nothing", user_id, src_lang
-        );
+        co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)", user_id, src_lang);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

@@ -12,7 +12,7 @@ Task<> UserCheckpoints::getCheckpoints(HttpRequestPtr req, std::function<void(co
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto result = co_await db->execSqlCoro("select principles_tutorial_passed, "
-            "flow_tutorial_passed, filter_tutorial_passed from user_checkpoints "
+            "flow_tutorial_passed, filter_tutorial_passed, first_user_global_topic_checked from user_checkpoints "
             "where user_id = $1", user_id
         );
 

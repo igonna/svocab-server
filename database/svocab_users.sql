@@ -15,6 +15,7 @@ CREATE TABLE user_checkpoints (
     principles_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
     flow_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
     filter_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    first_user_global_topic_checked BOOLEAN NOT NULL DEFAULT FALSE,
     rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
 ) PARTITION BY HASH (user_id);
 

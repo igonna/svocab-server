@@ -125,6 +125,8 @@ namespace attributes {
 }
 
 namespace topics {
+    static constexpr float to_repeat_pack_size = 3.0f;
+
     static constexpr float lang_mix_value_multiplier = 2.0f;
     static constexpr float topic_mix_value_multiplier = 1.0f;
     static constexpr float min_mix_value = 0.5f;
