@@ -6,6 +6,8 @@
 #include "utils/utils.h"
 #include "core/progress_words/progress_words.h"
 #include <numeric>
+#include "utils/constants.h"
+#include "core/user_sequence_words/user_sequence_words.h"
 
 namespace core::sequence_generation
 {
@@ -24,7 +26,10 @@ struct WordMixUnit {
 
 class WordsPack {
 public:
-	WordsPack(float pack_size, std::vector<WordMixUnit>&& words) : words(std::move(words)), pack_size(pack_size), overall_size(this->words.size()) {}
+	WordsPack(float pack_size, std::vector<WordMixUnit>&& words) : words(std::move(words)), pack_size(pack_size) {
+        uint32_t words_size = this->words.size();
+        overall_size = words_size > local_constants::max_user_sequence_words ? local_constants::max_user_sequence_words : words_size;
+    }
     WordsPack(WordsPack&& other) : words(std::move(other.words)), pack_size(other.pack_size), overall_size(other.overall_size) {}
 
 	void get_pack(std::vector<WordMixUnit>& output) {
@@ -97,6 +102,7 @@ private:
     inline bool is_lang_pair_exists(const std::string& key);
     inline std::optional<uint8_t> get_lang_pair_id_for_src_lang(const std::string& src_lang);
     inline float get_lang_pair_mix_value_by_id(uint8_t id);
+    std::vector<core::user_sequence_words::SequenceUserWord> mixed_words_to_user_sequence_words(std::vector<core::sequence_generation::WordMixUnit>& mix_words);
 
 private:
     std::unordered_map<std::string, std::unordered_map<std::string, core::progress_words::UserWordData>> user_words_by_src_lang;

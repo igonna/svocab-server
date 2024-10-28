@@ -49,18 +49,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 // if added item update last_user_offer_push_time
 
 
-    // 1. update required topics
-
-
-    // 4. generate final sequence
-    // 5. update user sequence
-    // 6. return focus group
-
-    // TO FINISH END
-
-    // how to mix learned and to_repeat ?
-
-    // check_if_topics_updated -> means_new_generation_required
     // check_if_repeat_time_reached -> means_new_generation_required
 
     // min focus size && max focus size
@@ -135,9 +123,16 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 " where last_update_id = $3 and user_id = $4",
                 current_time, learning_sequence, sequence_last_update_id, user_id
             );
-
-            co_return local_utils::Response::OK(callback, learning_sequence);
         } // sequence update required END
+
+        auto user_sequence_result = co_await users_db->execSqlCoro("select to_learn_words from user_sequence where user_id = $1", user_id);
+        auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
+
+        // get first focus_group_size not passed and not excluded words
+
+        std::cout << to_learn_words_str << std::endl;
+
+
 
         // TODO: check if old focus_group exists and not expired
 

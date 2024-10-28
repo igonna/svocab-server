@@ -228,22 +228,34 @@ std::vector<WordsPack> SequenceGenerator::get_mixed_language_packs() {
     return to_mix_lang_packs;
 }
 
-std::string SequenceGenerator::get_learning_sequence() {
-    auto to_mix_lang_packs = get_mixed_language_packs();
+std::vector<core::user_sequence_words::SequenceUserWord> SequenceGenerator::mixed_words_to_user_sequence_words(std::vector<core::sequence_generation::WordMixUnit>& mix_words) {
+    std::vector<core::user_sequence_words::SequenceUserWord> result;
+    result.reserve(mix_words.size());
 
-    auto result_sequence = get_mixed_words(to_mix_lang_packs);
-
-    to_mix_lang_packs.clear();
-
-    std::string result;
-    
-    for (auto& word_mix_unit : result_sequence) {
+    for (auto& word_mix_unit : mix_words) {
         const auto& lang_pair = lang_pairs_by_id[word_mix_unit.lang_pair_id];
         const auto& src_lang = lang_pair.first;
         const auto& dst_lang = lang_pair.second;
 
-        result += src_lang + ';' + dst_lang + ';' + word_mix_unit.word + ';' + std::to_string(word_mix_unit.confirmation_level) + ";0;";
+        result.push_back(core::user_sequence_words::SequenceUserWord(src_lang, dst_lang, std::move(word_mix_unit.word), word_mix_unit.confirmation_level, false, false));
     }
+
+    mix_words.clear();
+
+    return result;
+}
+
+std::string SequenceGenerator::get_learning_sequence() {
+    auto to_mix_lang_packs = get_mixed_language_packs();
+
+    auto mixed_words = get_mixed_words(to_mix_lang_packs);
+
+    to_mix_lang_packs.clear();
+
+    auto user_sequence_words = mixed_words_to_user_sequence_words(mixed_words);
+    auto result = core::user_sequence_words::sequence_user_words_to_str(user_sequence_words);
+
+    user_sequence_words.clear();
     
     return result;
 }
