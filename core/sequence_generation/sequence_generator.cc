@@ -41,7 +41,14 @@ float SequenceGenerator::get_lang_pair_mix_value_by_id(uint8_t id) {
     return lang_pairs_data_by_key[lang_pair_key].second;
 }
 
-void SequenceGenerator::add_topic_words(std::string&& src_lang, std::string&& dst_lang, float lang_mix_value, float topic_mix_value, std::string&& topic_words_sequence) {
+drogon::Task<> SequenceGenerator::add_topic_words(std::string&& src_lang, std::string&& dst_lang, float lang_mix_value, float topic_mix_value, std::string&& topic_words_sequence) {
+    if (!current_banned_words_by_src_lang.contains(src_lang)) {
+        auto current_banned_words = co_await banned_words_plugin->get_current_banned_words_for_src_lang(src_lang);
+        current_banned_words_by_src_lang.emplace(src_lang, std::move(current_banned_words));
+    }
+
+    auto& current_banned_words = current_banned_words_by_src_lang.at(src_lang);
+
     std::vector<WordMixUnit> topic_words;
 
     auto lang_pair_key = get_lang_pair_key(src_lang, dst_lang);
@@ -85,6 +92,11 @@ void SequenceGenerator::add_topic_words(std::string&& src_lang, std::string&& ds
     std::string word;
     for (auto c : topic_words_sequence) {
         if (c == ';') {
+            if (current_banned_words.is_banned(word)) {
+                word.clear();
+                continue;
+            }
+
             if (add_word(std::move(word)) && ++added_words_count >= local_constants::max_user_sequence_words) {
                 break;
             }
@@ -98,7 +110,7 @@ void SequenceGenerator::add_topic_words(std::string&& src_lang, std::string&& ds
         add_word(std::move(word));
     }
 
-    if (topic_words.empty()) return;
+    if (topic_words.empty()) co_return;
 
     auto new_words_pack = WordsPack(
         topic_mix_value * local_constants::topics::topic_mix_value_multiplier,
@@ -114,6 +126,8 @@ std::unordered_map<uint8_t, std::vector<WordMixUnit>> SequenceGenerator::get_wor
     auto cur_time = local_utils::time::get_unix_timestamp();
 
     for (auto& lang_user_words : user_words_by_src_lang) {
+        auto& current_banned_words = current_banned_words_by_src_lang.at(lang_user_words.first);
+
         std::multimap<uint32_t, WordMixUnit, std::greater<uint32_t>> sorted_user_words;
 
         auto lang_pair_id_opt = get_lang_pair_id_for_src_lang(lang_user_words.first);
@@ -137,6 +151,10 @@ std::unordered_map<uint8_t, std::vector<WordMixUnit>> SequenceGenerator::get_wor
         uint32_t added_count = 0;
         std::vector<WordMixUnit> sorted_user_words_vec;
         for (auto& word : sorted_user_words) {
+            if (current_banned_words.is_banned(word.second.word)) {
+                continue;
+            }
+            
             if (++added_count > local_constants::max_user_sequence_words) {
                 break;
             }

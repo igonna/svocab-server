@@ -50,10 +50,14 @@ void BannedWords::initAndStart(const Json::Value &config) {
             std::terminate();
         }
     });
-
-    
 }
 
-void BannedWords::shutdown() {
+drogon::Task<CurrentBannedWords> BannedWords::get_current_banned_words_for_src_lang(const std::string& src_lang) {
+    auto translations_db = app().getDbClient(local_constants::translations_db);
+    auto old_banned_words_ptr = banned_words_by_lang.contains(src_lang) ? banned_words_by_lang[src_lang].load() : std::make_shared<BannedWordsList>();
+    auto new_banned_words = co_await core::sql::get_banned_words_for_src_lang_from_time_added(translations_db, src_lang, old_banned_words_ptr->last_added_time);
 
+    co_return CurrentBannedWords(old_banned_words_ptr, std::move(new_banned_words.second));
 }
+
+void BannedWords::shutdown() {}

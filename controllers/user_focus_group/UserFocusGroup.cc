@@ -3,6 +3,7 @@
 #include "core/postgres/queries.h"
 #include "core/progress_words/progress_words.h"
 #include "core/sequence_generation/sequence_generator.h"
+#include "plugins/BannedWords/BannedWords.h"
 
 namespace v1
 {
@@ -73,8 +74,9 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         // sequence generation required if time to repeat or if updated
         if (current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds 
             || sequence_last_gen_id != sequence_last_update_id) {
-
-            core::sequence_generation::SequenceGenerator sequence_generator;
+            
+            auto banned_words_plugin = app().getPlugin<BannedWords>();
+            core::sequence_generation::SequenceGenerator sequence_generator(banned_words_plugin);
 
             // get user words
             {
@@ -113,7 +115,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                     auto mix_value = topic_sequence["mix_value"].as<float>();
                     auto words_sequence = topic_sequence["words_sequence"].as<std::string>();
 
-                    sequence_generator.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
+                    co_await sequence_generator.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
                 }
             }
 

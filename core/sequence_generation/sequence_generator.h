@@ -8,6 +8,7 @@
 #include <numeric>
 #include "utils/constants.h"
 #include "core/user_sequence_words/user_sequence_words.h"
+#include "plugins/BannedWords/BannedWords.h"
 
 namespace core::sequence_generation
 {
@@ -88,8 +89,10 @@ struct LangPairMixData {
 
 class SequenceGenerator {
 public:
+    SequenceGenerator(BannedWords* banned_words_plugin) : banned_words_plugin(banned_words_plugin) {}
+
     void add_user_words(std::string&& src_lang, std::unordered_map<std::string, core::progress_words::UserWordData> &&user_words);
-    void add_topic_words(std::string&& src_lang, std::string&& dst_lang, float lang_mix_value, float topic_mix_value, std::string&& topic_words_sequence);
+    drogon::Task<> add_topic_words(std::string&& src_lang, std::string&& dst_lang, float lang_mix_value, float topic_mix_value, std::string&& topic_words_sequence);
     std::string get_learning_sequence();
     std::vector<LangPairMixData> get_words_sequences_by_lang_pair();
 
@@ -105,6 +108,9 @@ private:
     std::vector<core::user_sequence_words::SequenceUserWord> mixed_words_to_user_sequence_words(std::vector<core::sequence_generation::WordMixUnit>& mix_words);
 
 private:
+    BannedWords* banned_words_plugin;
+    std::unordered_map<std::string, CurrentBannedWords> current_banned_words_by_src_lang;
+
     std::unordered_map<std::string, std::unordered_map<std::string, core::progress_words::UserWordData>> user_words_by_src_lang;
     std::unordered_map<std::string, std::set<std::string>> added_words_by_src_lang;
     std::unordered_map<uint8_t, std::vector<WordsPack>> words_packs_by_lang_pairs_ids;

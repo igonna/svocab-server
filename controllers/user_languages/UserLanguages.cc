@@ -86,7 +86,8 @@ Task<> UserLanguages::getLanguagePairMixOptions(HttpRequestPtr req, std::functio
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        core::sequence_generation::SequenceGenerator sequence_generator;
+        auto banned_words_plugin = app().getPlugin<BannedWords>();
+        core::sequence_generation::SequenceGenerator sequence_generator(banned_words_plugin);
 
         // get user topics sequences
         {
@@ -101,7 +102,7 @@ Task<> UserLanguages::getLanguagePairMixOptions(HttpRequestPtr req, std::functio
                 auto mix_value = topic_sequence["mix_value"].as<float>();
                 auto words_sequence = topic_sequence["words_sequence"].as<std::string>();
 
-                sequence_generator.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
+                co_await sequence_generator.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
             }
         }
 
