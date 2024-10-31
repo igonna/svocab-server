@@ -225,4 +225,14 @@ namespace topics {
         return std::to_string(static_cast<uint64_t>(topic_type)) + '.' + std::to_string(topic_id);
     }
 }
+
+namespace translations_db {
+static inline std::string create_word_phrase_table_name(const std::string& src_lang) {
+    return "word_phrase_" + src_lang;
+}
+
+static inline std::string create_banned_word_table_name(const std::string& src_lang) {
+    return "banned_word_" + src_lang;
+}
+}
 }

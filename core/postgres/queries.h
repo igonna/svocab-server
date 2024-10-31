@@ -4,7 +4,7 @@
 #include <vector>
 #include "core/topic_generation/topic_generator.h"
 #include "core/text_processing/text_processor.h"
-
+#include "utils/utils.h"
 
 namespace core::sql {
 
@@ -95,7 +95,7 @@ static drogon::Task<> update_topic_source(drogon::orm::DbClientPtr users_db, uin
 }
 
 // generate topic sequence and update 
-static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id, uint32_t topic_last_update_id) {
+static drogon::Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id, uint32_t topic_last_update_id) {
     std::string result_sequence;
 
     // fetch topic gen data
@@ -145,7 +145,7 @@ static Task<std::string> generate_topic_sequence_and_if_update(drogon::orm::DbCl
     co_return new_sequence;
 }
 
-static Task<bool> is_user_of_sepcial_user_type(drogon::orm::DbClientPtr users_db, uint64_t user_id, std::string special_user_type) {
+static drogon::Task<bool> is_user_of_sepcial_user_type(drogon::orm::DbClientPtr users_db, uint64_t user_id, std::string special_user_type) {
     auto result = co_await users_db->execSqlCoro("select 1 from users where id = $1 and "
         "special_user_type = '" + special_user_type + "'::SpecialUserType limit 1", user_id
     );
@@ -153,12 +153,12 @@ static Task<bool> is_user_of_sepcial_user_type(drogon::orm::DbClientPtr users_db
     co_return result.size();
 }
 
-static Task<std::string> get_global_topic_words_sequence(drogon::orm::DbClientPtr users_db, uint32_t topic_id) {
+static drogon::Task<std::string> get_global_topic_words_sequence(drogon::orm::DbClientPtr users_db, uint32_t topic_id) {
     auto result = co_await users_db->execSqlCoro("select words from global_topics where topic_id = $1", topic_id);
     co_return result[0]["words"].as<std::string>();
 }
 
-static Task<std::string> get_topic_words_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id) {
+static drogon::Task<std::string> get_topic_words_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint64_t topic_id) {
     // check if generation required
     auto result_update_required = co_await users_db->execSqlCoro(
         "select last_update_id from user_topics "
@@ -185,7 +185,7 @@ static Task<std::string> get_topic_words_sequence_and_if_update(drogon::orm::DbC
     co_return topic_words_sequence;
 }
 
-static Task<int32_t> get_new_smallest_topic_position(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang) {
+static drogon::Task<int32_t> get_new_smallest_topic_position(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang) {
     auto result_position = co_await users_db->execSqlCoro("SELECT COALESCE(MIN(position), 0) AS smallest_position "
         "FROM (SELECT position FROM user_topics WHERE user_id = $1 AND src_lang = $2 AND dst_lang = $3 AND is_enabled = TRUE "
         "UNION ALL "
@@ -196,7 +196,7 @@ static Task<int32_t> get_new_smallest_topic_position(drogon::orm::DbClientPtr us
     co_return result_position[0]["smallest_position"].as<int32_t>() - 1;
 }
 
-static Task<int32_t> get_new_biggest_topic_position(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang) {
+static drogon::Task<int32_t> get_new_biggest_topic_position(drogon::orm::DbClientPtr users_db, uint64_t user_id, const std::string& src_lang, const std::string& dst_lang) {
     auto result_position = co_await users_db->execSqlCoro("SELECT COALESCE(MAX(position), 0) AS biggest_position "
         "FROM (SELECT position FROM user_topics WHERE user_id = $1 AND src_lang = $2 AND dst_lang = $3 AND is_enabled = TRUE "
         "UNION ALL "
@@ -207,7 +207,7 @@ static Task<int32_t> get_new_biggest_topic_position(drogon::orm::DbClientPtr use
     co_return result_position[0]["biggest_position"].as<int32_t>() + 1;
 }
 
-static Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+static drogon::Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto topics_generation_required_result = co_await users_db->execSqlCoro("select last_update_id from user_sequence "
         "where user_id = $1 and last_gen_id != last_update_id", 
         user_id
@@ -232,7 +232,7 @@ static Task<> update_all_user_topics_sequences(drogon::orm::DbClientPtr users_db
     }
 }
 
-static Task<drogon::orm::Result> get_user_words(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+static drogon::Task<drogon::orm::Result> get_user_words(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto result = co_await users_db->execSqlCoro("select distinct ulp.src_lang, uw.words, last_update_id from user_language_pairs as ulp"
         " left join user_words as uw"
         " on ulp.user_id = uw.user_id and ulp.src_lang = uw.src_lang"
@@ -241,7 +241,7 @@ static Task<drogon::orm::Result> get_user_words(drogon::orm::DbClientPtr users_d
     co_return result;
 }
 
-static Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+static drogon::Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto result = co_await users_db->execSqlCoro(" ("
         " select"
             " ulp.src_lang,"
@@ -289,5 +289,75 @@ static Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::DbClient
     );
 
     co_return result;
+}
+
+static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::DbClientPtr translations_db) {
+    for (auto src_lang : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
+
+        // create table for each src_lang
+        auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
+
+        co_await translations_db->execSqlCoro(std::string("CREATE TABLE IF NOT EXISTS ") + banned_word_table_name 
+            + " ( word TEXT PRIMARY KEY, banned_count SMALLINT NOT NULL, time_added INT NOT NULL )"
+        );
+
+        // create index (time_added)
+        co_await translations_db->execSqlCoro(std::string("CREATE INDEX IF NOT EXISTS idx_time_added_") + src_lang + " ON " + banned_word_table_name + " (time_added)");
+
+        auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
+        // create table for each src_lang
+        co_await translations_db->execSqlCoro(std::string("CREATE TABLE IF NOT EXISTS ") + word_phrase_table_name
+            + "( word TEXT NOT NULL,"
+            " dst_lang CHAR(2) NOT NULL,"
+            " phrase TEXT NOT NULL,"
+            " word_translation TEXT NOT NULL,"
+            " phrase_translation TEXT NOT NULL,"
+            " PRIMARY KEY (word, dst_lang)"
+            " ) PARTITION BY LIST (dst_lang)"
+        );
+
+        for (auto dst_lang : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
+            if (!strcmp(src_lang, dst_lang)) continue;
+
+            // create partition table for each dst_lang
+            auto partition_table_name = std::string("word_phrase_") + src_lang + "_" + dst_lang;
+            co_await translations_db->execSqlCoro(std::string("CREATE TABLE IF NOT EXISTS ") + partition_table_name
+                + " PARTITION OF " + word_phrase_table_name + " FOR VALUES IN ('" + dst_lang +"')"
+            );
+
+            // create index (word, dst_lang) for each dst_lang
+            co_await translations_db->execSqlCoro(std::string("CREATE INDEX IF NOT EXISTS idx_word_phrase_") + src_lang + "_" + dst_lang + "_word_dst_lang ON "
+                + partition_table_name + "(word, dst_lang)"
+            );
+
+            // create index (word_translation, dst_lang) for each dst_lang
+            co_await translations_db->execSqlCoro(std::string("CREATE INDEX IF NOT EXISTS idx_word_phrase_") + src_lang + "_" + dst_lang + "_word_translation_dst_lang ON "
+                + partition_table_name + "(word_translation, dst_lang)"
+            );
+        }
+    }
+}
+
+static drogon::Task<std::pair<uint32_t, std::unordered_set<std::string>>> get_banned_words_for_src_lang_from_time_added(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, uint32_t time_added = 0) {
+    auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
+
+    auto result_rows = co_await translations_db->execSqlCoro("select word, time_added from " + banned_word_table_name + " where time_added >= $1", time_added);
+
+    std::unordered_set<std::string> result_words;
+
+    result_words.reserve(result_rows.size());
+
+    uint32_t last_time_added = 0;
+
+    for (auto& row : result_rows) {
+        result_words.insert(row[0].as<std::string>());
+        
+        auto time_added = row[1].as<uint32_t>();
+        if (time_added > last_time_added) {
+            last_time_added = time_added;
+        }
+    }
+
+    co_return {last_time_added, std::move(result_words)};
 }
 }

@@ -3,6 +3,7 @@
 namespace local_constants {
     static constexpr char users_db[] = "svocab_users";
     static constexpr char devices_info_db[] = "devices_info";
+    static constexpr char translations_db[] = "svocab_translations";
 
     static constexpr char redis_db[] = "svocab";
 

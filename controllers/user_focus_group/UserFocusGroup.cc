@@ -7,6 +7,7 @@
 namespace v1
 {
 Task<> UserFocusGroup::getFocusGroupLastUpdateTime(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    co_return;
 }
 
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -215,10 +216,12 @@ Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::func
     //         "new_focus_size": 2
     //     }
     // }
+    co_return;
 }
 
 Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     // update focus group last update time in redis && db
+    co_return;
 }
 
 Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -231,6 +234,7 @@ Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<voi
     // wordId 0
     // phasePassed 0
     // mistake false
+    co_return;
 }
 
 Task<> UserFocusGroup::setSpecialItemPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -238,6 +242,7 @@ Task<> UserFocusGroup::setSpecialItemPassed(HttpRequestPtr req, std::function<vo
     // verify if really passed for specific types
     // return 200 aways when no server error
     // update focus group last update time in redis && db
+    co_return;
 }
 
 Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -254,5 +259,6 @@ Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void
     //     "current_focus_size": 2,
     //     "new_focus_size": 2
     // }
+    co_return;
 }
 }

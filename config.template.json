@@ -68,6 +68,19 @@
             "number_of_connections": 4,
             "timeout": 8.0,
             "auto_batch": false
+        },
+        {
+            "name": "${TRANSLATIONS_DB_DBNAME}",
+            "rdbms": "postgresql",
+            "host": "${TRANSLATIONS_DB_HOST}",
+            "port": 5432,
+            "dbname": "${TRANSLATIONS_DB_DBNAME}",
+            "user": "${TRANSLATIONS_DB_USER}",
+            "passwd": "${TRANSLATIONS_DB_PASSWORD}",
+            "is_fast": false,
+            "number_of_connections": 4,
+            "timeout": 8.0,
+            "auto_batch": false
         }
     ],
     "redis_clients": [
@@ -349,6 +362,14 @@
                 "server": "${SMTP_SERVER}",
                 "user": "${SMTP_USER}",
                 "password": "${SMTP_PASSWORD}"
+            }
+        },
+        {
+            "name": "BannedWords",
+            "dependencies": [],
+            //config: The configuration of the plugin. This json object is the parameter to initialize the plugin.
+            //It can be commented out
+            "config": {
             }
         }
     ],
