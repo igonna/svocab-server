@@ -4,12 +4,95 @@
 #include "core/progress_words/progress_words.h"
 #include "core/sequence_generation/sequence_generator.h"
 #include "plugins/BannedWords/BannedWords.h"
+#include "core/user_sequence_words/user_sequence_words.h"
+#include "plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h"
 
 namespace v1
 {
 Task<> UserFocusGroup::getFocusGroupLastUpdateTime(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    co_return;
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        auto result = co_await users_db->execSqlCoro(
+            "select focus_group_last_update_time from user_sequence where user_id = $1", user_id
+        );
+
+        co_return local_utils::Response::OK(callback, result[0][0].as<std::string>());
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
 }
+
+// Task<> UserFocusGroup::get_learning_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+//     auto sequence_update_info_result = co_await users_db->execSqlCoro(
+//         "select last_gen_id, last_update_id, last_gen_time from user_sequence where user_id = $1", user_id
+//     );
+
+//     auto sequence_last_update_id = sequence_update_info_result[0]["last_update_id"].as<uint32_t>();
+//     auto sequence_last_gen_id = sequence_update_info_result[0]["last_gen_id"].as<uint32_t>();
+//     auto last_gen_time = sequence_update_info_result[0]["last_gen_time"].as<uint32_t>();
+
+//     auto current_time = local_utils::time::get_unix_timestamp();
+
+//     // sequence generation required if time to repeat or if updated
+//     if (current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds 
+//         || sequence_last_gen_id != sequence_last_update_id) {
+        
+//         auto banned_words_plugin = app().getPlugin<BannedWords>();
+//         core::sequence_generation::SequenceGenerator sequence_generator(banned_words_plugin);
+
+//         // get user words
+//         {
+//             auto user_words_result = co_await core::sql::get_user_words(users_db, user_id);
+
+//             for (auto& user_lang_words : user_words_result) {
+//                 auto src_lang = user_lang_words["src_lang"].as<std::string>();
+//                 auto words = user_lang_words["words"].as<std::string>();
+//                 auto last_update_id = user_lang_words["last_update_id"].as<uint32_t>();
+
+//                 auto [duplicates_count, user_words] = core::progress_words::get_user_words_from_str(words);
+
+//                 // update words if many duplicates
+//                 if (duplicates_count > static_cast<float>(user_words.size()) * local_constants::compress_user_words_on_percent) {
+//                     auto new_user_words_str = core::progress_words::user_words_to_str(user_words);
+//                     co_await users_db->execSqlCoro(
+//                         "update user_words set words = $1 where user_id = $2 and last_update_id = $3",
+//                         new_user_words_str, user_id, last_update_id
+//                     );
+//                 }
+
+//                 sequence_generator.add_user_words(std::move(src_lang), std::move(user_words));
+//             }
+//         }
+
+//         // get user topics sequences
+//         {
+//             co_await core::sql::update_all_user_topics_sequences(users_db, user_id);
+
+//             auto topics_sequences_result = co_await core::sql::get_user_topics_sequences(users_db, user_id);
+
+//             for (auto& topic_sequence : topics_sequences_result) {
+//                 auto src_lang = topic_sequence["src_lang"].as<std::string>();
+//                 auto dst_lang = topic_sequence["dst_lang"].as<std::string>();
+//                 auto lang_mix_value = topic_sequence["lang_mix_value"].as<float>();
+//                 auto mix_value = topic_sequence["mix_value"].as<float>();
+//                 auto words_sequence = topic_sequence["words_sequence"].as<std::string>();
+
+//                 co_await sequence_generator.add_topic_words(std::move(src_lang), std::move(dst_lang), lang_mix_value, mix_value, std::move(words_sequence));
+//             }
+//         }
+
+//         auto learning_sequence = sequence_generator.get_learning_sequence();
+
+//         co_await users_db->execSqlCoro(
+//             " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2"
+//             " where last_update_id = $3 and user_id = $4",
+//             current_time, learning_sequence, sequence_last_update_id, user_id
+//         );
+//     } // sequence update required END
+// }
 
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     // TODO: check if phrase generation limit not reached
@@ -50,12 +133,11 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             // check if time - last_user_offer_push_time > user_offer_push_timeout
                 // if added item update last_user_offer_push_time
 
+    // get focus group(user_words_sequence, focus_group_size)
+        // get first focus_group_size not passed && not excluded user words from user_words_sequence
+            // get_word_phrase for each word simultaneously
+                // 
 
-    // check_if_repeat_time_reached -> means_new_generation_required
-
-    // min focus size && max focus size
-
-    // compress user words (remove earlier duplicates)
 
     Json::Value result_focus_group;
     try {
@@ -128,13 +210,37 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             );
         } // sequence update required END
 
-        auto user_sequence_result = co_await users_db->execSqlCoro("select to_learn_words from user_sequence where user_id = $1", user_id);
-        auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
 
-        // get first focus_group_size not passed and not excluded words
+        // create focus group
+        auto user_sequence_result = co_await users_db->execSqlCoro(
+            "select focus_group_last_update_time, focus_group_id, focus_group_size, focus_group, to_learn_words"
+            " from user_sequence where user_id = $1", user_id
+        );
+
+        auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
+        auto user_sequence_words = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
+
+        /// FocusGroupGenerator focus_group_generator(openai_phrase_generation_plugin, translations_db, user_sequence_words)
+
+        // std::terminate();
+
+        bool user_has_subscription = false;
+
+        uint32_t times_nn = 0;
+        for (auto& user_word : user_sequence_words) {
+            if (++times_nn > 30) break;
+            auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
+            co_await openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
+        }
 
         std::cout << to_learn_words_str << std::endl;
 
+
+        // chatgpt generate phrase
+
+        std::cout << "user words count: " << user_sequence_words.size() << std::endl;
+
+        // get first focus_group_size not passed and not excluded words
 
 
         // TODO: check if old focus_group exists and not expired
@@ -236,6 +342,7 @@ Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<voi
     // wordId 0
     // phasePassed 0
     // mistake false
+    // last_update_time ?
     co_return;
 }
 

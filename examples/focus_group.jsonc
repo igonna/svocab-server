@@ -9,7 +9,7 @@
             "word": "perforator",
             "word_translation": ["сверильный", "станок"],
             "phrase": "The perforator is behind the perforator!",
-            "phrase_translation": "Cверлильный станок стоит за cверлильным станком!",
+            "phrase_translation": "Cверильный станок стоит за cверильным станком!",
             "last_phase_passed": 0,
             "phases_mistakes": [false, false, false],
             // phase: 2 (additions)
@@ -23,7 +23,8 @@
         "type": "phrase_generation_limit",
         "reset_time_utc": 1727376861
     },
-    "end_of_the_sequence": false
+    "end_of_the_sequence": false,
+    "learned_this_time": 0
 }
 
 // {

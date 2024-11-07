@@ -155,7 +155,7 @@ inline bool is_apostrophe(UChar32 c) {
     return apostrophe_symbols.contains(c);
 }
 
-std::string text_to_processed_source(icu::UnicodeString text, const char* language) {
+std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language) {
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> words_data;
     
     uint32_t total_unique_words = 0;
@@ -212,6 +212,12 @@ std::string text_to_processed_source(icu::UnicodeString text, const char* langua
             if (total_unique_words > unique_words_limit) break;
         }
     }
+
+    return words_data;
+}
+
+std::string text_to_processed_source(icu::UnicodeString&& text, const char* language) {
+    auto words_data = get_words_data_from_text(std::move(text), language);
 
     // total_count, word, first_appearance
     std::multimap<uint32_t, std::pair<std::string, uint32_t>, std::greater<uint32_t>> words_data_by_popularity;

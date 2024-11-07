@@ -3,6 +3,7 @@
 #include <unicode/unistr.h>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace core::text_processing
 {
@@ -22,7 +23,8 @@ namespace core::text_processing
         return icu::UnicodeString::fromUTF8(icu::StringPiece(str.data()));
     }
 
-    std::string text_to_processed_source(icu::UnicodeString text, const char* language);
+    std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language);
+    std::string text_to_processed_source(icu::UnicodeString&& text, const char* language);
 
     std::vector<ProcessedWord> processed_words_str_to_vector(const std::string& processed_words_str);
 

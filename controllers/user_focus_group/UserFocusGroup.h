@@ -26,5 +26,8 @@ public:
 	METHOD_ADD(UserFocusGroup::setSpecialItemPassed, "/set_special_item_passed", Post, "JwtFilter");
 	METHOD_ADD(UserFocusGroup::completeFocusGroup, "/complete_focus_group", Post, "JwtFilter");	
 	METHOD_LIST_END
+
+// private:
+// 	Task<> get_learning_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 };
 }
