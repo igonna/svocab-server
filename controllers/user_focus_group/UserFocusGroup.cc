@@ -227,7 +227,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
         uint32_t times_nn = 0;
         for (auto& user_word : user_sequence_words) {
-            if (++times_nn > 30) break;
+            // if (++times_nn > 30) break;
 
             try {
                 auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();

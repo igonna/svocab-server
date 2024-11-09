@@ -315,9 +315,10 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
     uint32_t retry_count = 0;
     const uint32_t max_retries = 3;
 
+    bool add_banned_word = false;
+
     try {
         while(retry_count <= max_retries) {
-            bool add_banned_word = false;
 
             try {
                 co_await check_openai_limit();
@@ -348,9 +349,7 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
             }
 
             if (add_banned_word) {
-                co_await core::sql::add_banned_word(translations_db, src_lang, src_word);
-                co_await delete_generating_word(word_key);
-                throw word_not_valid_exception();
+                break;
             }
 
             ++retry_count;
@@ -361,6 +360,12 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
     } catch (const response_code_is_not_200_exception& e) {
         throw systems_are_busy_exception();
     } catch (const std::exception& e) {
+        throw word_not_valid_exception();
+    }
+
+    if (add_banned_word) {
+        co_await core::sql::add_banned_word(translations_db, src_lang, src_word);
+        co_await delete_generating_word(word_key);
         throw word_not_valid_exception();
     }
 
