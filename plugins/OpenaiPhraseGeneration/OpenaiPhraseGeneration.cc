@@ -2,6 +2,9 @@
 #include "utils/utils.h"
 #include "core/text_processing/text_processor.h"
 #include <unicode/uchar.h>
+#include <drogon/drogon.h>
+#include "utils/constants.h"
+#include "core/postgres/queries.h"
 
 using namespace drogon;
 
@@ -11,6 +14,9 @@ void OpenaiPhraseGeneration::initAndStart(const Json::Value &config) {
     api_key = config["api_key"].asString();
     model = config["model"].asString();
     url = config["url"].asString();
+
+    auto rpm_limit = config["rpm_limit"].asUInt();
+    free_users_openai_rpm_limit = rpm_limit - rpm_limit * 0.2f;
 }
 
 void OpenaiPhraseGeneration::shutdown() {}
@@ -167,51 +173,196 @@ std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extrac
     return {src_phrase, dst_phrase, dst_word};
 }
 
-// phrase not contains a word means word is not valid
+drogon::Task<std::optional<std::tuple<std::string, std::string, std::string>>> OpenaiPhraseGeneration::get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+    auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
 
-// check if word has translation [db]
-// check if word not in black list [db]
-// check if user premium allowed to generate [redis]
-// check if word already generating by another server [redis]
-// on generation completed save word in database [db]
-// on generation completed save word in black listed [db]
+    auto word_translation_result = co_await translations_db->execSqlCoro(
+        "select word_translation, phrase, phrase_translation from " + word_phrase_table_name + " where dst_lang = $1 and word = $2 limit 1",
+        dst_lang, src_word
+    );
 
-drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
-    std::string src_phrase, dst_phrase, dst_word;
+    if (word_translation_result.size()) {
+        const auto& row_ref = word_translation_result.at(0);
 
-    auto src_lang_name = local_utils::supported_languages::get_language_title_localized(src_lang, "en");
-    auto dst_lang_name = local_utils::supported_languages::get_language_title_localized(dst_lang, "en");
+        auto src_phrase = row_ref["phrase"].as<std::string>();
+        auto dst_phrase = row_ref["phrase_translation"].as<std::string>();
+        auto dst_word = row_ref["word_translation"].as<std::string>();
 
-    std::string prompt = std::string("generate ") + src_lang_name + " meaningful phrase from word '" 
-        + src_word + "' and translate this phrase to " + dst_lang_name + " and extract word translation from phrase,"
-        + " output this only as csv \"" + src_lang_name + " phrase\" ; \"" + dst_lang_name + " phrase\" ; \"extracted '" + src_word + "' word translation from " + dst_lang_name + " phrase\"";
+        co_return std::make_optional(std::make_tuple(src_phrase, dst_phrase, dst_word));
+    }
 
-    try {
-        auto response = co_await openai_get_response(prompt);
-        auto response_message = response["choices"][0]["message"]["content"].as<std::string>();
+    auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
 
-        // std::cout << std::endl << std::endl << "src_word: " << src_word << std::endl << "src_lang: " << src_lang << std::endl;
-        // std::cout << "response: " << response_message << std::endl;
+    auto banned_word_result = co_await translations_db->execSqlCoro(
+        "select 1 from " + banned_word_table_name + " where word = $1 limit 1", src_word
+    );
 
-        auto [src_phrase, dst_phrase, dst_word] = extract_word_phrase_from_openai_response(response_message, src_word, src_lang, dst_lang);
-        auto is_word_translation_valid = co_await openai_is_word_translation_valid(src_lang_name, dst_lang_name, src_word, dst_word); // not valid word
-
-        // std::cout << "processed: " << src_phrase << " ; " << dst_phrase << " ; " << dst_word << std::endl;
-        // std::cout << "valid translation: " << (is_word_translation_valid ? "true" : "false") << std::endl;
-
-    } catch (const systems_are_busy_exception& e) {
-        throw;
-    } catch (const not_valid_response_format_exception& e) {
-        // retry
-        std::cout << "exception: " << e.what() << std::endl;
-    } catch (const json_parse_failed_exception& e) {
-        // retry
-        std::cout << "exception: " << e.what() << std::endl;
-    } catch (const response_code_is_not_200_exception& e) {
-        throw systems_are_busy_exception();
-    } catch (const phrase_not_contains_a_word_exception& e) {
+    if (banned_word_result.size()) {
         throw word_not_valid_exception();
     }
 
-    co_return {src_phrase, dst_phrase, dst_word};
+    co_return std::nullopt;
+}
+
+// return true if limit ok
+drogon::Task<bool> OpenaiPhraseGeneration::increase_free_users_openai_limit() {
+    try {
+        auto rc = app().getRedisClient();
+
+        static const std::string script = "if redis.call('EXISTS', KEYS[1]) == 0 then"
+                " redis.call('INCRBY', KEYS[1], ARGV[1])"
+                " redis.call('EXPIRE', KEYS[1], ARGV[2])"
+            " else"
+                " redis.call('INCRBY', KEYS[1], ARGV[1])"
+            " end"
+            " return redis.call('GET', KEYS[1])";
+
+        int increment = 1;
+
+        auto result = co_await rc->execCommandCoro("EVAL %s 1 %s %d %d",
+            script.c_str(),
+            local_constants::redis::openai_free_users_limit_key_name.c_str(),
+            increment,
+            local_constants::openai_free_users_limit_key_expire_seconds
+        );
+
+        if (result.isNil()) {
+            co_return true;
+        }
+
+        auto cur_limit = std::stoi(result.asString());
+
+        co_return cur_limit < free_users_openai_rpm_limit;
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return true;
+    }
+}
+
+std::string create_word_generation_key(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+    return src_lang + ';' + dst_lang + ';' + src_word;
+}
+
+drogon::Task<> OpenaiPhraseGeneration::await_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+    auto rc = app().getRedisClient();
+
+    const auto word_key = create_word_generation_key(src_lang, dst_lang, src_word);
+
+    uint32_t seconds_passed = 0;
+
+    while(seconds_passed++ < word_generation_expire_seconds) {
+        auto result = co_await rc->execCommandCoro("exists %s", word_key);
+
+        if (result.isNil()) {
+            co_return;
+        }
+
+        if (!std::stoi(result.asString())) {
+            co_return;
+        }
+
+        co_await sleepCoro(app().getLoop(), std::chrono::seconds{1});
+    }
+}
+
+drogon::Task<> OpenaiPhraseGeneration::set_generating_word(const std::string& word_key) {
+    auto rc = app().getRedisClient();
+    auto generate_word_result = co_await rc->execCommandCoro("set %s %s ex %d nx", word_key.c_str(), "", word_generation_expire_seconds);
+}
+
+drogon::Task<> OpenaiPhraseGeneration::delete_generating_word(const std::string& word_key) {
+    auto rc = app().getRedisClient();
+    co_await rc->execCommandCoro("del %s", word_key);
+}
+
+drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
+    co_await await_word_generation(src_lang, dst_lang, src_word);
+
+    auto translations_db = app().getDbClient(local_constants::translations_db);
+
+    auto is_word_banned = co_await core::sql::is_banned_word_exists(translations_db, src_lang, src_word);
+
+    if (is_word_banned) {
+        throw word_not_valid_exception();
+    }
+
+    auto word_phrase_translation_opt = co_await get_word_phrase_translation(translations_db, src_lang, dst_lang, src_word);
+
+    if (word_phrase_translation_opt.has_value()) {
+        auto value = word_phrase_translation_opt.value();
+        auto [src_phrase, dst_phrase, dst_word] = *word_phrase_translation_opt;
+        co_return {src_phrase, dst_phrase, dst_word};
+    }
+
+    auto check_openai_limit = [&]() -> drogon::Task<> {
+        if (!has_subscription) {
+            auto limit_ok = co_await increase_free_users_openai_limit();
+            if (!limit_ok) {
+                throw systems_are_busy_exception();
+            }
+        }
+    };
+
+    const auto src_lang_name = local_utils::supported_languages::get_language_title_localized(src_lang, "en");
+    const auto dst_lang_name = local_utils::supported_languages::get_language_title_localized(dst_lang, "en");
+
+    const std::string prompt = std::string("generate ") + src_lang_name + " meaningful phrase from word '" 
+        + src_word + "' and translate this phrase to " + dst_lang_name + " and extract word translation from phrase,"
+        + " output this only as csv \"" + src_lang_name + " phrase\" ; \"" + dst_lang_name + " phrase\" ; \"extracted '" + src_word + "' word translation from " + dst_lang_name + " phrase\"";
+
+    const auto word_key = create_word_generation_key(src_lang, dst_lang, src_word);
+
+    uint32_t retry_count = 0;
+    const uint32_t max_retries = 3;
+
+    try {
+        while(retry_count <= max_retries) {
+            bool add_banned_word = false;
+
+            try {
+                co_await check_openai_limit();
+
+                co_await set_generating_word(word_key);
+
+                auto response = co_await openai_get_response(prompt);
+                auto response_message = response["choices"][0]["message"]["content"].as<std::string>();
+
+                auto [src_phrase, dst_phrase, dst_word] = extract_word_phrase_from_openai_response(response_message, src_word, src_lang, dst_lang);
+
+                co_await check_openai_limit();
+                auto is_word_translation_valid = co_await openai_is_word_translation_valid(src_lang_name, dst_lang_name, src_word, dst_word);
+
+                if (is_word_translation_valid) {
+                    co_await core::sql::add_word_phrase_translation(translations_db, src_lang, dst_lang, src_word, dst_word, src_phrase, dst_phrase);
+                    co_await delete_generating_word(word_key);
+                    co_return {src_phrase, dst_phrase, dst_word};
+                } else {
+                    add_banned_word = true;
+                }
+            } catch (const not_valid_response_format_exception& e) {
+                // retry
+            } catch (const json_parse_failed_exception& e) {
+                // retry
+            } catch (const phrase_not_contains_a_word_exception& e) {
+                add_banned_word = true;
+            }
+
+            if (add_banned_word) {
+                co_await core::sql::add_banned_word(translations_db, src_lang, src_word);
+                co_await delete_generating_word(word_key);
+                throw word_not_valid_exception();
+            }
+
+            ++retry_count;
+        }
+
+    } catch (const systems_are_busy_exception& e) {
+        throw;
+    } catch (const response_code_is_not_200_exception& e) {
+        throw systems_are_busy_exception();
+    } catch (const std::exception& e) {
+        throw word_not_valid_exception();
+    }
+
+    throw word_not_valid_exception();
 }

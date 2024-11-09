@@ -1,6 +1,7 @@
 #pragma once
 #include <drogon/plugins/Plugin.h>
 #include <drogon/utils/coroutine.h>
+#include <drogon/orm/DbClient.h>
 
 struct WordPhrasePair {
 	WordPhrasePair(WordPhrasePair&& other) : src_phrase(std::move(other.src_phrase)), dst_phrase(std::move(other.dst_phrase)), dst_word(std::move(other.dst_word)) {}
@@ -67,8 +68,18 @@ private:
 	std::string correct_phrase(std::string&& phrase);
 	std::string correct_word(std::string&& word);
 
+	drogon::Task<std::optional<std::tuple<std::string, std::string, std::string>>> get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
+
+	drogon::Task<bool> increase_free_users_openai_limit();
+
+	drogon::Task<> await_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
+	drogon::Task<> set_generating_word(const std::string& word_key);
+	drogon::Task<> delete_generating_word(const std::string& word_key);
+
 private:
 	std::string api_key;
 	std::string model;
 	std::string url;
+	uint32_t free_users_openai_rpm_limit;
+	uint32_t word_generation_expire_seconds = 6;
 };

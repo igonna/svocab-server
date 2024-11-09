@@ -298,7 +298,7 @@ static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::D
         auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
 
         co_await translations_db->execSqlCoro(std::string("CREATE TABLE IF NOT EXISTS ") + banned_word_table_name 
-            + " ( word TEXT PRIMARY KEY, banned_count SMALLINT NOT NULL, time_added INT NOT NULL )"
+            + " ( word TEXT PRIMARY KEY, time_added INT NOT NULL )"
         );
 
         // create index (time_added)
@@ -359,5 +359,32 @@ static drogon::Task<std::pair<uint32_t, std::unordered_set<std::string>>> get_ba
     }
 
     co_return {last_time_added, std::move(result_words)};
+}
+
+static drogon::Task<> add_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, const std::string& dst_word, const std::string& src_phrase, const std::string& dst_phrase) {
+    auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
+
+    co_await translations_db->execSqlCoro("insert into " + word_phrase_table_name 
+        + " (word, dst_lang, phrase, word_translation, phrase_translation) values ($1, $2, $3, $4, $5)"
+        " on conflict (word, dst_lang) do nothing", src_word, dst_lang, src_phrase, dst_word, dst_phrase
+    );
+}
+
+static drogon::Task<> add_banned_word(drogon::orm::DbClientPtr translations_db, const std::string& lang, const std::string& word) {
+    auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(lang);
+
+    auto cur_time = local_utils::time::get_unix_timestamp();
+
+    co_await translations_db->execSqlCoro("insert into " + banned_word_table_name 
+        + " (word, time_added) values ($1, $2) on conflict (word) do nothing", word, cur_time
+    );
+}
+
+static drogon::Task<bool> is_banned_word_exists(drogon::orm::DbClientPtr translations_db, const std::string& lang, const std::string& word) {
+    auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(lang);
+
+    auto result = co_await translations_db->execSqlCoro("select 1 from " + banned_word_table_name + " where word = $1 limit 1", word);
+
+    co_return result.size();
 }
 }

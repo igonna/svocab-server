@@ -138,7 +138,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             // get_word_phrase for each word simultaneously
                 // 
 
-
     Json::Value result_focus_group;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -229,8 +228,15 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         uint32_t times_nn = 0;
         for (auto& user_word : user_sequence_words) {
             if (++times_nn > 30) break;
-            auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
-            co_await openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
+
+            try {
+                auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
+                co_await openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
+            } catch (const OpenaiPhraseGeneration::word_not_valid_exception& e) {
+                std::cout << "exception: word not valid" << std::endl;
+            } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
+                std::cout << "exception: systems are busy" << std::endl;
+            }
         }
 
         std::cout << to_learn_words_str << std::endl;

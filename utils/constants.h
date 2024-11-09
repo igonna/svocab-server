@@ -37,6 +37,8 @@ namespace local_constants {
 
     static constexpr uint32_t max_user_sequence_words = 200;
 
+    static constexpr uint16_t openai_free_users_limit_key_expire_seconds = 60;
+
 namespace languages {
     static constexpr uint32_t lang_tag_size = 2;
 
@@ -118,6 +120,7 @@ namespace redis {
     static constexpr uint8_t secret_key_length = 16;
     static const std::string devices_info_update_key_name = "devices_info_update";
     static const std::string global_rank_update_key_name = "global_rank_update";
+    static const std::string openai_free_users_limit_key_name = "openai_free_users_limit";
 }
 
 namespace attributes {
