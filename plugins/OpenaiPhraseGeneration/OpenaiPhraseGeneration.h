@@ -61,6 +61,12 @@ private:
 		}
 	};
 
+	struct dst_word_not_valid_exception : public std::exception {
+		const char* what() const noexcept override {
+			return "dst_word_not_valid";
+		}
+	};
+
 private:
 	drogon::Task<Json::Value> openai_get_response(const std::string& prompt);
 	drogon::Task<bool> openai_is_word_translation_valid(const std::string& src_lang_name, const std::string& dst_lang_name, const std::string& src_word, const std::string& dst_word);

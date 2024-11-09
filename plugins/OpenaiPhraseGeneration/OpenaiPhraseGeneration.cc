@@ -5,6 +5,9 @@
 #include <drogon/drogon.h>
 #include "utils/constants.h"
 #include "core/postgres/queries.h"
+#include <unicode/uchar.h>
+#include <unicode/uscript.h>
+#include <unicode/uloc.h>
 
 using namespace drogon;
 
@@ -61,7 +64,7 @@ drogon::Task<Json::Value> OpenaiPhraseGeneration::openai_get_response(const std:
 }
 
 drogon::Task<bool> OpenaiPhraseGeneration::openai_is_word_translation_valid(const std::string& src_lang_name, const std::string& dst_lang_name, const std::string& src_word, const std::string& dst_word) {
-    std::string prompt = std::string("is ") + dst_lang_name + " \'" + dst_word + "\' valid translation for " + src_lang_name + " \'" + src_word + "\', output only yes or no";
+    std::string prompt = std::string("is ") + dst_lang_name + " \'" + dst_word + "\' a possible translation for " + src_lang_name + " \'" + src_word + "\', output only yes or no";
 
     auto response = co_await openai_get_response(prompt);
     auto response_message = response["choices"][0]["message"]["content"].as<std::string>();
@@ -103,6 +106,20 @@ std::string OpenaiPhraseGeneration::correct_word(std::string&& word) {
     unicode_word.toUTF8String(utf8_word);
 
     return utf8_word;
+}
+
+bool is_valid_dst_word(const icu::UnicodeString& word) {
+    UChar32 whitespace = ' ';
+
+    for (int32_t i = 0; i < word.length(); ++i) {
+        UChar32 c = word.char32At(i);
+
+        if (!(u_isalpha(c) || whitespace)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extract_word_phrase_from_openai_response(const std::string& response, const std::string& src_word, const std::string& src_lang, const std::string& dst_lang) {
@@ -162,7 +179,14 @@ std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extrac
     }
 
     auto unicode_dst_word = core::text_processing::string_to_unicode(dst_word);
+
+    if(!is_valid_dst_word(unicode_dst_word)) {
+        throw dst_word_not_valid_exception();
+    }
+
     auto dst_word_parts = core::text_processing::get_words_data_from_text(std::move(unicode_dst_word), dst_lang.c_str());
+
+    // validate that word not contains non alpha or non whitespace character
 
     for (auto& dst_word_part : dst_word_parts) {
         if (!dst_phrase_words.contains(dst_word_part.first)) {
@@ -318,7 +342,7 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
     bool add_banned_word = false;
 
     try {
-        while(retry_count <= max_retries) {
+        while(retry_count < max_retries) {
 
             try {
                 co_await check_openai_limit();
@@ -337,23 +361,21 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
                     co_await core::sql::add_word_phrase_translation(translations_db, src_lang, dst_lang, src_word, dst_word, src_phrase, dst_phrase);
                     co_await delete_generating_word(word_key);
                     co_return {src_phrase, dst_phrase, dst_word};
-                } else {
-                    add_banned_word = true;
                 }
             } catch (const not_valid_response_format_exception& e) {
                 // retry
             } catch (const json_parse_failed_exception& e) {
                 // retry
             } catch (const phrase_not_contains_a_word_exception& e) {
-                add_banned_word = true;
-            }
-
-            if (add_banned_word) {
-                break;
+                // retry
+            } catch (const dst_word_not_valid_exception& e) {
+                // retry
             }
 
             ++retry_count;
         }
+
+        add_banned_word = true;
 
     } catch (const systems_are_busy_exception& e) {
         throw;
