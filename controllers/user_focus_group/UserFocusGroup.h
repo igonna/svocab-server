@@ -27,7 +27,15 @@ public:
 	METHOD_ADD(UserFocusGroup::completeFocusGroup, "/complete_focus_group", Post, "JwtFilter");	
 	METHOD_LIST_END
 
-// private:
-// 	Task<> get_learning_sequence_and_if_update(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+private:
+	Task<std::tuple<bool, uint32_t>> is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription);
+
+	Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_words_sequence(
+		drogon::orm::DbClientPtr users_db,
+		uint64_t user_id,
+		uint32_t sequence_last_update_id
+	);
+
+	Json::Value create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id);
 };
 }

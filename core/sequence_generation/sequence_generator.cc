@@ -263,7 +263,7 @@ std::vector<core::user_sequence_words::SequenceUserWord> SequenceGenerator::mixe
     return result;
 }
 
-std::string SequenceGenerator::get_learning_sequence() {
+std::string SequenceGenerator::get_learning_sequence_str() {
     auto to_mix_lang_packs = get_mixed_language_packs();
 
     auto mixed_words = get_mixed_words(to_mix_lang_packs);
@@ -273,7 +273,7 @@ std::string SequenceGenerator::get_learning_sequence() {
     auto user_sequence_words = mixed_words_to_user_sequence_words(mixed_words);
     auto result = core::user_sequence_words::sequence_user_words_to_str(user_sequence_words);
 
-    user_sequence_words.clear();
+    // user_sequence_words.clear();
     
     return result;
 }

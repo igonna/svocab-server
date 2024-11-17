@@ -299,7 +299,7 @@ drogon::Task<> OpenaiPhraseGeneration::delete_generating_word(const std::string&
     co_await rc->execCommandCoro("del %s", word_key);
 }
 
-drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
+drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
     co_await await_word_generation(src_lang, dst_lang, src_word);
 
     auto translations_db = app().getDbClient(local_constants::translations_db);
@@ -315,7 +315,7 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
     if (word_phrase_translation_opt.has_value()) {
         auto value = word_phrase_translation_opt.value();
         auto [src_phrase, dst_phrase, dst_word] = *word_phrase_translation_opt;
-        co_return {src_phrase, dst_phrase, dst_word};
+        co_return GeneratedPhrase(src_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
     }
 
     auto check_openai_limit = [&]() -> drogon::Task<> {
@@ -360,7 +360,7 @@ drogon::Task<std::tuple<std::string, std::string, std::string>> OpenaiPhraseGene
                 if (is_word_translation_valid) {
                     co_await core::sql::add_word_phrase_translation(translations_db, src_lang, dst_lang, src_word, dst_word, src_phrase, dst_phrase);
                     co_await delete_generating_word(word_key);
-                    co_return {src_phrase, dst_phrase, dst_word};
+                    co_return GeneratedPhrase(src_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
                 }
             } catch (const not_valid_response_format_exception& e) {
                 // retry

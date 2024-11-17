@@ -23,7 +23,6 @@
         "type": "phrase_generation_limit",
         "reset_time_utc": 1727376861
     },
-    "end_of_the_sequence": false,
     "learned_this_time": 0
 }
 

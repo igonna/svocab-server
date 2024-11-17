@@ -141,4 +141,12 @@ namespace topics {
     static constexpr float skip_value = 0.0f;
     static constexpr float max_skip_value = 1.0f;
 }
+
+namespace user_generation_limit {
+    static constexpr uint32_t generation_limit_reset_seconds = 60*60*3;
+    static constexpr uint32_t generation_limit_free_user_wave_1 = 16;
+    static constexpr uint32_t generation_limit_free_user_wave_2 = 12;
+    static constexpr uint32_t generation_limit_subscriber_user_wave_1 = 320;
+    static constexpr uint32_t generation_limit_subscriber_user_wave_2 = 240;
+}
 }

@@ -3,14 +3,19 @@
 #include <drogon/utils/coroutine.h>
 #include <drogon/orm/DbClient.h>
 
-struct WordPhrasePair {
-	WordPhrasePair(WordPhrasePair&& other) : src_phrase(std::move(other.src_phrase)), dst_phrase(std::move(other.dst_phrase)), dst_word(std::move(other.dst_word)) {}
-	WordPhrasePair(std::string&& src_phrase, std::string&& dst_phrase, std::string&& dst_word) 
-		: src_phrase(std::move(src_phrase)), dst_phrase(std::move(dst_phrase)), dst_word(std::move(dst_word)) {}
-
+struct GeneratedPhrase {
+	GeneratedPhrase(GeneratedPhrase&& other) 
+		: src_lang(std::move(src_lang)), src_word(std::move(other.src_word)), dst_word(std::move(other.dst_word)), src_phrase(std::move(other.src_phrase)), dst_phrase(std::move(other.dst_phrase)) {}
+	GeneratedPhrase(std::string&& src_lang, std::string&& src_word, std::string&& dst_word, std::string&& src_phrase, std::string&& dst_phrase) 
+		: src_lang(std::move(src_lang)), src_word(std::move(src_word)), dst_word(std::move(dst_word)), src_phrase(std::move(src_phrase)), dst_phrase(std::move(dst_phrase)) {}
+	GeneratedPhrase(std::string src_lang, std::string src_word, std::string&& dst_word, std::string&& src_phrase, std::string&& dst_phrase) 
+		: src_lang(src_lang), src_word(src_word), dst_word(std::move(dst_word)), src_phrase(std::move(src_phrase)), dst_phrase(std::move(dst_phrase)) {}
+	
+	std::string src_lang;
+	std::string src_word;
+	std::string dst_word;
 	std::string src_phrase;
 	std::string dst_phrase;
-	std::string dst_word;
 };
 
 class OpenaiPhraseGeneration : public drogon::Plugin<OpenaiPhraseGeneration> {
@@ -18,8 +23,8 @@ public:
 	OpenaiPhraseGeneration();
 	void initAndStart(const Json::Value &config) override;
 	void shutdown() override;
-
-	drogon::Task<std::tuple<std::string, std::string, std::string>> generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription);
+	
+	drogon::Task<GeneratedPhrase> generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription);
 
 public:
 	// exceptions
