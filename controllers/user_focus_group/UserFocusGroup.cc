@@ -86,69 +86,102 @@ Task<std::vector<core::user_sequence_words::SequenceUserWord>> UserFocusGroup::g
     co_return user_sequence_words;
 }
 
-// reached_limit, time_unlocks
+Task<> UserFocusGroup::increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto user_phrase_generation_limit_result = co_await users_db->execSqlCoro(
+        "select generated_phrases_count, last_generation_start_time where user_id = $1",
+        user_id
+    );
+
+    auto generated_phrases_count = user_phrase_generation_limit_result[0]["generated_phrases_count"].as<uint16_t>(); 
+    auto last_generation_start_time = user_phrase_generation_limit_result[0]["last_generation_start_time"].as<uint32_t>();
+
+    auto current_time = local_utils::time::get_unix_timestamp();
+
+    if (current_time - last_generation_start_time > local_constants::user_generation_limit::generation_limit_reset_seconds) {
+        co_await users_db->execSqlCoro("update user_phrase_generation_limit set generated_phrases_count = 1,"
+            " last_generation_start_time = $1 where user_id = $2", current_time, user_id
+        );
+    }
+}
+
+// is_limit_reached, time_limit_resets
 Task<std::tuple<bool, uint32_t>> UserFocusGroup::is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription) {
     auto user_phrase_generation_limit_result = co_await users_db->execSqlCoro(
-        "select generation_waves_passed_today, generated_phrases_count, generation_wave_start_time where user_id = $1",
+        "select generated_phrases_count, last_generation_start_time from user_phrase_generation_limit where user_id = $1",
         user_id
     );
 
     auto current_time = local_utils::time::get_unix_timestamp();
 
-    auto generation_waves_passed_today = user_phrase_generation_limit_result[0]["generation_waves_passed_today"].as<uint16_t>(); 
     auto generated_phrases_count = user_phrase_generation_limit_result[0]["generated_phrases_count"].as<uint16_t>(); 
-    auto generation_wave_start_time = user_phrase_generation_limit_result[0]["generation_wave_start_time"].as<uint32_t>();
+    auto last_generation_start_time = user_phrase_generation_limit_result[0]["last_generation_start_time"].as<uint32_t>();
 
-    auto current_time_days = local_utils::time::get_days_passed_since_epoch(current_time);
-    auto generation_wave_start_time_days = local_utils::time::get_days_passed_since_epoch(generation_wave_start_time);
-
-    if (current_time_days != generation_wave_start_time_days) {
+    if (current_time - last_generation_start_time > local_constants::user_generation_limit::generation_limit_reset_seconds) {
         co_return {false, 0};
     }
 
-    current_time_days;
+    auto max_generated_phrases = user_has_subscription 
+        ? local_constants::user_generation_limit::generation_limit_subscriber_user 
+        : local_constants::user_generation_limit::generation_limit_free_user;
 
-    auto current_wave_generation_limit = 0;
-    if (generation_waves_passed_today) {
+    auto time_limit_resets = last_generation_start_time + local_constants::user_generation_limit::generation_limit_reset_seconds;
 
+    if (generated_phrases_count > max_generated_phrases) {
+        co_return {true, time_limit_resets};
+    } else {
+        co_return {false, 0};
+    }
+}
+
+Task<std::optional<std::string>> UserFocusGroup::get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto is_time_ready_to_show_offer_result = co_await users_db->execSqlCoro("select 1 from last_user_special_offer_time"
+        " where user_id = $1 and last_special_offer_time <= NOW() - INTERVAL '5 days'",
+        user_id
+    );
+
+    if (is_time_ready_to_show_offer_result.empty()) {
+        co_return std::nullopt;
     }
 
-    // auto user_has_subscription = does_user_have_subscription();
+    auto user_email_link_required_result = co_await users_db->execSqlCoro("select 1 from users where id = $1 and email is null limit 1",
+        user_id
+    );
 
-    // generated_phrases_count
-
-    // 
-    if (current_time - local_constants::user_generation_limit::generation_limit_reset_seconds > generation_wave_start_time) {
-
+    auto user_reached_required_progress_result = co_await users_db->execSqlCoro("select 1 from user_statistics where user_id = $1 and learned_words_total > 150 limit 1", user_id);
+ 
+    if (user_email_link_required_result.size() && user_reached_required_progress_result.size()) {
+        co_await users_db->execSqlCoro("update last_user_special_offer_time set last_special_offer_time = NOW() where user_id = $1", user_id);
+        co_return "link_account";
     }
 
-    // if (generation_waves_passed_today) {
+    auto user_rate_us_required_result = co_await users_db->execSqlCoro(
+        "select 1 from user_checkpoints where user_id = $1 and rate_us_passed = false limit 1",
+        user_id
+    );
 
-    // }
-
-    if (current_time - generation_wave_start_time) {
-
+    if (user_rate_us_required_result.size() && user_reached_required_progress_result.size()) {
+        co_await users_db->execSqlCoro("update last_user_special_offer_time set last_special_offer_time = NOW() where user_id = $1", user_id);
+        co_return "rate_us";
     }
 
-    co_return {false, 0};
+    co_return std::nullopt;
 }
 
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value result_focus_group;
     try {
-        // check if generation limit not reached, and generation not blocked
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto current_time = local_utils::time::get_unix_timestamp();
 
+        // check if generation limit not reached, and generation not blocked
         bool user_has_subscription = co_await core::sql::does_user_have_subscription(users_db, user_id);
 
-        auto [generation_limit_reached, time_unlocks] = co_await is_user_generation_limit_reached(users_db, user_id, user_has_subscription);
+        auto [generation_limit_reached, time_limit_resets] = co_await is_user_generation_limit_reached(users_db, user_id, user_has_subscription);
 
         // check if user reached phrase generation limit
         if (generation_limit_reached) {
-            auto time_unlocks_str = std::to_string(time_unlocks);
-            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, time_unlocks_str.c_str());
+            auto time_limit_resets_str = std::to_string(time_limit_resets);
+            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, time_limit_resets_str.c_str());
         }
 
         // get sequence info
@@ -162,6 +195,8 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto focus_group_size = sequence_info_result[0]["focus_group_size"].as<uint32_t>();
 
         std::vector<core::user_sequence_words::SequenceUserWord> user_words_sequence;
+
+        auto current_time = local_utils::time::get_unix_timestamp();
 
         // update user words sequence if required and get
         bool was_updated = false;
@@ -183,79 +218,84 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             user_words_sequence = std::move(user_sequence_words_vec);
         }
 
-        auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
-
-        uint8_t phrase_generation_attempts_count = 0;
-        const uint8_t max_phrase_generation_attempts_count = 30;
-
+        // generate focus group
         std::vector<GeneratedPhrase> focus_group_phrases;
+        {
+            auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
 
-        std::cout << "user words count: " << user_words_sequence.size() << std::endl;
+            uint8_t phrase_generation_attempts_count = 0;
+            constexpr uint8_t max_phrase_generation_attempts_count = 30;
 
-        // TODO: check if old focus_group exists and not expired
+            // TODO: check if old focus_group exists and not expired
 
-        // while 30 attempts not passed (if passed, block user in redis for 3 minutes)
-        // try to generate focus_group_size (max 6) phrases, if current user sequence exhausted, update sequence
-        // convert generated phrases to JSON
-        // set json focus group to db
-        // check if special item should be added
+            // while 30 attempts not passed (if passed, block user in redis for 3 minutes)
+            // try to generate focus_group_size (max 6) phrases, if current user sequence exhausted, update sequence
+            // convert generated phrases to JSON
+            // set json focus group to db
+            // check if special item should be added
 
-        while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
+            while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
 
-            if (user_words_sequence.empty()) {
-                co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "end_of_sequence");
-            }
+                std::vector<std::pair<
+                    core::user_sequence_words::SequenceUserWord*,
+                    drogon::Task<GeneratedPhrase>
+                >> current_generation_group;
 
-            std::vector<std::pair<
-                core::user_sequence_words::SequenceUserWord*,
-                drogon::Task<GeneratedPhrase>*
-            >> current_generation_group;
-
-            // generate phrases from current sequence
-            for (auto& user_word : user_words_sequence) {
-                uint8_t to_generate_count = focus_group_size - focus_group_phrases.size();
-
-                if (to_generate_count == 0) {
-                    break;
+                if (user_words_sequence.empty()) {
+                    co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "end_of_sequence");
                 }
 
-                if (user_word.is_excluded || user_word.is_passed) {
-                    continue;
-                }
+                // generate phrases from current sequence
+                for (auto& user_word : user_words_sequence) {
+                    uint8_t to_generate_count = focus_group_size - focus_group_phrases.size();
 
-                if (++phrase_generation_attempts_count >= max_phrase_generation_attempts_count) {
-                    co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-                }
-
-                // create new phrase generation task
-                {
-                    auto current_generation_task = openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
-                    auto generation_pair = std::make_pair(&user_word, &current_generation_task);
-                    current_generation_group.push_back(std::move(generation_pair));
-                }
-
-                if (current_generation_group.size() == to_generate_count) {
-
-                    // await all phrase generations
-                    for (auto& [user_word_ptr, task_ptr] : current_generation_group) {
-                        try {
-                            auto generated_phrase = co_await *task_ptr;
-                            focus_group_phrases.push_back(std::move(generated_phrase));
-                        } catch (const OpenaiPhraseGeneration::word_not_valid_exception& e) {
-                            user_word_ptr->is_excluded = true;
-                        } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
-                            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-                        }
+                    if (to_generate_count == 0) {
+                        break;
                     }
 
-                    current_generation_group.clear();
+                    if (user_word.is_excluded || user_word.is_passed) {
+                        continue;
+                    }
+
+                    if (++phrase_generation_attempts_count >= max_phrase_generation_attempts_count) {
+                        co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+                    }
+
+                    // create new phrase generation task
+                    {
+                        auto current_generation_task = openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
+                        auto generation_pair = std::make_pair(&user_word, std::move(current_generation_task));
+                        current_generation_group.push_back(std::move(generation_pair));
+                    }
+
+                    if (current_generation_group.size() == to_generate_count) {
+                        // await all phrase generations
+                        for (auto& [user_word_ptr, task_ptr] : current_generation_group) {
+                            try {
+                                auto generated_phrase = co_await task_ptr;
+                                focus_group_phrases.push_back(std::move(generated_phrase));
+                            } catch (const OpenaiPhraseGeneration::word_not_valid_exception& e) {
+                                user_word_ptr->is_excluded = true;
+                            } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
+                                co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+                            }
+                        }
+
+                        current_generation_group.clear();
+                    }
+                }
+
+                if (focus_group_phrases.size() != focus_group_size) {
+                    // regenerate user sequence
                 }
             }
-
-            if (focus_group_phrases.size() != focus_group_size) {
-                // regenerate user sequence
-            }
         }
+
+        if (focus_group_phrases.empty()) {
+            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "end_of_sequence");
+        }
+
+        std::cout << "result size: " << focus_group_phrases.size() << std::endl;
 
         // TODO: check if phrase generation limit not reached
 
@@ -290,7 +330,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                         // generate phrase OR systems_are_busy
                         // if phrase valid add to translations, if not to error_words
             // set current focus_group
-            // update_user_generation_limit on finished pack of phrases generation
             // check if user-based items required to be added to focus group (link email, rate app, etc)
                 // check if time - last_user_offer_push_time > user_offer_push_timeout
                     // if added item update last_user_offer_push_time
@@ -301,6 +340,14 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                     // 
 
         result_focus_group = create_focus_group_json(focus_group_phrases, 0); // todo set focus group id
+
+        auto user_special_offer_type = co_await get_user_special_offer_type(users_db, user_id);
+
+        if (user_special_offer_type.has_value()) {
+            result_focus_group["special_offer_type"] = user_special_offer_type.value();
+        } else {
+            result_focus_group["special_offer_type"] = Json::nullValue;
+        }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -406,6 +453,19 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
 }
 
 Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        if (0/*word_phase == 3 && word_has_no_mistakes*/) {
+            co_await increase_generated_phrases_count(users_db, user_id);
+        }
+
+    } catch (const std::exception& e) {
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
     // check if 
     // update focus group last update time in redis && db
 

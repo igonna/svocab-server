@@ -70,6 +70,7 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
 
         co_await transaction->execSqlCoro("insert into user_statistics (user_id) values ($1)", user_id);
         co_await transaction->execSqlCoro("insert into user_checkpoints (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into last_user_special_offer_time (user_id) values ($1)", user_id);
 
         auto last_enable_time = local_utils::time::get_unix_timestamp();
 

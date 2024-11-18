@@ -144,9 +144,7 @@ namespace topics {
 
 namespace user_generation_limit {
     static constexpr uint32_t generation_limit_reset_seconds = 60*60*3;
-    static constexpr uint32_t generation_limit_free_user_wave_1 = 16;
-    static constexpr uint32_t generation_limit_free_user_wave_2 = 12;
-    static constexpr uint32_t generation_limit_subscriber_user_wave_1 = 320;
-    static constexpr uint32_t generation_limit_subscriber_user_wave_2 = 240;
+    static constexpr uint32_t generation_limit_free_user = 16;
+    static constexpr uint32_t generation_limit_subscriber_user = 320;
 }
 }

@@ -19,6 +19,11 @@ CREATE TABLE user_checkpoints (
     rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
 ) PARTITION BY HASH (user_id);
 
+CREATE TABLE last_user_special_offer_time (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    last_special_offer_time TIMESTAMP NOT NULL DEFAULT NOW()
+) PARTITION BY HASH (user_id);
+
 CREATE TABLE user_language_pairs (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     src_lang CHAR(2) NOT NULL,
@@ -54,9 +59,8 @@ CREATE TABLE user_words (
 
 CREATE TABLE user_phrase_generation_limit (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    generation_waves_passed_today SMALLINT NOT NULL DEFAULT 0,
     generated_phrases_count SMALLINT NOT NULL DEFAULT 0,
-    generation_wave_start_time INT NOT NULL DEFAULT 0
+    last_generation_start_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_sequence (
@@ -184,6 +188,11 @@ CREATE TABLE user_checkpoints_p0 PARTITION OF user_checkpoints FOR VALUES WITH (
 CREATE TABLE user_checkpoints_p1 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_checkpoints_p2 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_checkpoints_p3 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE TABLE last_user_special_offer_time_p0 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE last_user_special_offer_time_p1 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE last_user_special_offer_time_p2 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE last_user_special_offer_time_p3 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_language_pairs_p0 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_language_pairs_p1 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 1);

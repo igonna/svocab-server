@@ -1,6 +1,8 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include <core/user_sequence_words/user_sequence_words.h>
+#include <plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h>
 
 using namespace drogon;
 
@@ -28,6 +30,7 @@ public:
 	METHOD_LIST_END
 
 private:
+	Task<> increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 	Task<std::tuple<bool, uint32_t>> is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription);
 
 	Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_words_sequence(
@@ -37,5 +40,7 @@ private:
 	);
 
 	Json::Value create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id);
+
+	Task<std::optional<std::string>> get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 };
 }

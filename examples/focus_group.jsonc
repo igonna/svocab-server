@@ -19,30 +19,9 @@
             "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]
         }
     ],
-    "special_item": { // could be null
-        "type": "phrase_generation_limit",
-        "reset_time_utc": 1727376861
-    },
+    "special_offer_type": "rate_us", // could be null; types: [rate_us, link_account]
     "learned_this_time": 0
 }
-
-// {
-//     "type": "phrase_generation_limit",
-//     "reset_time_utc": 1727376861
-// },
-// {
-//     "type": "systems_are_busy"
-// },
-// {
-//     "type": "rate_us"
-// },
-// {
-//     "type": "link_account"
-// },
-// {
-//     "type": "add_another_topic"
-// }
-
 
 // request: FocusGroup/complete_focus_group
 {

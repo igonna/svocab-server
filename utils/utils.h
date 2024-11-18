@@ -25,7 +25,7 @@ namespace time {
     }
 
     static uint32_t get_days_passed_since_epoch(uint32_t get_unix_timestamp) {
-        const constexpr uint32_t seconds_per_day = 60*60*24;
+        constexpr uint32_t seconds_per_day = 60*60*24;
         uint32_t days_since_epoch = get_unix_timestamp / seconds_per_day;
         return days_since_epoch;
     }
