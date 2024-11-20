@@ -16,7 +16,7 @@ public:
 	Task<> getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> setWordPhrasePassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
-	Task<> setSpecialItemPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> setSpecialOfferPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	Task<> completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
 	METHOD_LIST_BEGIN
@@ -25,7 +25,7 @@ public:
 	METHOD_ADD(UserFocusGroup::getPreviousFocusGroupResult, "/get_previous_focus_group_result", Get, "JwtFilter");
 	METHOD_ADD(UserFocusGroup::getFocusGroupWithHiddenWord, "/get_focus_group_with_hidden_word", Get, "JwtFilter");
 	METHOD_ADD(UserFocusGroup::setWordPhrasePassed, "/set_word_phrase_passed", Post, "JwtFilter");
-	METHOD_ADD(UserFocusGroup::setSpecialItemPassed, "/set_special_item_passed", Post, "JwtFilter");
+	METHOD_ADD(UserFocusGroup::setSpecialOfferPassed, "/set_special_offer_passed", Post, "JwtFilter");
 	METHOD_ADD(UserFocusGroup::completeFocusGroup, "/complete_focus_group", Post, "JwtFilter");	
 	METHOD_LIST_END
 
@@ -42,5 +42,7 @@ private:
 	Json::Value create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id);
 
 	Task<std::optional<std::string>> get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+
+	Task<> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 };
 }

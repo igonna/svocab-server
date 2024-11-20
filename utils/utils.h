@@ -98,7 +98,7 @@ namespace redis {
         return std::string("fgul-") + std::to_string(user_id);
     }
 
-    static inline std::string create_blocked_user_focus_group_generation(uint64_t user_id) {
+    static inline std::string create_blocked_user_focus_group_generation_key(uint64_t user_id) {
         return std::string("blcked-focus-gg-") + std::to_string(user_id);
     }
 }

@@ -12,6 +12,16 @@
 
 namespace v1
 {
+
+Task<> UserFocusGroup::update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto current_time = local_utils::time::get_unix_timestamp();
+    auto result = co_await users_db->execSqlCoro("update user_sequence set focus_group_last_update_time = $1 where user_id = $2", current_time, user_id);
+    if (!result.affectedRows()) {
+        throw std::runtime_error("user_sequence_not_updated");
+    }
+    co_return;
+};
+
 Task<> UserFocusGroup::getFocusGroupLastUpdateTime(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -175,7 +185,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         // check if user not temporarily blocked from generation
-        const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation(user_id);
+        const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
         auto rc = app().getRedisClient();
         {
             auto user_generation_blocked_result = co_await rc->execCommandCoro(
@@ -186,10 +196,32 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             if (std::stoi(user_generation_blocked_result.asString()) > 0) {
                 co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
             }
-
         }
 
-        // TODO: check if old focus_group exists and not expired
+        // return focus_group if not expired
+        {
+            auto focus_group_info_result = co_await users_db->execSqlCoro(
+                " SELECT focus_group_last_update_time, focus_group,"
+                " CASE"
+                " WHEN jsonb_typeof(focus_group->'words') = 'array' THEN jsonb_array_length(focus_group->'words')"
+                " ELSE 0"
+                " END AS words_count FROM user_sequence where user_id = $1", user_id
+            );
+
+            auto words_count = focus_group_info_result[0]["words_count"].as<uint32_t>();
+            auto focus_group_last_update_time = focus_group_info_result[0]["focus_group_last_update_time"].as<uint32_t>();
+
+            auto current_time = local_utils::time::get_unix_timestamp();
+            
+            if (words_count && current_time - focus_group_last_update_time < local_constants::focus_group::focus_group_expire_seconds) {
+                auto focus_group_str = focus_group_info_result[0]["focus_group"].c_str();
+
+                if (Json::Reader().parse(focus_group_str, result_focus_group)) {
+                    co_await update_focus_group_last_update_time(users_db, user_id);
+                    co_return local_utils::Response::JSON_OK(callback, result_focus_group);
+                }
+            }
+        }
 
         // check if generation limit not reached, and generation not blocked
         bool user_has_subscription = co_await core::sql::does_user_have_subscription(users_db, user_id);
@@ -223,8 +255,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         } else {
             // get user words sequence
             auto user_sequence_result = co_await users_db->execSqlCoro(
-                "select focus_group_last_update_time, focus_group_id, focus_group_size, focus_group, to_learn_words"
-                " from user_sequence where user_id = $1", user_id
+                "select to_learn_words from user_sequence where user_id = $1", user_id
             );
 
             auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
@@ -299,9 +330,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
         std::cout << "result size: " << focus_group_phrases.size() << std::endl;
 
-        // TODO: check if phrase generation limit not reached
-        // check if phrase_generation_limit > focus_group
-
         result_focus_group = create_focus_group_json(focus_group_phrases, 0); // todo set focus group id
 
         auto user_special_offer_type = co_await get_user_special_offer_type(users_db, user_id);
@@ -336,7 +364,7 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
         new_word["phrase"] = phrase.src_phrase;
         new_word["phrase_translation"] = phrase.dst_phrase;
 
-        new_word["last_phase_passed"] = 0;
+        new_word["current_phase"] = 0;
 
         auto& phases_mistakes = new_word["phases_mistakes"] = Json::arrayValue;
         for (uint32_t i = 0; i < 3; i++) {
@@ -359,34 +387,17 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
     //             "word_translation": ["сверильный", "станок"],
     //             "phrase": "The perforator is behind the perforator!",
     //             "phrase_translation": "Cверильный станок стоит за cверильным станком!",
-    //             "last_phase_passed": 0,
+    //             "current_phase": 0,
     //             "phases_mistakes": [false, false, false],
     //             // phase: 2 (additions)
-    //             "guess_phrase": ["The ", null, " went into the forest after the ", null, "!"],
+    //             "guess_phrase": ["The ", null, " is behind the ", null, "!"],
     //             "guess_words": ["world", "perforator", "how"],
     //             // phase: 3 (additions)
     //             "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]
     //         }
     //     ],
-    //     "special_item": { // could be null
-    //         "type": "phrase_generation_limit",
-    //         "reset_time_utc": 1727376861
-    //     },
+    //     "special_offer_type": "rate_us", // could be null; types: [rate_us, link_account]
     //     "learned_this_time": 0
-    // }
-
-    // {
-    //     "type": "phrase_generation_limit",
-    //     "reset_time_utc": 1727376861
-    // },
-    // {
-    //     "type": "systems_are_busy"
-    // },
-    // {
-    //     "type": "rate_us"
-    // },
-    // {
-    //     "type": "link_account"
     // }
 }
 
@@ -442,12 +453,49 @@ Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<voi
     co_return;
 }
 
-Task<> UserFocusGroup::setSpecialItemPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    // get type
-    // verify if really passed for specific types
-    // return 200 aways when no server error
-    // update focus group last update time in redis && db
-    co_return;
+Task<> UserFocusGroup::setSpecialOfferPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    auto type = req->getHeader("type");
+
+    static const std::unordered_set<std::string> types = {"rate_us", "link_account"};
+
+    if (!types.contains(type)) {
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_type");
+    }
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        if (type == "rate_us") {
+            auto result = co_await users_db->execSqlCoro(
+                "update user_checkpoints set rate_us_passed = true where user_id = $1",
+                user_id
+            );
+
+            if (!result.affectedRows()) {
+                throw std::runtime_error("not_updated");
+            }
+
+            result = co_await users_db->execSqlCoro(
+                "update user_sequence set focus_group = jsonb_set(focus_group, '{special_offer_type}', 'null'::jsonb, true)"
+                " where user_id = $1",
+                user_id
+            );
+
+            if (!result.affectedRows()) {
+                throw std::runtime_error("not_updated");
+            }
+
+            // TODO: send new focus_group_last_update_time to client
+
+            co_await update_focus_group_last_update_time(users_db, user_id);
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {

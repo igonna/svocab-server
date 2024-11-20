@@ -10,10 +10,10 @@
             "word_translation": ["сверильный", "станок"],
             "phrase": "The perforator is behind the perforator!",
             "phrase_translation": "Cверильный станок стоит за cверильным станком!",
-            "last_phase_passed": 0,
+            "current_phase": 0,
             "phases_mistakes": [false, false, false],
             // phase: 2 (additions)
-            "guess_phrase": ["The ", null, " went into the forest after the ", null, "!"],
+            "guess_phrase": ["The ", null, " is behind the ", null, "!"],
             "guess_words": ["world", "perforator", "how"],
             // phase: 3 (additions)
             "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]

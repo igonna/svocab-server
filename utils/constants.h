@@ -153,5 +153,7 @@ namespace user_generation_limit {
 namespace focus_group {
     static constexpr uint8_t min_focus_group_size = 2;
     static constexpr uint8_t max_focus_group_size = 6;
+
+    static constexpr uint32_t focus_group_expire_seconds = 60*5;
 }
 }
