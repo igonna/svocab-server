@@ -6,6 +6,7 @@
 #include "plugins/BannedWords/BannedWords.h"
 #include "core/user_sequence_words/user_sequence_words.h"
 #include "plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h"
+#include "core/phrases_generation/phrases_generator.h"
 #include <vector>
 #include <utility>
 
@@ -173,6 +174,23 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
+        // check if user not temporarily blocked from generation
+        const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation(user_id);
+        auto rc = app().getRedisClient();
+        {
+            auto user_generation_blocked_result = co_await rc->execCommandCoro(
+                "exists %s",
+                user_blocked_focus_group_generation_key.c_str()
+            );
+
+            if (std::stoi(user_generation_blocked_result.asString()) > 0) {
+                co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+            }
+
+        }
+
+        // TODO: check if old focus_group exists and not expired
+
         // check if generation limit not reached, and generation not blocked
         bool user_has_subscription = co_await core::sql::does_user_have_subscription(users_db, user_id);
 
@@ -194,150 +212,95 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto last_gen_time = sequence_info_result[0]["last_gen_time"].as<uint32_t>();
         auto focus_group_size = sequence_info_result[0]["focus_group_size"].as<uint32_t>();
 
+        // get user words sequence
         std::vector<core::user_sequence_words::SequenceUserWord> user_words_sequence;
 
         auto current_time = local_utils::time::get_unix_timestamp();
 
-        // update user words sequence if required and get
-        bool was_updated = false;
         if (current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds || sequence_last_gen_id != sequence_last_update_id) {
-            auto updated_user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
-            user_words_sequence = std::move(updated_user_words_sequence);
-            was_updated = true;
-        }
-
-        // get user words sequence
-        if (!was_updated && user_words_sequence.empty()) {
+            // update if required and get user words sequence
+            user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
+        } else {
+            // get user words sequence
             auto user_sequence_result = co_await users_db->execSqlCoro(
                 "select focus_group_last_update_time, focus_group_id, focus_group_size, focus_group, to_learn_words"
                 " from user_sequence where user_id = $1", user_id
             );
 
             auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
-            auto user_sequence_words_vec = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
-            user_words_sequence = std::move(user_sequence_words_vec);
+            user_words_sequence = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
         }
 
-        // generate focus group
+        auto block_user_from_generation = [&]() -> drogon::Task<> {
+            co_await rc->execCommandCoro("set %s %s ex %d nx",
+                user_blocked_focus_group_generation_key.c_str(),
+                "",
+                local_constants::user_blocked_focus_group_generation_seconds
+            );
+            co_return;
+        };
+
+        // generate focus_group_size phrases 
         std::vector<GeneratedPhrase> focus_group_phrases;
         {
+            uint8_t gen_attempts_count = 0;
+            constexpr uint8_t max_gen_attempts_limit = 30;
+
             auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
+            core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation);
 
-            uint8_t phrase_generation_attempts_count = 0;
-            constexpr uint8_t max_phrase_generation_attempts_count = 30;
-
-            // TODO: check if old focus_group exists and not expired
-
-            // while 30 attempts not passed (if passed, block user in redis for 3 minutes)
-            // try to generate focus_group_size (max 6) phrases, if current user sequence exhausted, update sequence
-            // convert generated phrases to JSON
-            // set json focus group to db
-            // check if special item should be added
-
+            // while user_words_sequence not empty OR focus group not ready
             while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
-
-                std::vector<std::pair<
-                    core::user_sequence_words::SequenceUserWord*,
-                    drogon::Task<GeneratedPhrase>
-                >> current_generation_group;
-
-                if (user_words_sequence.empty()) {
-                    co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "end_of_sequence");
-                }
 
                 // generate phrases from current sequence
                 for (auto& user_word : user_words_sequence) {
-                    uint8_t to_generate_count = focus_group_size - focus_group_phrases.size();
+                    auto to_generate_count = focus_group_size - focus_group_phrases.size();
 
-                    if (to_generate_count == 0) {
-                        break;
-                    }
+                    if (!to_generate_count) break;
 
-                    if (user_word.is_excluded || user_word.is_passed) {
-                        continue;
-                    }
+                    if (user_word.is_excluded || user_word.is_passed) continue;
 
-                    if (++phrase_generation_attempts_count >= max_phrase_generation_attempts_count) {
+                    if (++gen_attempts_count >= max_gen_attempts_limit) {
+                        // block user for N seconds
+                        co_await block_user_from_generation();
                         co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
                     }
 
-                    // create new phrase generation task
-                    {
-                        auto current_generation_task = openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
-                        auto generation_pair = std::make_pair(&user_word, std::move(current_generation_task));
-                        current_generation_group.push_back(std::move(generation_pair));
-                    }
+                    phrases_generator.add_phrase(user_word, user_has_subscription);
 
-                    if (current_generation_group.size() == to_generate_count) {
-                        // await all phrase generations
-                        for (auto& [user_word_ptr, task_ptr] : current_generation_group) {
-                            try {
-                                auto generated_phrase = co_await task_ptr;
-                                focus_group_phrases.push_back(std::move(generated_phrase));
-                            } catch (const OpenaiPhraseGeneration::word_not_valid_exception& e) {
-                                user_word_ptr->is_excluded = true;
-                            } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
-                                co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-                            }
+                    if (phrases_generator.count() == to_generate_count) {
+                        try {
+                            auto generated_phrases = co_await phrases_generator.get_generated_phrases();
+                            focus_group_phrases.insert(focus_group_phrases.end(), 
+                                std::make_move_iterator(generated_phrases.begin()), 
+                                std::make_move_iterator(generated_phrases.end())
+                            );
+                        } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
+                            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
                         }
-
-                        current_generation_group.clear();
                     }
                 }
 
+                // at this point focus group must be ready OR user words sequence exhausted that means sequence regeneration required
                 if (focus_group_phrases.size() != focus_group_size) {
-                    // regenerate user sequence
+                    user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
                 }
             }
         }
 
-        if (focus_group_phrases.empty()) {
-            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "end_of_sequence");
+        if (user_words_sequence.empty() || focus_group_phrases.empty()) {
+            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "empty_sequence");
         }
+
+        // TODO:
+        // convert generated phrases to JSON
+        // set json focus group to db
+        // check if special item should be added
 
         std::cout << "result size: " << focus_group_phrases.size() << std::endl;
 
         // TODO: check if phrase generation limit not reached
-
-
         // check if phrase_generation_limit > focus_group
-
-        // check if sequence generation required
-            // fetch user_words
-            // compress user_words if many duplicates
-            // update required topics
-            // fetch generated topics sequences
-            // add user_words and topic_sequences to mixer 
-                // when adding words from topic_sequence to language_sequence exclude words that in user_words
-                // hidden are hidden and all words that time - last_learn_time > repeat_timeout...
-                // ... for current confirmation level considered also hidden, and other are learned
-                // ... unordered_map user_words, if user_words.contain(word) continue
-                // ... after language sequence formed with size of max_sequence_words exlucde words_to_repeat 
-                // ... from user_words and mix them into language_sequence
-                // ... mix language sequence to final sequence ['src_lang;dst_lang;word;current_confirmation_level']
-            // save sequence and update last_gen_id
-
-        // form current user_focus_group
-            // fetch words from user_sequence + lowest_not_passed_word_pointer of focus_size + random_words_count
-            // generate phrase for each word
-                // get word-phrase from translations
-                // check if word not error_word OR move next
-                // generate phrase with openai OR move next
-                    // check if user paid
-                        // generate phrase OR systems_are_busy
-                    // check if openai limit not reached
-                        // check if there is enough limit for free users
-                        // generate phrase OR systems_are_busy
-                        // if phrase valid add to translations, if not to error_words
-            // set current focus_group
-            // check if user-based items required to be added to focus group (link email, rate app, etc)
-                // check if time - last_user_offer_push_time > user_offer_push_timeout
-                    // if added item update last_user_offer_push_time
-
-        // get focus group(user_words_sequence, focus_group_size)
-            // get first focus_group_size not passed && not excluded user words from user_words_sequence
-                // get_word_phrase for each word simultaneously
-                    // 
 
         result_focus_group = create_focus_group_json(focus_group_phrases, 0); // todo set focus group id
 

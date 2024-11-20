@@ -39,6 +39,8 @@ namespace local_constants {
 
     static constexpr uint16_t openai_free_users_limit_key_expire_seconds = 60;
 
+    static constexpr uint32_t user_blocked_focus_group_generation_seconds = 60*3;
+
 namespace languages {
     static constexpr uint32_t lang_tag_size = 2;
 
@@ -146,5 +148,10 @@ namespace user_generation_limit {
     static constexpr uint32_t generation_limit_reset_seconds = 60*60*3;
     static constexpr uint32_t generation_limit_free_user = 16;
     static constexpr uint32_t generation_limit_subscriber_user = 320;
+}
+
+namespace focus_group {
+    static constexpr uint8_t min_focus_group_size = 2;
+    static constexpr uint8_t max_focus_group_size = 6;
 }
 }

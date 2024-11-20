@@ -94,8 +94,12 @@ namespace redis {
         return std::string("register-ip-") + ip_addr;
     }
 
-    static inline std::string create_focus_group_update_lock_key(uint32_t user_id) {
+    static inline std::string create_focus_group_update_lock_key(uint64_t user_id) {
         return std::string("fgul-") + std::to_string(user_id);
+    }
+
+    static inline std::string create_blocked_user_focus_group_generation(uint64_t user_id) {
+        return std::string("blcked-focus-gg-") + std::to_string(user_id);
     }
 }
 
