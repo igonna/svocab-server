@@ -3,6 +3,9 @@
 #include "plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h"
 #include "core/user_sequence_words/user_sequence_words.h"
 #include <drogon/utils/coroutine.h>
+#include <cstdint>
+#include <vector>
+#include <utility>
 
 namespace core::phrases_generator {
 
