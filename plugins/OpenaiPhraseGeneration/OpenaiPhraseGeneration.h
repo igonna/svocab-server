@@ -5,18 +5,34 @@
 
 struct GeneratedPhrase {
 	GeneratedPhrase(GeneratedPhrase&& other) 
-		: src_lang(std::move(other.src_lang)), 
+		: id(other.id),
+		src_lang(std::move(other.src_lang)), 
+		dst_lang(std::move(other.dst_lang)),
 		src_word(std::move(other.src_word)),
 		dst_word(std::move(other.dst_word)),
 		src_phrase(std::move(other.src_phrase)),
 		dst_phrase(std::move(other.dst_phrase)) {}
 
-	GeneratedPhrase(std::string src_lang, std::string src_word, std::string&& dst_word, std::string&& src_phrase, std::string&& dst_phrase) 
-		: src_lang(src_lang), src_word(src_word), dst_word(std::move(dst_word)), src_phrase(std::move(src_phrase)), dst_phrase(std::move(dst_phrase)) {}
+	GeneratedPhrase(uint32_t id,
+		std::string src_lang,
+		std::string dst_lang,
+		std::string src_word,
+		std::string&& dst_word,
+		std::string&& src_phrase,
+		std::string&& dst_phrase
+	) : id(id),
+		src_lang(src_lang),
+		dst_lang(dst_lang),
+		src_word(src_word),
+		dst_word(std::move(dst_word)),
+		src_phrase(std::move(src_phrase)),
+		dst_phrase(std::move(dst_phrase)) {}
 
 	GeneratedPhrase& operator=(GeneratedPhrase&& other) {
 		if (&other != this) {
+			id = other.id;
 			src_lang = std::move(other.src_lang);
+			dst_lang = std::move(other.dst_lang);
 			src_word = std::move(other.src_word);
 			dst_word = std::move(other.dst_word);
 			src_phrase = std::move(other.src_phrase);
@@ -26,7 +42,9 @@ struct GeneratedPhrase {
 		return *this;
 	}
 
+	uint32_t id;
 	std::string src_lang;
+	std::string dst_lang;
 	std::string src_word;
 	std::string dst_word;
 	std::string src_phrase;
@@ -94,14 +112,13 @@ private:
 	std::string correct_phrase(std::string&& phrase);
 	std::string correct_word(std::string&& word);
 
-	drogon::Task<std::optional<std::tuple<std::string, std::string, std::string>>> get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
+	drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::string>>> get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
 
 	drogon::Task<bool> increase_free_users_openai_limit();
 
-	drogon::Task<> await_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
+	drogon::Task<> await_other_server_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
 	drogon::Task<> set_generating_word(const std::string& word_key);
 	drogon::Task<> delete_generating_word(const std::string& word_key);
-
 private:
 	std::string api_key;
 	std::string model;

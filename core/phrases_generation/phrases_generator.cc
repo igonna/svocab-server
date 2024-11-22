@@ -2,6 +2,9 @@
 
 namespace core::phrases_generator {
 
+// std::tuple<std::vector<std::string>, std::vector<std::string>> get_guess_words_and_letters_for_phrase(uint32_t id, const std::string& src_lang, const std::string& dst_lang);
+
+
 void PhrasesGenerator::add_phrase(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription) {        
     auto current_generation_task = openai_phrase_generation->generate_phrase(user_word.src_lang, user_word.dst_lang, user_word.word, user_has_subscription);
     auto generation_pair = std::make_pair(&user_word, std::move(current_generation_task));

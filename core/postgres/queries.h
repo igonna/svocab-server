@@ -307,7 +307,8 @@ static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::D
         auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
         // create table for each src_lang
         co_await translations_db->execSqlCoro(std::string("CREATE TABLE IF NOT EXISTS ") + word_phrase_table_name
-            + "( word TEXT NOT NULL,"
+            + "( id SERIAL NOT NULL,"
+            " word TEXT NOT NULL,"
             " dst_lang CHAR(2) NOT NULL,"
             " phrase TEXT NOT NULL,"
             " word_translation TEXT NOT NULL,"
@@ -361,13 +362,17 @@ static drogon::Task<std::pair<uint32_t, std::unordered_set<std::string>>> get_ba
     co_return {last_time_added, std::move(result_words)};
 }
 
-static drogon::Task<> add_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, const std::string& dst_word, const std::string& src_phrase, const std::string& dst_phrase) {
+static drogon::Task<uint32_t> add_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, const std::string& dst_word, const std::string& src_phrase, const std::string& dst_phrase) {
     auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
 
-    co_await translations_db->execSqlCoro("insert into " + word_phrase_table_name 
+    auto result = co_await translations_db->execSqlCoro("insert into " + word_phrase_table_name 
         + " (word, dst_lang, phrase, word_translation, phrase_translation) values ($1, $2, $3, $4, $5)"
-        " on conflict (word, dst_lang) do nothing", src_word, dst_lang, src_phrase, dst_word, dst_phrase
+        " on conflict (word, dst_lang) do update set phrase=EXCLUDED.phrase, "
+        "word_translation=EXCLUDED.word_translation, phrase_translation=EXCLUDED.phrase_translation returning id",
+        src_word, dst_lang, src_phrase, dst_word, dst_phrase
     );
+
+    co_return result[0]["id"].as<uint32_t>();
 }
 
 static drogon::Task<> add_banned_word(drogon::orm::DbClientPtr translations_db, const std::string& lang, const std::string& word) {

@@ -11,7 +11,8 @@ namespace core::phrases_generator {
 
 class PhrasesGenerator {
 public:
-    PhrasesGenerator (OpenaiPhraseGeneration *openai_phrase_generation) : openai_phrase_generation(openai_phrase_generation) {}
+    PhrasesGenerator (OpenaiPhraseGeneration *openai_phrase_generation, drogon::orm::DbClientPtr translations_db) 
+        : openai_phrase_generation(openai_phrase_generation), translations_db(translations_db) {}
     PhrasesGenerator() = delete;
 
     void add_phrase(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription);
@@ -29,6 +30,7 @@ private:
     >> phrases_to_generate;
 
     OpenaiPhraseGeneration *openai_phrase_generation;
+    drogon::orm::DbClientPtr translations_db;
 };
 
 };

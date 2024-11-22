@@ -13,13 +13,13 @@
 namespace v1
 {
 
-Task<> UserFocusGroup::update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+Task<uint32_t> UserFocusGroup::update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto current_time = local_utils::time::get_unix_timestamp();
-    auto result = co_await users_db->execSqlCoro("update user_sequence set focus_group_last_update_time = $1 where user_id = $2", current_time, user_id);
-    if (!result.affectedRows()) {
-        throw std::runtime_error("user_sequence_not_updated");
-    }
-    co_return;
+    auto result = co_await users_db->execSqlCoro("update user_sequence set focus_group_last_update_time = $1"
+        " where user_id = $2 returning focus_group_last_update_time", current_time, user_id
+    );
+    auto new_focus_group_last_update_time = result[0]["focus_group_last_update_time"].as<uint32_t>();
+    co_return new_focus_group_last_update_time;
 };
 
 Task<> UserFocusGroup::getFocusGroupLastUpdateTime(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -323,22 +323,25 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "empty_sequence");
         }
 
-        // TODO:
-        // convert generated phrases to JSON
-        // set json focus group to db
-        // check if special item should be added
+        // get new focus group id
+        auto new_focus_group_id_result = co_await users_db->execSqlCoro(
+            "update user_sequence set focus_group_id = focus_group_id + 1 where user_id = $1 returning focus_group_id",
+            user_id
+        );
+        auto new_focus_group_id = new_focus_group_id_result[0]["focus_group_id"].as<uint32_t>();
 
-        std::cout << "result size: " << focus_group_phrases.size() << std::endl;
+        // create json focus group
+        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id);
 
-        result_focus_group = create_focus_group_json(focus_group_phrases, 0); // todo set focus group id
-
+        // add special offer type to focus group
         auto user_special_offer_type = co_await get_user_special_offer_type(users_db, user_id);
-
         if (user_special_offer_type.has_value()) {
             result_focus_group["special_offer_type"] = user_special_offer_type.value();
         } else {
             result_focus_group["special_offer_type"] = Json::nullValue;
         }
+
+        // update db focus group
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
@@ -360,7 +363,30 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
         new_word["src_lang"] = phrase.src_lang;
 
         new_word["word"] = phrase.src_word;
+
         new_word["word_translation"] = phrase.dst_word;
+        
+        auto& guess_phrase = new_word["guess_phrase"] = Json::arrayValue;
+        auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase.src_phrase, phrase.src_lang.c_str());
+        std::string phrase_part_to_add;
+
+        for (auto& part : phrase_parts) {
+            auto lower_part = core::text_processing::unicode_str_to_lower(part, phrase.src_lang.c_str());
+            if (phrase.src_word == lower_part) {
+                if (phrase_part_to_add.size()) {
+                    guess_phrase.append(phrase_part_to_add);
+                    phrase_part_to_add.clear();
+                }
+                guess_phrase.append(Json::nullValue);
+            } else {
+                phrase_part_to_add += part;
+            }
+        }
+
+        if (phrase_part_to_add.size()) {
+            guess_phrase.append(phrase_part_to_add);
+        }
+
         new_word["phrase"] = phrase.src_phrase;
         new_word["phrase_translation"] = phrase.dst_phrase;
 
@@ -371,28 +397,34 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
             phases_mistakes.append(false);
         }
 
+        auto& guess_words = new_word["guess_words"] = Json::arrayValue;
+        auto& guess_letters = new_word["guess_letters"] = Json::arrayValue;
+
         words.append(new_word);
     }
 
     return result;
 
+    // extract words from string = word_translation
+    // extract words and non inside words characters = guess_phrase
+    // fetch 2 random words for language, if can't fetch shuffle letters in a word 2 times = guess_words
+    // extract letters from src_word, then add 4 letters from another guess_words, then shuffle = guess letters
+
     // {
-    //     "id": 1,
+    //     done        "id": 1,
     //     "words": [
     //         {
-    //             // phase: 1
-    //             "word_id": "1.1",
-    //             "src_lang": "en",
-    //             "word": "perforator",
-    //             "word_translation": ["сверильный", "станок"],
-    //             "phrase": "The perforator is behind the perforator!",
-    //             "phrase_translation": "Cверильный станок стоит за cверильным станком!",
-    //             "current_phase": 0,
-    //             "phases_mistakes": [false, false, false],
-    //             // phase: 2 (additions)
-    //             "guess_phrase": ["The ", null, " is behind the ", null, "!"],
+    //     done        "word_id": "1.1",
+    //     done        "src_lang": "en",
+    //     done        "word": "perforator",
+    //     done        "word_translation": "сверильный станок",
+    //     done        "phrase": "The perforator is behind the perforator!",
+    //     done        "phrase_translation": "Cверильный станок стоит за cверильным станком!",
+    //     done        "current_phase": 0,
+    //     done        "phases_mistakes": [false, false, false],
+
+    //     done        "guess_phrase": ["The ", null, " is behind the ", null, "!"],
     //             "guess_words": ["world", "perforator", "how"],
-    //             // phase: 3 (additions)
     //             "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]
     //         }
     //     ],
@@ -427,7 +459,6 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
 }
 
 Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);

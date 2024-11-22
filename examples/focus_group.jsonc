@@ -1,13 +1,14 @@
 // request: FocusGroup/get_focus_group
 {
     "id": 1,
+    "last_update_time": 19203491823401,
     "words": [
         {
             // phase: 1
             "word_id": "1.1",
             "src_lang": "en",
             "word": "perforator",
-            "word_translation": ["сверильный", "станок"],
+            "word_translation": "сверильный станок",
             "phrase": "The perforator is behind the perforator!",
             "phrase_translation": "Cверильный станок стоит за cверильным станком!",
             "current_phase": 0,

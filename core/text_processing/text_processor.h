@@ -29,4 +29,7 @@ namespace core::text_processing
     std::vector<ProcessedWord> processed_words_str_to_vector(const std::string& processed_words_str);
 
     std::string get_words_sequence_without_duplicates(const std::string& words_sequence, std::unordered_set<std::string>& words_to_exclude);
+
+    std::vector<std::string> extract_words_and_punctuation_from_str(const std::string& str, const char* language);
+    std::string unicode_str_to_lower(const std::string& str, const char* language);
 }

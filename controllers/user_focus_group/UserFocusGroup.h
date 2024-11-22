@@ -39,10 +39,10 @@ private:
 		uint32_t sequence_last_update_id
 	);
 
-	Json::Value create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id);
-
 	Task<std::optional<std::string>> get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
-	Task<> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+	Task<uint32_t> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+
+	Json::Value create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id);
 };
 }

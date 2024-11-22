@@ -1,5 +1,6 @@
 -- create table for each src_lang
 CREATE TABLE word_phrase_en (
+    id SERIAL NOT NULL,
     word TEXT NOT NULL,
     dst_lang CHAR(2) NOT NULL,
     phrase TEXT NOT NULL,

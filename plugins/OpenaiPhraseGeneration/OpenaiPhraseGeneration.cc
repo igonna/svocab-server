@@ -197,22 +197,23 @@ std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extrac
     return {src_phrase, dst_phrase, dst_word};
 }
 
-drogon::Task<std::optional<std::tuple<std::string, std::string, std::string>>> OpenaiPhraseGeneration::get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::string>>> OpenaiPhraseGeneration::get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
     auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
 
     auto word_translation_result = co_await translations_db->execSqlCoro(
-        "select word_translation, phrase, phrase_translation from " + word_phrase_table_name + " where dst_lang = $1 and word = $2 limit 1",
+        "select id, word_translation, phrase, phrase_translation from " + word_phrase_table_name + " where dst_lang = $1 and word = $2 limit 1",
         dst_lang, src_word
     );
 
     if (word_translation_result.size()) {
         const auto& row_ref = word_translation_result.at(0);
 
+        auto id = row_ref["id"].as<uint32_t>();
         auto src_phrase = row_ref["phrase"].as<std::string>();
         auto dst_phrase = row_ref["phrase_translation"].as<std::string>();
         auto dst_word = row_ref["word_translation"].as<std::string>();
 
-        co_return std::make_optional(std::make_tuple(src_phrase, dst_phrase, dst_word));
+        co_return std::make_optional(std::make_tuple(id, src_phrase, dst_phrase, dst_word));
     }
 
     auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
@@ -267,7 +268,7 @@ std::string create_word_generation_key(const std::string& src_lang, const std::s
     return src_lang + ';' + dst_lang + ';' + src_word;
 }
 
-drogon::Task<> OpenaiPhraseGeneration::await_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+drogon::Task<> OpenaiPhraseGeneration::await_other_server_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
     auto rc = app().getRedisClient();
 
     const auto word_key = create_word_generation_key(src_lang, dst_lang, src_word);
@@ -300,7 +301,7 @@ drogon::Task<> OpenaiPhraseGeneration::delete_generating_word(const std::string&
 }
 
 drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
-    co_await await_word_generation(src_lang, dst_lang, src_word);
+    co_await await_other_server_word_generation(src_lang, dst_lang, src_word);
 
     auto translations_db = app().getDbClient(local_constants::translations_db);
 
@@ -314,8 +315,8 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
 
     if (word_phrase_translation_opt.has_value()) {
         auto value = word_phrase_translation_opt.value();
-        auto [src_phrase, dst_phrase, dst_word] = *word_phrase_translation_opt;
-        co_return GeneratedPhrase(src_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
+        auto [id, src_phrase, dst_phrase, dst_word] = *word_phrase_translation_opt;
+        co_return GeneratedPhrase(id, src_lang, dst_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
     }
 
     auto check_openai_limit = [&]() -> drogon::Task<> {
@@ -358,9 +359,9 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
                 auto is_word_translation_valid = co_await openai_is_word_translation_valid(src_lang_name, dst_lang_name, src_word, dst_word);
 
                 if (is_word_translation_valid) {
-                    co_await core::sql::add_word_phrase_translation(translations_db, src_lang, dst_lang, src_word, dst_word, src_phrase, dst_phrase);
+                    auto id = co_await core::sql::add_word_phrase_translation(translations_db, src_lang, dst_lang, src_word, dst_word, src_phrase, dst_phrase);
                     co_await delete_generating_word(word_key);
-                    co_return GeneratedPhrase(src_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
+                    co_return GeneratedPhrase(id, src_lang, dst_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
                 }
             } catch (const not_valid_response_format_exception& e) {
                 // retry
