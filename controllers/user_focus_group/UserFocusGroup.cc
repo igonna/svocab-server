@@ -272,13 +272,14 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         };
 
         // generate focus_group_size phrases 
-        std::vector<GeneratedPhrase> focus_group_phrases;
+        std::vector<core::phrases_generator::FocusGroupPhrase> focus_group_phrases;
         {
             uint8_t gen_attempts_count = 0;
             constexpr uint8_t max_gen_attempts_limit = 30;
 
             auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
-            core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation);
+            auto translations_db = app().getDbClient(local_constants::translations_db);
+            core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
 
             // while user_words_sequence not empty OR focus group not ready
             while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
@@ -319,7 +320,10 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             }
         }
 
-        if (user_words_sequence.empty() || focus_group_phrases.empty()) {
+        if (focus_group_phrases.size() < local_constants::focus_group::min_focus_group_size 
+            || user_words_sequence.empty() 
+            || focus_group_phrases.empty()
+        ) {
             co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "empty_sequence");
         }
 
@@ -350,7 +354,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
-Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id) {
+Json::Value UserFocusGroup::create_focus_group_json(const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, uint32_t focus_group_id) {
     Json::Value result;
 
     result["id"] = focus_group_id;
@@ -360,19 +364,19 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
     for (auto& phrase : focus_group_phrases) {
         Json::Value new_word;
         new_word["word_id"] = std::to_string(focus_group_id) + '.' + std::to_string(++word_num);
-        new_word["src_lang"] = phrase.src_lang;
+        new_word["src_lang"] = phrase.generated_phrase.src_lang;
 
-        new_word["word"] = phrase.src_word;
+        new_word["word"] = phrase.generated_phrase.src_word;
 
-        new_word["word_translation"] = phrase.dst_word;
+        new_word["word_translation"] = phrase.generated_phrase.dst_word;
         
         auto& guess_phrase = new_word["guess_phrase"] = Json::arrayValue;
-        auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase.src_phrase, phrase.src_lang.c_str());
+        auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase.generated_phrase.src_phrase, phrase.generated_phrase.src_lang.c_str());
         std::string phrase_part_to_add;
 
         for (auto& part : phrase_parts) {
-            auto lower_part = core::text_processing::unicode_str_to_lower(part, phrase.src_lang.c_str());
-            if (phrase.src_word == lower_part) {
+            auto lower_part = core::text_processing::unicode_str_to_lower(part, phrase.generated_phrase.src_lang.c_str());
+            if (phrase.generated_phrase.src_word == lower_part) {
                 if (phrase_part_to_add.size()) {
                     guess_phrase.append(phrase_part_to_add);
                     phrase_part_to_add.clear();
@@ -387,8 +391,8 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
             guess_phrase.append(phrase_part_to_add);
         }
 
-        new_word["phrase"] = phrase.src_phrase;
-        new_word["phrase_translation"] = phrase.dst_phrase;
+        new_word["phrase"] = phrase.generated_phrase.src_phrase;
+        new_word["phrase_translation"] = phrase.generated_phrase.dst_phrase;
 
         new_word["current_phase"] = 0;
 
@@ -398,39 +402,19 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<GeneratedP
         }
 
         auto& guess_words = new_word["guess_words"] = Json::arrayValue;
+        for (auto& guess_word : phrase.guess_words) {
+            guess_words.append(std::move(guess_word));
+        }
+
         auto& guess_letters = new_word["guess_letters"] = Json::arrayValue;
+        for (auto& guess_letter : phrase.guess_letters) {
+            guess_letters.append(std::move(guess_letter));
+        }
 
         words.append(new_word);
     }
 
     return result;
-
-    // extract words from string = word_translation
-    // extract words and non inside words characters = guess_phrase
-    // fetch 2 random words for language, if can't fetch shuffle letters in a word 2 times = guess_words
-    // extract letters from src_word, then add 4 letters from another guess_words, then shuffle = guess letters
-
-    // {
-    //     done        "id": 1,
-    //     "words": [
-    //         {
-    //     done        "word_id": "1.1",
-    //     done        "src_lang": "en",
-    //     done        "word": "perforator",
-    //     done        "word_translation": "сверильный станок",
-    //     done        "phrase": "The perforator is behind the perforator!",
-    //     done        "phrase_translation": "Cверильный станок стоит за cверильным станком!",
-    //     done        "current_phase": 0,
-    //     done        "phases_mistakes": [false, false, false],
-
-    //     done        "guess_phrase": ["The ", null, " is behind the ", null, "!"],
-    //             "guess_words": ["world", "perforator", "how"],
-    //             "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]
-    //         }
-    //     ],
-    //     "special_offer_type": "rate_us", // could be null; types: [rate_us, link_account]
-    //     "learned_this_time": 0
-    // }
 }
 
 Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {

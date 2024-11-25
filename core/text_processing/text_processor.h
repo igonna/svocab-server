@@ -32,4 +32,7 @@ namespace core::text_processing
 
     std::vector<std::string> extract_words_and_punctuation_from_str(const std::string& str, const char* language);
     std::string unicode_str_to_lower(const std::string& str, const char* language);
+
+    std::string shuffle_string(const std::string& str, const char* language);
+    std::vector<std::string> extract_letters_as_strings(const std::string& str, const char* language);
 }

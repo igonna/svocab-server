@@ -9,6 +9,33 @@
 
 namespace core::phrases_generator {
 
+struct FocusGroupPhrase {
+    FocusGroupPhrase(
+        GeneratedPhrase&& generated_phrase,
+        std::vector<std::string>&& guess_words,
+        std::vector<std::string>&& guess_letters
+    ) : generated_phrase(std::move(generated_phrase)),
+        guess_words(std::move(guess_words)),
+        guess_letters(std::move(guess_letters)) {}
+
+    FocusGroupPhrase(FocusGroupPhrase&& other) : generated_phrase(std::move(other.generated_phrase)),
+        guess_words(std::move(other.guess_words)), guess_letters(std::move(other.guess_letters)) {}
+
+    FocusGroupPhrase& operator=(FocusGroupPhrase&& other) {
+		if (&other != this) {
+			generated_phrase = std::move(other.generated_phrase);
+			guess_words = std::move(other.guess_words);
+			guess_letters = std::move(other.guess_letters);
+		}
+
+		return *this;
+	}
+
+    GeneratedPhrase generated_phrase;
+    std::vector<std::string> guess_words;
+    std::vector<std::string> guess_letters;
+};
+
 class PhrasesGenerator {
 public:
     PhrasesGenerator (OpenaiPhraseGeneration *openai_phrase_generation, drogon::orm::DbClientPtr translations_db) 
@@ -19,14 +46,17 @@ public:
 
     // could throw systems_are_busy_exception
     // if word not valid sets: user_word_ref->is_excluded = true
-    drogon::Task<std::vector<GeneratedPhrase>> get_generated_phrases();
+    drogon::Task<std::vector<FocusGroupPhrase>> get_generated_phrases();
 
     uint32_t count() const;
 
 private:
+    drogon::Task<FocusGroupPhrase> generate_phrase_with_words_and_letters(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription);
+
+private:
     std::vector<std::pair<
         core::user_sequence_words::SequenceUserWord*,
-        drogon::Task<GeneratedPhrase>
+        drogon::Task<FocusGroupPhrase>
     >> phrases_to_generate;
 
     OpenaiPhraseGeneration *openai_phrase_generation;

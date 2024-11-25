@@ -3,6 +3,7 @@
 #include <drogon/HttpController.h>
 #include <core/user_sequence_words/user_sequence_words.h>
 #include <plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h>
+#include "core/phrases_generation/phrases_generator.h"
 
 using namespace drogon;
 
@@ -43,6 +44,6 @@ private:
 
 	Task<uint32_t> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
-	Json::Value create_focus_group_json(const std::vector<GeneratedPhrase>& focus_group_phrases, uint32_t focus_group_id);
+	Json::Value create_focus_group_json(const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, uint32_t focus_group_id);
 };
 }

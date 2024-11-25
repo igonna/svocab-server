@@ -16,6 +16,9 @@
 #include <unordered_set>
 #include <unicode/utypes.h>
 
+#include <algorithm>
+#include <random>
+
 namespace core::text_processing
 {
 
@@ -345,5 +348,48 @@ std::string unicode_str_to_lower(const std::string& str, const char* language) {
     unicode_str.toUTF8String(utf8_str);
 
     return utf8_str;
+}
+
+std::string shuffle_string(const std::string& str, const char* language) {
+    auto locale = icu::Locale(language);
+
+    auto unicode_str = core::text_processing::string_to_unicode(str);
+    unicode_str = unicode_str.toLower(locale);
+
+    std::vector<UChar> chars_vec;
+    chars_vec.assign(unicode_str.getBuffer(), unicode_str.getBuffer() + unicode_str.length());
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(chars_vec.begin(), chars_vec.end(), rd);
+
+    icu::UnicodeString shuffled_str(chars_vec.data(), chars_vec.size());
+
+    std::string utf8_str;
+    shuffled_str.toUTF8String(utf8_str);
+
+    return utf8_str;
+}
+
+std::vector<std::string> extract_letters_as_strings(const std::string& str, const char* language) {
+    auto locale = icu::Locale(language);
+
+    auto unicode_str = core::text_processing::string_to_unicode(str);
+    unicode_str = unicode_str.toLower(locale);
+
+    std::vector<UChar> chars_vec;
+    chars_vec.assign(unicode_str.getBuffer(), unicode_str.getBuffer() + unicode_str.length());
+
+    std::vector<std::string> result;
+    for (const auto c : chars_vec) {
+        unicode_str = c;
+
+        std::string utf8_str;
+        unicode_str.toUTF8String(utf8_str);
+
+        result.push_back(utf8_str);
+    }
+
+    return result;
 }
 }
