@@ -15,7 +15,8 @@ namespace random {
 
         std::unordered_set<uint32_t> result;
         while (result.size() != 2) {
-            result.insert(distr(gen));
+            auto num = distr(gen);
+            result.insert(num);
         }
 
         return result;

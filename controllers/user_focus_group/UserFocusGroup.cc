@@ -30,10 +30,10 @@ Task<> UserFocusGroup::isFocusGroupUpdateRequired(HttpRequestPtr req, std::funct
         auto device_num_str = std::to_string(device_num);
 
         auto result = co_await users_db->execSqlCoro(
-            " SELECT 1 FROM user_sequence"
-            " WHERE user_id = $1 AND focus_group->'versions'->>'current_version' IS DISTINCT FROM"
-            " COALESCE(focus_group->'versions'->'devices'->>$2, NULL::text)"
-            " OR NOT (focus_group->'versions'->'devices' ? $2)", user_id, device_num_str
+            "SELECT 1 FROM user_sequence WHERE user_id = $1"
+            " AND focus_group_last_update_time IS DISTINCT FROM"
+            " COALESCE(NULLIF(focus_group->'versions'->>$2, '')::integer, NULL) OR NOT (focus_group->'versions' ? $2)", 
+            user_id, device_num_str
         );
 
         if (result.size()) {
@@ -216,18 +216,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
         // return focus_group if not expired
         {
-            // set focus group device_id version to latest
-            auto device_num_str = std::to_string(device_num);
-            co_await users_db->execSqlCoro(std::string(" UPDATE user_sequence")+
-                " SET focus_group = jsonb_set("
-                    " focus_group,"
-                    " '{versions,devices," + device_num_str + "}',"
-                    " (focus_group->'versions'->>'current_version')::text::jsonb,"
-                    " true"
-                " )"
-                " WHERE user_id = $1", user_id
-            );
-
             // get latest focus group
             auto focus_group_info_result = co_await users_db->execSqlCoro(
                 " SELECT focus_group_last_update_time, focus_group,"
@@ -246,7 +234,13 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 auto focus_group_str = focus_group_info_result[0]["focus_group"].c_str();
 
                 if (Json::Reader().parse(focus_group_str, result_focus_group)) {
-                    co_await update_focus_group_last_update_time(users_db, user_id);
+                    // update focus group current device version
+                    auto device_num_str = std::to_string(device_num);
+                    co_await users_db->execSqlCoro(std::string("UPDATE user_sequence") +
+                        " SET focus_group = jsonb_set(focus_group,'{versions," + device_num_str + "}',"
+                        " to_jsonb($2::int), true) WHERE user_id = $1", user_id, focus_group_last_update_time
+                    );
+
                     // hide version from user
                     result_focus_group.removeMember("versions");
                     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
@@ -378,8 +372,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
         // add versions
         auto& versions = result_focus_group["versions"] = Json::objectValue;
-        versions["current_version"] = current_time;
-        versions["devices"][std::to_string(device_num)] = current_time;
+        versions[std::to_string(device_num)] = current_time;
 
         // update db focus group
         Json::StreamWriterBuilder writer;
