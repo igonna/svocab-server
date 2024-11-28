@@ -9,14 +9,14 @@
 
 namespace v1
 {
-Task<> UserTopics::getFirstUserGlobalTopicId(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+Task<> UserTopics::getFirstUserGlobalTopicSkipOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    std::string topic_id_str;
+    Json::Value result_skip_options;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto result = co_await users_db->execSqlCoro("select src_lang from user_language_pairs "
+        auto result = co_await users_db->execSqlCoro("select src_lang, dst_lang from user_language_pairs "
             "where user_id = $1 limit 1", user_id
         );
 
@@ -25,23 +25,48 @@ Task<> UserTopics::getFirstUserGlobalTopicId(HttpRequestPtr req, std::function<v
         }
 
         auto src_lang = result[0]["src_lang"].as<std::string>();
+        auto dst_lang = result[0]["dst_lang"].as<std::string>();
 
-        result = co_await users_db->execSqlCoro("select topic_id from global_topics "
-            "where src_lang = $1 limit 1", src_lang
-        );
+        // get first global topic id
+        result = co_await users_db->execSqlCoro("select topic_id from global_topics where src_lang = $1 limit 1", src_lang);
 
         if (result.empty()) {
             co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "");
         }
-        
+
         auto topic_id = result[0]["topic_id"].as<uint32_t>();
-        topic_id_str = local_utils::topics::encode_topic_id(topic_id, local_utils::topics::TopicType::global_topic);
+
+        // enable first user topic
+        auto new_position = co_await core::sql::get_new_biggest_topic_position(users_db, user_id, src_lang, dst_lang);
+
+        result = co_await users_db->execSqlCoro(
+            "INSERT INTO user_global_topics (user_id, topic_id, src_lang, dst_lang, dst_title, mix_value, skip_value, position, is_enabled) "
+            "SELECT $1, gt.topic_id, gt.src_lang, $2, gt.src_title_en, $3, $4, $5, $6 "
+            "FROM global_topics gt WHERE gt.topic_id = $7 RETURNING skip_value, (SELECT gt.words FROM global_topics gt WHERE gt.topic_id = $7)",
+            user_id, dst_lang, local_constants::topics::mix_value, local_constants::topics::skip_value, new_position, true, topic_id
+        );
+
+        if (!result.affectedRows()) {
+            throw std::runtime_error("not_updated");
+        }
+
+        result_skip_options["max_skip_value"] = local_constants::topics::max_skip_value;
+        result_skip_options["min_skip_value"] = local_constants::topics::min_skip_value;
+        result_skip_options["skip_value"] = result[0]["skip_value"].as<float>();
+        result_skip_options["words"] = result[0]["words"].as<std::string>();
+
+        result_skip_options["topic_id"] = local_utils::topics::encode_topic_id(
+            topic_id,
+            local_utils::topics::TopicType::global_topic
+        );
+
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, topic_id_str);
+    co_return local_utils::Response::JSON_OK(callback, result_skip_options);
 }
 
 Task<> UserTopics::createTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -458,9 +483,18 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         website_request->addHeader("User-Agent", "Mozilla/5.0 (");
         website_request->setPath(path);
         website_request->setMethod(Get);
-        auto website_resp = co_await client->sendRequestCoro(website_request);
 
-        if (website_resp->getStatusCode() != k200OK) {
+        bool failed_to_reach_website = false;
+        drogon::HttpResponsePtr website_resp;
+
+        try {
+            website_resp = co_await client->sendRequestCoro(website_request);
+        } catch (const std::exception& e) {
+            LOG_ERROR << e.what();
+            failed_to_reach_website = true;
+        }
+
+        if (failed_to_reach_website || website_resp->getStatusCode() != k200OK) {
             fail_type = "failed_to_reach_website";
         } else {
             auto website_body = std::string(website_resp->getBody());
@@ -478,7 +512,7 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
             }
         }
 
-        if (title.empty() || text.empty()) {
+        if ((title.empty() || text.empty()) && fail_type.empty()) {
             fail_type = "failed_to_fetch_content";
         }
     } catch (const std::exception& e) {

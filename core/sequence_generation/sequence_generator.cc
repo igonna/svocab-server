@@ -3,7 +3,11 @@
 namespace core::sequence_generation
 {
 
-void SequenceGenerator::add_user_words(std::string&& src_lang, std::unordered_map<std::string, core::progress_words::UserWordData> &&user_words) {
+drogon::Task<> SequenceGenerator::add_user_words(std::string&& src_lang, std::unordered_map<std::string, core::progress_words::UserWordData> &&user_words) {
+    if (!current_banned_words_by_src_lang.contains(src_lang)) {
+        auto current_banned_words = co_await banned_words_plugin->get_current_banned_words_for_src_lang(src_lang);
+        current_banned_words_by_src_lang.emplace(src_lang, std::move(current_banned_words));
+    }
     user_words_by_src_lang.insert_or_assign(std::move(src_lang), std::move(user_words));
 }
 
@@ -46,7 +50,6 @@ drogon::Task<> SequenceGenerator::add_topic_words(std::string&& src_lang, std::s
         auto current_banned_words = co_await banned_words_plugin->get_current_banned_words_for_src_lang(src_lang);
         current_banned_words_by_src_lang.emplace(src_lang, std::move(current_banned_words));
     }
-
     auto& current_banned_words = current_banned_words_by_src_lang.at(src_lang);
 
     std::vector<WordMixUnit> topic_words;

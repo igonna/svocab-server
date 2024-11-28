@@ -140,14 +140,14 @@
     global_topic_id
 
 #FOCUS GROUP
-(***)39.get_focus_group -> json
+(+)39.get_focus_group -> json
 
-(***)44.get_previous_focus_group_result -> json
+(+)44.get_previous_focus_group_result -> json
 
 (***)42.get_focus_group_with_hidden_word -> json
     word_id
 
-(***)40.get_focus_group_last_update_time -> int
+(+)40.get_focus_group_last_update_time -> int
 
 (***)41.set_word_phase_passed -> ok
     word_id
@@ -157,7 +157,7 @@
 (***)43.complete_focus_group -> json
 
 
-(***)45.set_offer_item_passed -> ok
+(+)45.set_special_offer_passed -> ok
     type
 
 #USER CHECKPOINTS

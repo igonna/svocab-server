@@ -292,7 +292,7 @@ drogon::Task<> OpenaiPhraseGeneration::await_other_server_word_generation(const 
 
 drogon::Task<> OpenaiPhraseGeneration::set_generating_word(const std::string& word_key) {
     auto rc = app().getRedisClient();
-    auto generate_word_result = co_await rc->execCommandCoro("set %s %s ex %d nx", word_key.c_str(), "", word_generation_expire_seconds);
+    co_await rc->execCommandCoro("set %s %s ex %d nx", word_key.c_str(), "", word_generation_expire_seconds);
 }
 
 drogon::Task<> OpenaiPhraseGeneration::delete_generating_word(const std::string& word_key) {

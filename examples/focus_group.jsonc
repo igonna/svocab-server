@@ -1,7 +1,14 @@
 // request: FocusGroup/get_focus_group
 {
     "id": 1,
-    "last_update_time": 19203491823401,
+    // not for client
+    "versions": {
+        "current_version": 19203491823401,
+        "devices": {
+            "1": 19203491823401,
+            "2": 0
+        }
+    },
     "words": [
         {
             // phase: 1
