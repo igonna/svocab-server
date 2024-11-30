@@ -1,5 +1,6 @@
 #include "progress_words.h"
 #include <map>
+#include <iostream>
 
 namespace core::progress_words {
 
@@ -38,7 +39,6 @@ std::tuple<uint32_t, std::unordered_map<std::string, UserWordData>> get_user_wor
                 tmp_str.clear();
                 continue;
             }
-
             ++part_num;
             tmp_str.clear();
             continue;

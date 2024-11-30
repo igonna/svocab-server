@@ -13,19 +13,22 @@ struct FocusGroupPhrase {
     FocusGroupPhrase(
         GeneratedPhrase&& generated_phrase,
         std::vector<std::string>&& guess_words,
-        std::vector<std::string>&& guess_letters
+        std::vector<std::string>&& guess_letters,
+        uint8_t confirmation_level
     ) : generated_phrase(std::move(generated_phrase)),
         guess_words(std::move(guess_words)),
-        guess_letters(std::move(guess_letters)) {}
+        guess_letters(std::move(guess_letters)),
+        confirmation_level(confirmation_level) {}
 
     FocusGroupPhrase(FocusGroupPhrase&& other) : generated_phrase(std::move(other.generated_phrase)),
-        guess_words(std::move(other.guess_words)), guess_letters(std::move(other.guess_letters)) {}
+        guess_words(std::move(other.guess_words)), guess_letters(std::move(other.guess_letters)), confirmation_level(other.confirmation_level) {}
 
     FocusGroupPhrase& operator=(FocusGroupPhrase&& other) {
 		if (&other != this) {
 			generated_phrase = std::move(other.generated_phrase);
 			guess_words = std::move(other.guess_words);
 			guess_letters = std::move(other.guess_letters);
+            confirmation_level = other.confirmation_level;
 		}
 
 		return *this;
@@ -34,6 +37,7 @@ struct FocusGroupPhrase {
     GeneratedPhrase generated_phrase;
     std::vector<std::string> guess_words;
     std::vector<std::string> guess_letters;
+    uint8_t confirmation_level;
 };
 
 class PhrasesGenerator {
@@ -45,7 +49,7 @@ public:
     void add_phrase(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription);
 
     // could throw systems_are_busy_exception
-    // if word not valid sets: user_word_ref->is_excluded = true
+    // if word not valid sets: user_word_ref->is_passed = true
     drogon::Task<std::vector<FocusGroupPhrase>> get_generated_phrases();
 
     uint32_t count() const;

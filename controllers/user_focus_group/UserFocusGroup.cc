@@ -241,8 +241,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                         " to_jsonb($2::int), true) WHERE user_id = $1", user_id, focus_group_last_update_time
                     );
 
-                    // hide version from user
-                    result_focus_group.removeMember("versions");
+                    clear_focus_group_from_technical_data(result_focus_group);
                     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
                 }
             }
@@ -315,7 +314,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
                     if (!to_generate_count) break;
 
-                    if (user_word.is_excluded || user_word.is_passed) continue;
+                    if (user_word.is_passed) continue;
 
                     if (++gen_attempts_count >= max_gen_attempts_limit) {
                         // block user for N seconds
@@ -349,7 +348,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             || user_words_sequence.empty() 
             || focus_group_phrases.empty()
         ) {
-            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "empty_sequence");
+            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
         }
 
         // get new focus group id
@@ -379,7 +378,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         writer["indentation"] = "";
         auto focus_group_json_str = Json::writeString(writer, result_focus_group);
 
-        result_focus_group.removeMember("versions");
+        clear_focus_group_from_technical_data(result_focus_group);
 
         auto update_focus_group_result = co_await users_db->execSqlCoro("update user_sequence set focus_group = $1, "
             "focus_group_last_update_time = $2 where user_id = $3", focus_group_json_str, current_time, user_id
@@ -399,13 +398,14 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 Json::Value UserFocusGroup::create_focus_group_json(const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, uint32_t focus_group_id) {
     Json::Value result;
 
-    result["id"] = focus_group_id;
+    result["group_id"] = focus_group_id;
     auto& words = result["words"] = Json::arrayValue;
 
     uint32_t word_num = 0;
     for (auto& phrase : focus_group_phrases) {
         Json::Value new_word;
-        new_word["word_id"] = std::to_string(focus_group_id) + '.' + std::to_string(++word_num);
+        new_word["word_id"] = std::to_string(focus_group_id) + '.' + std::to_string(word_num++);
+        new_word["confirmation_level"] = phrase.confirmation_level;
         new_word["src_lang"] = phrase.generated_phrase.src_lang;
 
         new_word["word"] = phrase.generated_phrase.src_word;
@@ -459,6 +459,19 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<core::phra
     return result;
 }
 
+void UserFocusGroup::clear_focus_group_from_technical_data(Json::Value& focus_group) {
+    return;
+    focus_group.removeMember("versions");
+
+    if (focus_group.isMember("words")) {
+        auto& words = focus_group["words"];
+
+        for (auto& word : words) {
+            word.removeMember("confirmation_level");
+        }
+    }
+}
+
 Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value previous_focus_group_json;
     try {
@@ -483,10 +496,16 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
     co_return;
 }
 
-Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+std::tuple<uint32_t, uint32_t> UserFocusGroup::decode_word_id(const std::string& word_id_str) {
+    auto dot_pos = word_id_str.find('.');
+    if (dot_pos == std::string::npos) throw std::invalid_argument("invalid format");
+    return {std::stoull(word_id_str.substr(dot_pos + 1)), std::stoull(word_id_str.substr(0, dot_pos))};
+}
+
+Task<> UserFocusGroup::setCurrentWordPhase(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto word_id_str = req->getHeader("wordId");
     auto phase_num_str = req->getHeader("phaseNum");
-    auto mistake_str = req->getHeader("mistake");
+    auto mistake_str = req->getHeader("madeMistake");
 
     if (word_id_str.empty() || phase_num_str.empty() || mistake_str.empty()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
@@ -495,39 +514,42 @@ Task<> UserFocusGroup::setWordPhrasePassed(HttpRequestPtr req, std::function<voi
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
 
-        uint32_t index_of_phase = 0;
-        uint32_t index_of_word = 0;
+        auto device_num_str = std::to_string(device_num);
 
-        co_await users_db->execSqlCoro(" UPDATE user_sequence"
-        " SET"
-            " focus_group = jsonb_set("
-                " jsonb_set("
-                    " focus_group,"
-                    " '{words,$index_of_word,phases_mistakes,$index_of_phase}',"
-                    " 'true',"
-                    " false"
-                " ),"
-                " '{focus_group_last_update_time}',"
-                " to_jsonb(1732569999)"
-            " )"
-        " WHERE user_id = 4 and focus_group->'words' @> '[{\"word_id\": \"43.2\"}]';");
-        
+        auto [focus_group_id, word_index] = decode_word_id(word_id_str);
+
+        auto current_time = local_utils::time::get_unix_timestamp();
+
+        auto old_focus_group_last_update_time_result = co_await users_db->execSqlCoro(
+            "select focus_group_last_update_time from user_sequence where user_id = $1", user_id
+        );
+
+        auto old_focus_group_last_update_time = old_focus_group_last_update_time_result[0]["focus_group_last_update_time"].as<uint32_t>();
+
+        auto phase_index_str = std::to_string(std::stoi(phase_num_str) - 1);
+
+        // update word phase, mistake
+        co_await users_db->execSqlCoro(std::string(" UPDATE user_sequence") +
+            " SET focus_group_last_update_time = $1, focus_group = jsonb_set(focus_group, '{words}', (" +
+                " SELECT jsonb_agg(CASE WHEN word->>'word_id' = '" + word_id_str + "' THEN "
+                    " jsonb_set(jsonb_set(word, '{current_phase}', '" + phase_num_str + "'::jsonb), '{phases_mistakes," + phase_index_str + "}', '" + mistake_str + "'::jsonb)"
+                " ELSE word END) FROM jsonb_array_elements(focus_group->'words') AS word))"
+            " WHERE user_id = $2 AND focus_group_id = $3", current_time, user_id, focus_group_id
+        );
+
+        auto new_version_str = std::to_string(current_time);
+
+        // update_device_version
+        co_await users_db->execSqlCoro(std::string("UPDATE user_sequence") +
+            " SET focus_group = jsonb_set(focus_group, '{versions," + device_num_str + "}', '" + new_version_str + "'::jsonb)"
+            " WHERE user_id = $1 AND focus_group_id = $2 AND (focus_group->'versions'->>'" + device_num_str + "')::int = $3", user_id, focus_group_id, old_focus_group_last_update_time
+        );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
-
-    // check if
-    // update focus group last update time in redis && db
-
-    // DESCRIPTION:
-    // request: FocusGroup/set_word_phrase_passed
-    // focusGroupId 0
-    // wordId 0
-    // phasePassed 0
-    // mistake false
-    // last_update_time ?
     co_return local_utils::Response::OK(callback, "");
 }
 
@@ -577,6 +599,10 @@ Task<> UserFocusGroup::setSpecialOfferPassed(HttpRequestPtr req, std::function<v
 }
 
 Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+
+    // inline static std::string create_user_word_str(const std::string& word, bool is_hidden, uint8_t confirmation_level, uint32_t time)
+
+    // core::progress_words::create_user_word_str
 
     // // get user words sequence
     // auto user_sequence_result = co_await users_db->execSqlCoro(

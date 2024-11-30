@@ -1,6 +1,6 @@
 // request: FocusGroup/get_focus_group
 {
-    "id": 1,
+    "group_id": 1,
     // not for client
     "versions": {
         "current_version": 19203491823401,
@@ -13,6 +13,7 @@
         {
             // phase: 1
             "word_id": "1.1",
+            "confirmation_level": 0,
             "src_lang": "en",
             "word": "perforator",
             "word_translation": "сверильный станок",

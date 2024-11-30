@@ -16,7 +16,7 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
     constexpr uint32_t min_num = 1;
     auto max_num = max_word_phrase_table_id[0]["max_id"].as<uint32_t>();
 
-    auto random_word_nums = local_utils::random::get_random_nums_in_range(min_num, max_num);
+    auto random_word_nums = local_utils::random::get_random_nums_in_range(min_num, max_num, 2);
 
     std::vector<std::string> guess_words;
     std::vector<std::string> guess_letters;
@@ -75,7 +75,7 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
     // shuffle guess letters
     std::shuffle(guess_letters.begin(), guess_letters.end(), rd);
 
-    co_return FocusGroupPhrase(std::move(generated_phrase), std::move(guess_words), std::move(guess_letters));
+    co_return FocusGroupPhrase(std::move(generated_phrase), std::move(guess_words), std::move(guess_letters), user_word.confirmation_level);
 }
 
 void PhrasesGenerator::add_phrase(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription) {
@@ -84,8 +84,6 @@ void PhrasesGenerator::add_phrase(core::user_sequence_words::SequenceUserWord &u
     phrases_to_generate.push_back(std::move(generation_pair));
 }
 
-// could throw systems_are_busy_exception
-// if word not valid sets: user_word_ref->is_excluded = true
 drogon::Task<std::vector<FocusGroupPhrase>> PhrasesGenerator::get_generated_phrases() {
     std::vector<FocusGroupPhrase> generated_phrases;
 
@@ -94,7 +92,7 @@ drogon::Task<std::vector<FocusGroupPhrase>> PhrasesGenerator::get_generated_phra
             auto generated_phrase = co_await generation_task;
             generated_phrases.push_back(std::move(generated_phrase));
         } catch (const OpenaiPhraseGeneration::word_not_valid_exception& e) {
-            user_word_ref->is_excluded = true;
+            user_word_ref->is_passed = true;
         }
     }
 

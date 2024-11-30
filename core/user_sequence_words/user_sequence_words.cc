@@ -7,7 +7,7 @@ namespace core::user_sequence_words {
         std::string result;
 
         for (auto& user_word : sequence_user_words) {
-            result += user_word.src_lang + ';' + user_word.dst_lang + ';' + user_word.word + ';' + std::to_string(user_word.confirmation_level) + ';' + std::to_string(user_word.is_passed) + ';' + std::to_string(user_word.is_excluded) + ';';
+            result += user_word.src_lang + ';' + user_word.dst_lang + ';' + user_word.word + ';' + std::to_string(user_word.confirmation_level) + ';' + std::to_string(user_word.is_passed) + ';';
         }
 
         return result;
@@ -26,7 +26,6 @@ namespace core::user_sequence_words {
         std::string word;
         uint32_t confirmation_level;
         bool is_passed;
-        bool is_excluded;
 
         uint32_t duplicates_count = 0;
 
@@ -44,11 +43,7 @@ namespace core::user_sequence_words {
                     confirmation_level = std::stoi(tmp_str);
                 } else if (part_num == 4) {
                     is_passed = tmp_str[0] == '0' ? false : true;
-                } else if (part_num == 5) {
-                    is_excluded = tmp_str[0] == '0' ? false : true;
-
-                    // add
-                    result.push_back(SequenceUserWord(std::move(src_lang), std::move(dst_lang), std::move(word), confirmation_level, is_passed, is_excluded));
+                    result.push_back(SequenceUserWord(std::move(src_lang), std::move(dst_lang), std::move(word), confirmation_level, is_passed));
 
                     part_num = 0;
                     word.clear();

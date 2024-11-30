@@ -258,7 +258,7 @@ std::vector<core::user_sequence_words::SequenceUserWord> SequenceGenerator::mixe
         const auto& src_lang = lang_pair.first;
         const auto& dst_lang = lang_pair.second;
 
-        result.push_back(core::user_sequence_words::SequenceUserWord(src_lang, dst_lang, std::move(word_mix_unit.word), word_mix_unit.confirmation_level, false, false));
+        result.push_back(core::user_sequence_words::SequenceUserWord(src_lang, dst_lang, std::move(word_mix_unit.word), word_mix_unit.confirmation_level, false));
     }
 
     mix_words.clear();

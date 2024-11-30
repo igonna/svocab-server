@@ -8,6 +8,24 @@
 #include <drogon/drogon.h>
 
 namespace local_utils {
+namespace random {
+    std::unordered_set<uint32_t> get_random_nums_in_range(uint32_t min_num, uint32_t max_num, uint32_t count) {
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> distr(min_num, max_num);
+
+        std::unordered_set<uint32_t> result;
+
+        if (count < 0 || min_num == max_num) return result;
+
+        while (result.size() != count) {
+            result.insert(distr(gen));
+        }
+
+        return result;
+    }
+}
+
 namespace supported_languages {
     std::string get_language_title_localized(const std::string& lang_tag, const std::string& to_translate_lang_tag) {
         icu::Locale locale(lang_tag.c_str());
