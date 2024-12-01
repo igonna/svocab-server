@@ -31,7 +31,7 @@ public:
 	METHOD_LIST_END
 
 private:
-	Task<> increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t count);
+	Task<> increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint16_t count);
 	Task<std::tuple<bool, uint32_t>> is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription);
 
 	Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_words_sequence(
@@ -47,5 +47,7 @@ private:
 	Json::Value create_focus_group_json(const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, uint32_t focus_group_id);
 	void clear_focus_group_from_technical_data(Json::Value& focus_group);
 	std::tuple<uint32_t, uint32_t> decode_word_id(const std::string& word_id_str);
+
+	Json::Value get_focus_group_summary(const Json::Value& focus_group);
 };
 }

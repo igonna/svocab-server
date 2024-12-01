@@ -7,6 +7,15 @@
 
 namespace local_utils {
 
+namespace json {
+    static std::string json_to_string(const Json::Value& json) {
+        Json::StreamWriterBuilder writer;
+        writer["indentation"] = "";
+        auto json_str = Json::writeString(writer, json);
+        return json_str;
+    }
+}
+
 namespace random {
     std::unordered_set<uint32_t> get_random_nums_in_range(uint32_t min_num, uint32_t max_num, uint32_t count);
 }

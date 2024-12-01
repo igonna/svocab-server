@@ -137,7 +137,6 @@ CREATE TABLE ranks (
 
 CREATE TABLE user_statistics (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    -- app_sessions JSONB NOT NULL, -- do not think that we need it
     learned_this_time INT NOT NULL DEFAULT 0,
     last_learn_time INT NOT NULL DEFAULT 0,
     learned_today INT NOT NULL DEFAULT 0,

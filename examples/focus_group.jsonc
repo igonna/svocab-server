@@ -3,11 +3,8 @@
     "group_id": 1,
     // not for client
     "versions": {
-        "current_version": 19203491823401,
-        "devices": {
-            "1": 19203491823401,
-            "2": 0
-        }
+        "1": 19203491823401,
+        "2": 0
     },
     "words": [
         {

@@ -156,4 +156,8 @@ namespace focus_group {
 
     static constexpr uint32_t focus_group_expire_seconds = 60*5;
 }
+
+namespace statistics {
+    static constexpr uint32_t learned_this_time_expire_seconds = 60*10;
+}
 }
