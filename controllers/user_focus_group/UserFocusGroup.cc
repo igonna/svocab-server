@@ -253,13 +253,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
                 bool is_focus_group_require_phase_completion = learned_count != 0 || failed_count != 0 || repeated_count != 0;
 
-                std::cout << "learned count: " << learned_count << " failed_count: " << failed_count << " repeated_count: " << repeated_count << std::endl;
-
                 if (is_focus_group_require_phase_completion || !is_sequence_update_required) {
-
-                    std::cout << "is_focus_group_not_expired: " << is_focus_group_not_expired << 
-                        " is_focus_group_require_phase_completion: " << is_focus_group_require_phase_completion << 
-                        " is_sequence_update_required: " << is_sequence_update_required << std::endl;
                     // update focus group current device version
                     auto device_num_str = std::to_string(device_num);
                     co_await users_db->execSqlCoro(std::string("UPDATE user_sequence") +
@@ -306,7 +300,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 "",
                 local_constants::user_blocked_focus_group_generation_seconds
             );
-            co_return;
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
         };
 
         // generate focus_group_size phrases 
@@ -318,6 +312,9 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
             auto translations_db = app().getDbClient(local_constants::translations_db);
             core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
+
+            bool sequence_regenerated = false;
+            std::vector<core::user_sequence_words::SequenceUserWord> old_user_words_sequence;
 
             // while user_words_sequence not empty OR focus group not ready
             while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
@@ -352,8 +349,12 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 }
 
                 // at this point focus group must be ready OR user words sequence exhausted that means sequence regeneration required
-                if (focus_group_phrases.size() != focus_group_size) {
+                if (focus_group_phrases.size() != focus_group_size && !sequence_regenerated) {
+                    old_user_words_sequence = std::move(user_words_sequence);
                     user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
+                    sequence_regenerated = true;
+                } else {
+                    break;
                 }
             }
         }
@@ -382,6 +383,13 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         } else {
             result_focus_group["special_offer_type"] = Json::nullValue;
         }
+
+        // add learned this time
+        auto learned_this_time_result = co_await users_db->execSqlCoro(
+            "select learned_this_time from user_statistics where user_id = $1", user_id
+        );
+        auto learned_this_time_value = learned_this_time_result[0]["learned_this_time"].as<uint32_t>();
+        result_focus_group["learned_this_time"] = learned_this_time_value;
 
         // add versions
         auto& versions = result_focus_group["versions"] = Json::objectValue;
@@ -463,6 +471,12 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<core::phra
         auto& guess_letters = new_word["guess_letters"] = Json::arrayValue;
         for (auto& guess_letter : phrase.guess_letters) {
             guess_letters.append(std::move(guess_letter));
+        }
+
+        auto right_letters = core::text_processing::extract_letters_as_strings(phrase.generated_phrase.src_word, phrase.generated_phrase.src_lang.c_str());
+        auto& right_letters_field = new_word["right_letters"] = Json::arrayValue;
+        for (auto& right_letter : right_letters) {
+            right_letters_field.append(std::move(right_letter));
         }
 
         words.append(new_word);
@@ -692,8 +706,10 @@ Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         // get focus group && summary
-        auto focus_group_result = co_await users_db->execSqlCoro("select focus_group from user_sequence where user_id = $1", user_id);
-        auto focus_group_str = focus_group_result[0]["focus_group"].as<std::string>();
+        auto focus_group_and_sequence_result = co_await users_db->execSqlCoro(
+            "select focus_group, to_learn_words from user_sequence where user_id = $1", user_id
+        );
+        auto focus_group_str = focus_group_and_sequence_result[0]["focus_group"].as<std::string>();
 
         Json::Value focus_group;
 
@@ -707,7 +723,7 @@ Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void
 
         focus_group_summary = get_focus_group_summary(focus_group);
 
-        if (focus_group_summary["words_phases_mistakes"].empty()) {
+        if (focus_group_summary.isMember("words_phases_mistakes") && focus_group_summary["words_phases_mistakes"].empty()) {
             co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
         }
 
@@ -720,27 +736,94 @@ Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void
 
         auto focus_group_summary_str = local_utils::json::json_to_string(focus_group_summary);
 
+        // create empty focus group
         Json::Value empty_focus_group;
         auto empty_focus_group_str = local_utils::json::json_to_string(empty_focus_group);
 
         auto current_time = local_utils::time::get_unix_timestamp();
 
-        std::string to_learn_words_updated_str;
-        std::string user_words_to_attach;
+        // update user words sequence && create user words to append
+        auto to_learn_words_str = focus_group_and_sequence_result[0]["to_learn_words"].as<std::string>();
+        auto to_learn_words_vec = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
 
-        // // update focus_size, to_learn_words (for words with not mistakes), update previous_focus_group_result with summary
-        // auto update_user_sequence_result = co_await users_db->execSqlCoro(
-        //     "update user_sequence set focus_group_size = $1, focus_group = $2, to_learn_words = $3, focus_group_last_update_time = $4,"
-        //     " previous_focus_group_result = $5 where user_id = $6", new_focus_group_size, empty_focus_group_str, to_learn_words_updated_str, 
-        //     current_time, focus_group_summary_str, user_id
-        // );
+        std::unordered_map<std::string, std::string> user_words_to_attach_by_src_lang;
+        std::unordered_map<std::string, std::unordered_map<std::string, uint8_t>> user_words_info_by_src_lang;
 
-        // if (!update_user_sequence_result.affectedRows()) {
-        //     throw std::runtime_error("user_sequence_not_updated");
-        // }
+        auto& words = focus_group["words"];
 
-        // db(2): attach all learned words to user_words, and not learned words with confirmation level > 0
+        for (auto& word : words) {
+            const auto& phases_mistakes = word["phases_mistakes"];
 
+            bool word_has_mistake = false;
+
+            for (const auto &phase_mistake : phases_mistakes) {
+                if (phase_mistake.asBool()) {
+                    word_has_mistake = true;
+                }
+            }
+
+            auto current_phase = word["current_phase"].as<uint32_t>();
+            auto confirmation_level = word["confirmation_level"].as<uint32_t>();
+
+            if (word_has_mistake) {
+                confirmation_level = 0;
+            } else if (current_phase != 0) {
+                ++confirmation_level;
+            }
+
+            auto word_str = word["word"].as<std::string>();
+            auto src_lang = word["src_lang"].as<std::string>();
+
+            auto user_word_str = core::progress_words::create_user_word_str(word_str, false, confirmation_level, current_time);
+
+            if (user_words_to_attach_by_src_lang.contains(src_lang)) {
+                user_words_to_attach_by_src_lang.at(src_lang) += user_word_str;
+            } else {
+                user_words_to_attach_by_src_lang[src_lang] = user_word_str;
+            }
+
+            user_words_info_by_src_lang[src_lang][word_str] = confirmation_level;
+        }
+
+        // update to_learn_words if exists
+        for (auto& to_learn_word : to_learn_words_vec) {
+            if (user_words_info_by_src_lang.contains(to_learn_word.src_lang) 
+                && user_words_info_by_src_lang[to_learn_word.src_lang].contains(to_learn_word.word)
+            ) {
+                auto new_confirmation_level = user_words_info_by_src_lang.at(to_learn_word.src_lang).at(to_learn_word.word);
+
+                if (new_confirmation_level > to_learn_word.confirmation_level) {
+                    to_learn_word.is_passed = true;
+                }
+
+                to_learn_word.confirmation_level = new_confirmation_level;
+            }
+        }
+
+        auto to_learn_words_updated_str = core::user_sequence_words::sequence_user_words_to_str(to_learn_words_vec);
+
+        // append user words by src_lang
+        for (const auto& user_words_to_attach : user_words_to_attach_by_src_lang) {
+            auto user_words_update_result = co_await users_db->execSqlCoro(
+                "UPDATE user_words SET words = words || $1, last_update_id = last_update_id + 1 WHERE user_id = $2 AND src_lang = $3", 
+                user_words_to_attach.second, user_id, user_words_to_attach.first
+            );
+
+            if (!user_words_update_result.affectedRows()) {
+                throw std::runtime_error("user_words_not_updated");
+            }
+        }
+
+        // update focus_size, to_learn_words (for words with not mistakes), update previous_focus_group_result with summary
+        auto update_user_sequence_result = co_await users_db->execSqlCoro(
+            "update user_sequence set focus_group_size = $1, focus_group = $2, to_learn_words = $3, focus_group_last_update_time = $4,"
+            " previous_focus_group_result = $5 where user_id = $6", new_focus_group_size, empty_focus_group_str, to_learn_words_updated_str, 
+            current_time, focus_group_summary_str, user_id
+        );
+
+        if (!update_user_sequence_result.affectedRows()) {
+            throw std::runtime_error("user_sequence_not_updated");
+        }
 
         // update statistics
         auto statistics_info_result = co_await users_db->execSqlCoro(

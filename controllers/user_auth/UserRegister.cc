@@ -81,13 +81,27 @@ Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(cons
         );
 
         co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)", user_id, src_lang);
+
+        transaction->setCommitCallback([user_id, device_num, device_refresh_token, moved_callback = std::move(callback)](bool success) -> void {
+            if (success) {
+                auto body = core::token::create_device_refresh_token(user_id, device_num, device_refresh_token);
+
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::k200OK);
+                resp->setBody(body);
+                moved_callback(resp);
+            } else {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::k500InternalServerError);
+                resp->setBody("something_wrong");
+                moved_callback(resp);
+            }
+        });
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto resp = HttpResponse::newHttpResponse();
-    resp->setBody(core::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
-    co_return callback(resp);
+    co_return;
 }
 }

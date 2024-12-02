@@ -296,6 +296,9 @@ static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::D
 
         // create table for each src_lang
         auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
+        
+        // hide notice
+        co_await translations_db->execSqlCoro("SET client_min_messages TO WARNING");
 
         co_await translations_db->execSqlCoro(std::string("CREATE TABLE IF NOT EXISTS ") + banned_word_table_name 
             + " ( word TEXT PRIMARY KEY, time_added INT NOT NULL )"
