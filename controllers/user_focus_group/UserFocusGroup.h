@@ -7,6 +7,20 @@
 
 using namespace drogon;
 
+namespace focus_group_generation_exceptions {
+	struct systems_are_busy_exception : public std::exception {
+		const char* what() const noexcept override {
+			return "systems_are_busy";
+		}
+	};
+
+	struct user_blocked_from_generation : public std::exception {
+		const char* what() const noexcept override {
+			return "user_blocked_from_generation";
+		}
+	};
+}
+
 namespace v1
 {
 class UserFocusGroup : public drogon::HttpController<UserFocusGroup>
@@ -49,5 +63,19 @@ private:
 	std::tuple<uint32_t, uint32_t> decode_word_id(const std::string& word_id_str);
 
 	Json::Value get_focus_group_summary(const Json::Value& focus_group);
+
+	Task<bool> is_user_blocked_from_generation(uint64_t user_id);
+	Task<> block_user_from_generation(uint64_t user_id);
+
+	Task<uint32_t> get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+
+	Task<std::vector<core::phrases_generator::FocusGroupPhrase>> generate_focus_group_phrases(
+		drogon::orm::DbClientPtr users_db,
+		uint32_t user_id,
+		bool user_has_subscription,
+		uint32_t sequence_last_update_id,
+		std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
+		uint32_t focus_group_size
+	);
 };
 }

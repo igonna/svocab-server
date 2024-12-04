@@ -193,6 +193,103 @@ Task<std::optional<std::string>> UserFocusGroup::get_user_special_offer_type(dro
     co_return std::nullopt;
 }
 
+Task<bool> UserFocusGroup::is_user_blocked_from_generation(uint64_t user_id) {
+    const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
+    auto rc = app().getRedisClient();
+    auto user_generation_blocked_result = co_await rc->execCommandCoro(
+        "exists %s",
+        user_blocked_focus_group_generation_key.c_str()
+    );
+
+    co_return std::stoi(user_generation_blocked_result.asString()) > 0;
+}
+
+Task<> UserFocusGroup::block_user_from_generation(uint64_t user_id) {
+    const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
+    auto rc = app().getRedisClient();
+    co_await rc->execCommandCoro("set %s %s ex %d nx",
+        user_blocked_focus_group_generation_key.c_str(),
+        "",
+        local_constants::user_blocked_focus_group_generation_seconds
+    );
+    co_return;
+}
+
+Task<uint32_t> UserFocusGroup::get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto new_focus_group_id_result = co_await users_db->execSqlCoro(
+        "update user_sequence set focus_group_id = focus_group_id + 1 where user_id = $1 returning focus_group_id",
+        user_id
+    );
+    auto new_focus_group_id = new_focus_group_id_result[0]["focus_group_id"].as<uint32_t>();
+    co_return new_focus_group_id;
+}
+
+Task<std::vector<core::phrases_generator::FocusGroupPhrase>> UserFocusGroup::generate_focus_group_phrases(
+    drogon::orm::DbClientPtr users_db,
+    uint32_t user_id,
+    bool user_has_subscription,
+    uint32_t sequence_last_update_id,
+    std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
+    uint32_t focus_group_size
+) {
+    // generate focus_group_size phrases 
+    std::vector<core::phrases_generator::FocusGroupPhrase> focus_group_phrases;
+    
+    uint8_t gen_attempts_count = 0;
+    constexpr uint8_t max_gen_attempts_limit = 30;
+
+    auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
+    auto translations_db = app().getDbClient(local_constants::translations_db);
+    core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
+
+    bool sequence_regenerated = false;
+    std::vector<core::user_sequence_words::SequenceUserWord> old_user_words_sequence;
+
+    // while user_words_sequence not empty OR focus group not ready
+    while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
+
+        // generate phrases from current sequence
+        for (auto& user_word : user_words_sequence) {
+            auto to_generate_count = focus_group_size - focus_group_phrases.size();
+
+            if (!to_generate_count) break;
+
+            if (user_word.is_passed) continue;
+
+            if (++gen_attempts_count >= max_gen_attempts_limit) {
+                // block user for N seconds
+                co_await block_user_from_generation(user_id);
+                throw focus_group_generation_exceptions::user_blocked_from_generation();
+            }
+
+            phrases_generator.add_phrase(user_word, user_has_subscription);
+
+            if (phrases_generator.count() == to_generate_count) {
+                try {
+                    auto generated_phrases = co_await phrases_generator.get_generated_phrases();
+                    focus_group_phrases.insert(focus_group_phrases.end(), 
+                        std::make_move_iterator(generated_phrases.begin()), 
+                        std::make_move_iterator(generated_phrases.end())
+                    );
+                } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
+                    throw focus_group_generation_exceptions::systems_are_busy_exception();
+                }
+            }
+        }
+
+        // at this point focus group must be ready OR user words sequence exhausted that means sequence regeneration required
+        if (focus_group_phrases.size() != focus_group_size && !sequence_regenerated) {
+            old_user_words_sequence = std::move(user_words_sequence);
+            user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
+            sequence_regenerated = true;
+        } else {
+            break;
+        }
+    }
+
+    co_return focus_group_phrases;
+}
+
 Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value result_focus_group;
     try {
@@ -202,16 +299,9 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 
         // check if user not temporarily blocked from generation
         const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
-        auto rc = app().getRedisClient();
-        {
-            auto user_generation_blocked_result = co_await rc->execCommandCoro(
-                "exists %s",
-                user_blocked_focus_group_generation_key.c_str()
-            );
-
-            if (std::stoi(user_generation_blocked_result.asString()) > 0) {
-                co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-            }
+        auto is_user_blocked_from_generation_result = co_await is_user_blocked_from_generation(user_id);
+        if (is_user_blocked_from_generation_result) {
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
         }
 
         // return focus_group if not expired && get sequence info
@@ -294,84 +384,27 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
             user_words_sequence = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
         }
 
-        auto block_user_from_generation = [&]() -> drogon::Task<> {
-            co_await rc->execCommandCoro("set %s %s ex %d nx",
-                user_blocked_focus_group_generation_key.c_str(),
-                "",
-                local_constants::user_blocked_focus_group_generation_seconds
-            );
-            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-        };
-
         // generate focus_group_size phrases 
         std::vector<core::phrases_generator::FocusGroupPhrase> focus_group_phrases;
-        {
-            uint8_t gen_attempts_count = 0;
-            constexpr uint8_t max_gen_attempts_limit = 30;
+        try {
+            focus_group_phrases = co_await generate_focus_group_phrases(
+                users_db, user_id, user_has_subscription, sequence_last_update_id, user_words_sequence, focus_group_size
+            );
 
-            auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
-            auto translations_db = app().getDbClient(local_constants::translations_db);
-            core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
-
-            bool sequence_regenerated = false;
-            std::vector<core::user_sequence_words::SequenceUserWord> old_user_words_sequence;
-
-            // while user_words_sequence not empty OR focus group not ready
-            while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
-
-                // generate phrases from current sequence
-                for (auto& user_word : user_words_sequence) {
-                    auto to_generate_count = focus_group_size - focus_group_phrases.size();
-
-                    if (!to_generate_count) break;
-
-                    if (user_word.is_passed) continue;
-
-                    if (++gen_attempts_count >= max_gen_attempts_limit) {
-                        // block user for N seconds
-                        co_await block_user_from_generation();
-                        co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-                    }
-
-                    phrases_generator.add_phrase(user_word, user_has_subscription);
-
-                    if (phrases_generator.count() == to_generate_count) {
-                        try {
-                            auto generated_phrases = co_await phrases_generator.get_generated_phrases();
-                            focus_group_phrases.insert(focus_group_phrases.end(), 
-                                std::make_move_iterator(generated_phrases.begin()), 
-                                std::make_move_iterator(generated_phrases.end())
-                            );
-                        } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
-                            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
-                        }
-                    }
-                }
-
-                // at this point focus group must be ready OR user words sequence exhausted that means sequence regeneration required
-                if (focus_group_phrases.size() != focus_group_size && !sequence_regenerated) {
-                    old_user_words_sequence = std::move(user_words_sequence);
-                    user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
-                    sequence_regenerated = true;
-                } else {
-                    break;
-                }
+            if (focus_group_phrases.size() < local_constants::focus_group::min_focus_group_size 
+                || user_words_sequence.empty() 
+                || focus_group_phrases.empty()
+            ) {
+                co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
             }
-        }
-
-        if (focus_group_phrases.size() < local_constants::focus_group::min_focus_group_size 
-            || user_words_sequence.empty() 
-            || focus_group_phrases.empty()
-        ) {
-            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
+        } catch (const focus_group_generation_exceptions::user_blocked_from_generation& e) {
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+        } catch (const focus_group_generation_exceptions::systems_are_busy_exception& e) {
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
         }
 
         // get new focus group id
-        auto new_focus_group_id_result = co_await users_db->execSqlCoro(
-            "update user_sequence set focus_group_id = focus_group_id + 1 where user_id = $1 returning focus_group_id",
-            user_id
-        );
-        auto new_focus_group_id = new_focus_group_id_result[0]["focus_group_id"].as<uint32_t>();
+        auto new_focus_group_id = co_await get_new_focus_group_id(users_db, user_id);
 
         // create json focus group
         result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id);
@@ -521,8 +554,188 @@ Task<> UserFocusGroup::getPreviousFocusGroupResult(HttpRequestPtr req, std::func
 }
 
 Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    // update focus group last update time in redis && db
-    co_return;
+    auto word_id_str = req->getHeader("wordId");
+
+    if (word_id_str.empty()) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    Json::Value result_focus_group;
+
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
+        auto current_time = local_utils::time::get_unix_timestamp();
+
+        // check if user not temporarily blocked from generation
+        const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
+        auto is_user_blocked_from_generation_result = co_await is_user_blocked_from_generation(user_id);
+        if (is_user_blocked_from_generation_result) {
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+        }
+
+        auto old_focus_group_result = co_await users_db->execSqlCoro(
+            "select focus_group, last_update_id, last_gen_id, last_gen_time, focus_group_size from user_sequence where user_id = $1", user_id
+        );
+
+        if (old_focus_group_result.empty()) {
+            throw std::runtime_error("old focus group is empty");
+        }
+
+        auto old_focus_group = old_focus_group_result[0]["focus_group"].as<Json::Value>();
+        
+        std::string hidden_word;
+        std::string new_hidden_user_word;
+        std::string new_hidden_word_src_lang;
+        uint32_t hidden_word_current_phase = 0;
+        
+        const auto& words = old_focus_group["words"];
+        for (auto& word : words) {
+            if (word_id_str == word["word_id"].as<std::string>()) {
+                hidden_word = word["word"].as<std::string>();
+                new_hidden_user_word = core::progress_words::create_hidden_word_str(hidden_word, true, current_time);
+                new_hidden_word_src_lang = word["src_lang"].as<std::string>();
+                hidden_word_current_phase = word["current_phase"].as<uint32_t>();
+            }
+        }
+
+        if (hidden_word_current_phase > 0) {
+            co_await increase_generated_phrases_count(users_db, user_id, 1);
+        }
+
+        // add new hidden word
+        co_await users_db->execSqlCoro("update user_words set words = words || $1 where src_lang = $2 and user_id = $3",
+            new_hidden_user_word, new_hidden_word_src_lang, user_id
+        );
+
+        // check if generation limit not reached, and generation not blocked
+        bool user_has_subscription = co_await core::sql::does_user_have_subscription(users_db, user_id);
+        auto [generation_limit_reached, time_limit_resets] = co_await is_user_generation_limit_reached(users_db, user_id, user_has_subscription);
+        // check if user reached phrase generation limit
+        if (generation_limit_reached) {
+            auto time_limit_resets_str = std::to_string(time_limit_resets);
+            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, time_limit_resets_str.c_str());
+        }
+
+        // get user words sequence
+        std::vector<core::user_sequence_words::SequenceUserWord> user_words_sequence;
+
+        auto sequence_last_update_id = old_focus_group_result[0]["last_update_id"].as<uint32_t>();
+        auto sequence_last_gen_id = old_focus_group_result[0]["last_gen_id"].as<uint32_t>();
+        auto last_gen_time = old_focus_group_result[0]["last_gen_time"].as<uint32_t>();
+        auto focus_group_size = old_focus_group_result[0]["focus_group_size"].as<uint32_t>();
+
+        bool is_sequence_update_required = current_time - last_gen_time > local_constants::confirmation_level_1_repeat_timeout_seconds 
+            || sequence_last_gen_id != sequence_last_update_id;
+
+        if (is_sequence_update_required) {
+            // update if required and get user words sequence
+            user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
+        } else {
+            // get user words sequence
+            auto user_sequence_result = co_await users_db->execSqlCoro(
+                "select to_learn_words from user_sequence where user_id = $1", user_id
+            );
+
+            auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
+            user_words_sequence = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
+        }
+
+        // set hidden word as passed in user words sequence and update user words sequence
+        for (auto& user_word : user_words_sequence) {
+            if (user_word.is_passed) continue;
+
+            if (user_word.word == hidden_word && user_word.src_lang == new_hidden_word_src_lang) {
+                user_word.is_passed = true;
+                break;
+            }
+        }
+
+        auto to_learn_words_updated_str = core::user_sequence_words::sequence_user_words_to_str(user_words_sequence);
+        co_await users_db->execSqlCoro(
+            "update user_sequence set to_learn_words = $1 where last_update_id = $2 and user_id = $3",
+            to_learn_words_updated_str, sequence_last_update_id, user_id
+        );
+
+        // generate focus_group_size phrases 
+        std::vector<core::phrases_generator::FocusGroupPhrase> focus_group_phrases;
+        try {
+            focus_group_phrases = co_await generate_focus_group_phrases(
+                users_db, user_id, user_has_subscription, sequence_last_update_id, user_words_sequence, focus_group_size
+            );
+
+            if (focus_group_phrases.size() < local_constants::focus_group::min_focus_group_size 
+                || user_words_sequence.empty() 
+                || focus_group_phrases.empty()
+            ) {
+                co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
+            }
+        } catch (const focus_group_generation_exceptions::user_blocked_from_generation& e) {
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+        } catch (const focus_group_generation_exceptions::systems_are_busy_exception& e) {
+            co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+        }
+
+        // get new focus group id
+        auto new_focus_group_id = co_await get_new_focus_group_id(users_db, user_id);
+
+        // create json focus group
+        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id);
+        result_focus_group["special_offer_type"] = old_focus_group.isMember("special_offer_type") 
+            ? old_focus_group["special_offer_type"] : Json::nullValue;
+
+        // add learned this time
+        auto learned_this_time_result = co_await users_db->execSqlCoro(
+            "select learned_this_time from user_statistics where user_id = $1", user_id
+        );
+        auto learned_this_time_value = learned_this_time_result[0]["learned_this_time"].as<uint32_t>();
+        result_focus_group["learned_this_time"] = learned_this_time_value;
+
+        // update new focus group with old results
+        auto& new_words = result_focus_group["words"];
+
+        if (!old_focus_group.isMember("words")) {
+            old_focus_group["words"] = Json::arrayValue;
+        }
+        auto& old_words = old_focus_group["words"];
+
+        for (auto& new_word : new_words) {
+            auto new_word_str = new_word["word"].as<std::string>();
+            auto new_word_src_lang = new_word["src_lang"].as<std::string>();
+            for (auto& old_word : old_words) {
+                auto old_word_str = old_word["word"].as<std::string>();
+                auto old_word_src_lang = old_word["src_lang"].as<std::string>();
+
+                if (new_word_str == new_word_str && new_word_src_lang == old_word_src_lang) {
+                    new_word["current_phase"] = old_word["current_phase"];
+                    new_word["phases_mistakes"] = old_word["phases_mistakes"];
+                }
+            }
+        }
+
+        // add versions
+        auto& versions = result_focus_group["versions"] = Json::objectValue;
+        versions[std::to_string(device_num)] = current_time;
+
+        // update db focus group
+        auto focus_group_json_str = local_utils::json::json_to_string(result_focus_group);
+
+        clear_focus_group_from_technical_data(result_focus_group);
+
+        auto update_focus_group_result = co_await users_db->execSqlCoro("update user_sequence set focus_group = $1, "
+            "focus_group_last_update_time = $2 where user_id = $3", focus_group_json_str, current_time, user_id
+        );
+
+        if (!update_focus_group_result.affectedRows()) {
+            throw std::runtime_error("failed_to_update_focus_group");
+        }
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    }
+
+    co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
 std::tuple<uint32_t, uint32_t> UserFocusGroup::decode_word_id(const std::string& word_id_str) {
