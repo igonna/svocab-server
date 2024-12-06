@@ -245,6 +245,8 @@ Task<std::vector<core::phrases_generator::FocusGroupPhrase>> UserFocusGroup::gen
     bool sequence_regenerated = false;
     std::vector<core::user_sequence_words::SequenceUserWord> old_user_words_sequence;
 
+    std::unordered_set<std::string> src_words_already_added;
+
     // while user_words_sequence not empty OR focus group not ready
     while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
 
@@ -267,10 +269,16 @@ Task<std::vector<core::phrases_generator::FocusGroupPhrase>> UserFocusGroup::gen
             if (phrases_generator.count() == to_generate_count) {
                 try {
                     auto generated_phrases = co_await phrases_generator.get_generated_phrases();
-                    focus_group_phrases.insert(focus_group_phrases.end(), 
-                        std::make_move_iterator(generated_phrases.begin()), 
-                        std::make_move_iterator(generated_phrases.end())
-                    );
+
+                    for (auto& phrase : generated_phrases) {
+                        std::string src_word_key = phrase.generated_phrase.src_lang + phrase.generated_phrase.src_word;
+
+                        if (src_words_already_added.contains(src_word_key)) continue;
+
+                        focus_group_phrases.push_back(std::move(phrase));
+                        src_words_already_added.insert(src_word_key);
+                    }
+
                 } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
                     throw focus_group_generation_exceptions::systems_are_busy_exception();
                 }
