@@ -436,6 +436,14 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto& versions = result_focus_group["versions"] = Json::objectValue;
         versions[std::to_string(device_num)] = current_time;
 
+        // add is multiple languages
+        auto languages_count_result = co_await users_db->execSqlCoro(
+            "select user_id, COUNT(DISTINCT src_lang) AS unique_src_lang_count"
+            " from user_language_pairs where is_enabled = true and user_id = $1 GROUP BY user_id", user_id
+        );
+        auto unique_src_lang_count = languages_count_result[0]["unique_src_lang_count"].as<uint32_t>();
+        result_focus_group["is_multiple_languages"] = unique_src_lang_count > 1;
+
         // update db focus group
         auto focus_group_json_str = local_utils::json::json_to_string(result_focus_group);
 
