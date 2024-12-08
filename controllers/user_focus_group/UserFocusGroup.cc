@@ -31,8 +31,8 @@ Task<> UserFocusGroup::isFocusGroupUpdateRequired(HttpRequestPtr req, std::funct
 
         auto result = co_await users_db->execSqlCoro(
             "SELECT 1 FROM user_sequence WHERE user_id = $1"
-            " AND focus_group_last_update_time IS DISTINCT FROM"
-            " COALESCE(NULLIF(focus_group->'versions'->>$2, '')::integer, NULL) OR NOT (focus_group->'versions' ? $2)", 
+            " AND (focus_group_last_update_time IS DISTINCT FROM"
+            " COALESCE(NULLIF(focus_group->'versions'->>$2, '')::integer, NULL) OR NOT (focus_group->'versions' ? $2))", 
             user_id, device_num_str
         );
 
@@ -42,7 +42,6 @@ Task<> UserFocusGroup::isFocusGroupUpdateRequired(HttpRequestPtr req, std::funct
             co_return local_utils::Response::Error::ERROR(callback, k304NotModified, "");
         }
 
-        co_return local_utils::Response::OK(callback, result[0][0].as<std::string>());
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
