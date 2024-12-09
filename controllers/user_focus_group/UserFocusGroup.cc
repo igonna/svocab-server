@@ -475,6 +475,9 @@ Json::Value UserFocusGroup::create_focus_group_json(const std::vector<core::phra
         new_word["word_id"] = std::to_string(focus_group_id) + '.' + std::to_string(word_num++);
         new_word["confirmation_level"] = phrase.confirmation_level;
         new_word["src_lang"] = phrase.generated_phrase.src_lang;
+        new_word["src_country_code"] = local_constants::languages::language_to_country.contains(phrase.generated_phrase.src_lang) 
+            ? local_constants::languages::language_to_country.at(phrase.generated_phrase.src_lang) 
+            : "";
 
         new_word["word"] = phrase.generated_phrase.src_word;
 
