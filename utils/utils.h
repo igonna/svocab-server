@@ -207,6 +207,7 @@ namespace language_pair {
 namespace supported_languages {
     std::string get_language_title_localized(const std::string& lang_tag, const std::string& to_translate_lang_tag);
     std::string get_supported_languages_as_string(const std::string& to_translate_lang_tag);
+    std::string get_country_code_or_empty(const std::string& src_lang);
 }
 
 namespace strings {

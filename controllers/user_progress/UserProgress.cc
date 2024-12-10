@@ -28,7 +28,8 @@ Task<> UserProgress::getLearnedWords(HttpRequestPtr req, std::function<void(cons
                     if (user_word.second.is_hidden || !user_word.second.confirmation_level) {
                         continue;
                     }
-                    result_words.insert({user_word.second.last_update_time, src_lang + ';'+ user_word.first});
+                    auto src_country = local_utils::supported_languages::get_country_code_or_empty(src_lang);
+                    result_words.insert({user_word.second.last_update_time, src_lang + ';'+ user_word.first + ';' + src_country});
                 }
             }
         }
@@ -96,7 +97,8 @@ Task<> UserProgress::getHiddenWords(HttpRequestPtr req, std::function<void(const
                     if (!user_word.second.is_hidden) {
                         continue;
                     }
-                    result_words.insert({user_word.second.last_update_time, src_lang + ';'+ user_word.first});
+                    auto src_country = local_utils::supported_languages::get_country_code_or_empty(src_lang);
+                    result_words.insert({user_word.second.last_update_time, src_lang + ';'+ user_word.first + ';' + src_country});
                 }
             }
         }

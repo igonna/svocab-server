@@ -78,6 +78,12 @@ namespace supported_languages {
         }
         return result;
     }
+
+    std::string get_country_code_or_empty(const std::string& src_lang) {
+        return local_constants::languages::language_to_country.contains(src_lang) 
+                ? local_constants::languages::language_to_country.at(src_lang) 
+                : "";
+    }
 }
 
 namespace strings {

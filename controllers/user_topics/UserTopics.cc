@@ -673,7 +673,7 @@ Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(con
 {
     auto topic_id_str = req->getHeader("topicId");
     auto text = std::string(req->getBody());
-    auto source_id = req->getHeader("sourceId");
+    auto source_id_str = req->getHeader("sourceId");
 
     if (!(topic_id_str.size())) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
@@ -684,6 +684,9 @@ Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(con
     }
 
     auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
+    const std::string source_type = "text";
+
+    uint32_t source_id;
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -696,14 +699,16 @@ Task<> UserTopics::setTopicSourceText(HttpRequestPtr req, std::function<void(con
         auto unicode_str = core::text_processing::string_to_unicode(text);
         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-        co_await core::sql::update_topic_source(users_db, user_id, topic_id, std::stoi(source_id), title, "text", processed_words, text);
+        source_id = std::stoi(source_id_str);
+        co_await core::sql::update_topic_source(users_db, user_id, topic_id, source_id, title, source_type, processed_words, text);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
 Task<> UserTopics::getTopicMixOptions(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
