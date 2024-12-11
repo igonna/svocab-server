@@ -28,11 +28,13 @@ Task<> UserTopics::getFirstUserGlobalTopicSkipOptions(HttpRequestPtr req, std::f
         auto dst_lang = result[0]["dst_lang"].as<std::string>();
 
         // get first global topic id
-        result = co_await users_db->execSqlCoro("select topic_id from global_topics where src_lang = $1 limit 1", src_lang);
+        result = co_await users_db->execSqlCoro("select topic_id, words from global_topics where src_lang = $1 limit 1", src_lang);
 
         if (result.empty()) {
             co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "");
         }
+
+        auto words = result[0]["words"].as<std::string>();
 
         auto topic_id = result[0]["topic_id"].as<uint32_t>();
 
@@ -42,18 +44,16 @@ Task<> UserTopics::getFirstUserGlobalTopicSkipOptions(HttpRequestPtr req, std::f
         result = co_await users_db->execSqlCoro(
             "INSERT INTO user_global_topics (user_id, topic_id, src_lang, dst_lang, dst_title, mix_value, skip_value, position, is_enabled) "
             "SELECT $1, gt.topic_id, gt.src_lang, $2, gt.src_title_en, $3, $4, $5, $6 "
-            "FROM global_topics gt WHERE gt.topic_id = $7 RETURNING skip_value, (SELECT gt.words FROM global_topics gt WHERE gt.topic_id = $7)",
+            "FROM global_topics gt WHERE gt.topic_id = $7 "
+            "ON CONFLICT (user_id, topic_id, dst_lang) DO NOTHING "
+            "RETURNING skip_value",
             user_id, dst_lang, local_constants::topics::mix_value, local_constants::topics::skip_value, new_position, true, topic_id
         );
 
-        if (!result.affectedRows()) {
-            throw std::runtime_error("not_updated");
-        }
-
         result_skip_options["max_skip_value"] = local_constants::topics::max_skip_value;
         result_skip_options["min_skip_value"] = local_constants::topics::min_skip_value;
-        result_skip_options["skip_value"] = result[0]["skip_value"].as<float>();
-        result_skip_options["words"] = result[0]["words"].as<std::string>();
+        result_skip_options["skip_value"] = result.size() ? result[0]["skip_value"].as<float>() : 0.0f;
+        result_skip_options["words"] = words;
 
         result_skip_options["topic_id"] = local_utils::topics::encode_topic_id(
             topic_id,
