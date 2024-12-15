@@ -780,35 +780,35 @@ Task<> UserFocusGroup::setCurrentWordPhase(HttpRequestPtr req, std::function<voi
 
         auto current_time = local_utils::time::get_unix_timestamp();
 
-        auto old_focus_group_last_update_time_result = co_await users_db->execSqlCoro(
-            "select focus_group_last_update_time from user_sequence where user_id = $1", user_id
-        );
-
-        auto old_focus_group_last_update_time = old_focus_group_last_update_time_result[0]["focus_group_last_update_time"].as<uint32_t>();
-
         auto phase_index_str = std::to_string(std::stoi(phase_num_str) - 1);
 
-        // update word phase, mistake
-        auto update_word_phrase_result = co_await users_db->execSqlCoro(std::string(" UPDATE user_sequence") +
-            " SET focus_group_last_update_time = $1, focus_group = jsonb_set(focus_group, '{words}', (" +
-                " SELECT jsonb_agg(CASE WHEN word->>'word_id' = '" + word_id_str + "' THEN "
-                    " jsonb_set(jsonb_set(word, '{current_phase}', '" + phase_num_str + "'::jsonb), '{phases_mistakes," + phase_index_str + "}', '" + mistake_str + "'::jsonb)"
-                " ELSE word END) FROM jsonb_array_elements(focus_group->'words') AS word))"
-            " WHERE user_id = $2 AND focus_group_id = $3", current_time, user_id, focus_group_id
+        auto new_version_str = std::to_string(current_time);
+
+        auto update_word_phrase_result = co_await users_db->execSqlCoro(
+            " UPDATE user_sequence SET focus_group = jsonb_set("
+                " CASE "
+                    " WHEN COALESCE((focus_group #>> '{versions," + device_num_str + "}')::int, -1) = focus_group_last_update_time"
+                    " THEN jsonb_set(focus_group, '{versions," + device_num_str + "}', '" + new_version_str + "'::jsonb)"
+                    " ELSE focus_group"
+                " END,"
+                " '{words}',"
+                " ("
+                    " SELECT jsonb_agg("
+                        " CASE "
+                            " WHEN word->>'word_id' = '" + word_id_str + "' "
+                            " THEN jsonb_set(jsonb_set(word, '{current_phase}', '" + phase_num_str + "'::jsonb), '{phases_mistakes," + phase_index_str + "}', '" + mistake_str + "'::jsonb)"
+                            " ELSE word"
+                        " END"
+                    " ) "
+                    " FROM jsonb_array_elements(focus_group->'words') AS word"
+                " )"
+            " )"
+            " , focus_group_last_update_time = $1 WHERE user_id = $2 AND focus_group_id = $3", current_time, user_id, focus_group_id
         );
 
         if (!update_word_phrase_result.affectedRows()) {
             throw std::runtime_error("no_word_was_updated");
         }
-
-        auto new_version_str = std::to_string(current_time);
-
-        // update_device_version
-        co_await users_db->execSqlCoro(std::string("UPDATE user_sequence") +
-            " SET focus_group = jsonb_set(focus_group, '{versions," + device_num_str + "}', '" + new_version_str + "'::jsonb)"
-            " WHERE user_id = $1 AND focus_group_id = $2 AND (focus_group->'versions'->>'" + device_num_str + "')::int = $3", 
-            user_id, focus_group_id, old_focus_group_last_update_time
-        );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);

@@ -155,7 +155,7 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
         auto lang_pairs_result = co_await users_db->execSqlCoro(
             " select src_lang, dst_lang, mix_value"
             " from user_language_pairs"
-            " where user_id = $1 and is_enabled = true order by last_enable_time desc", user_id
+            " where user_id = $1 and is_enabled = true order by last_enable_time asc", user_id
         );
 
         auto topics_result = co_await users_db->execSqlCoro(
@@ -209,7 +209,7 @@ Task<> UserTopics::getUserTopics(HttpRequestPtr req, std::function<void(const Ht
                 "and ulp.user_id = $1 "
                 "and gt.topic_id is not null "
                 ") "
-            "order by ulp_last_enable_time desc, is_enabled desc, position asc, topic_type asc",
+            "order by ulp_last_enable_time asc, is_enabled desc, position asc, topic_type asc",
             user_id
         );
 
