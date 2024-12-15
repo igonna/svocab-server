@@ -371,6 +371,39 @@ std::string shuffle_string(const std::string& str, const char* language) {
     return utf8_str;
 }
 
+std::string shuffle_string_in_the_middle(const std::string& str, const char* language) {
+    auto locale = icu::Locale(language);
+
+    auto unicode_str = core::text_processing::string_to_unicode(str);
+    unicode_str = unicode_str.toLower(locale);
+
+    std::vector<UChar> chars_vec;
+    chars_vec.assign(unicode_str.getBuffer(), unicode_str.getBuffer() + unicode_str.length());
+
+    size_t length = chars_vec.size();
+    if (length <= 2) {
+        return str;
+    }
+
+    size_t start = length / 3;
+    size_t end = length * 2 / 3;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(chars_vec.begin() + start, chars_vec.begin() + end, gen);
+
+    icu::UnicodeString shuffled_str;
+    shuffled_str.append(chars_vec.data(), start);
+    shuffled_str.append(chars_vec.data() + start, end - start);
+    shuffled_str.append(chars_vec.data() + end, length - end);
+
+    std::string utf8_str;
+    shuffled_str.toUTF8String(utf8_str);
+
+    return utf8_str;
+}
+
+
 std::vector<std::string> extract_letters_as_strings(const std::string& str, const char* language) {
     auto locale = icu::Locale(language);
 

@@ -16,35 +16,35 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
     constexpr uint32_t min_num = 1;
     auto max_num = max_word_phrase_table_id[0]["max_id"].as<uint32_t>();
 
-    auto random_word_nums = local_utils::random::get_random_nums_in_range(min_num, max_num, 2);
-
     std::vector<std::string> guess_words;
     std::vector<std::string> guess_letters;
 
     guess_words.push_back(user_word.word);
 
-    for (auto random_word_num : random_word_nums) {
-        // get word by id from db
-        auto random_word_result = co_await translations_db->execSqlCoro(
-            "select word from " + word_phrase_table_name + " where dst_lang = $1 and id = $2 limit 1",
-            user_word.dst_lang,
-            random_word_num
-        );
+    // try to add all different words
+    constexpr uint32_t guess_words_count = 3;
+    std::unordered_set<std::string> unique_words;
+    unique_words.insert(user_word.word);
 
-        auto word = random_word_result[0]["word"].as<std::string>();
+    constexpr uint32_t max_retries = 20;
+    uint32_t retries = 0;
 
-        // if word already exists
-        if(std::find(guess_words.begin(), guess_words.end(), word) != guess_words.end()) {
-            word = core::text_processing::shuffle_string(word, user_word.src_lang.c_str());
+    while (guess_words.size() < guess_words_count && retries < max_retries) {
+        std::string shuffled_word = core::text_processing::shuffle_string_in_the_middle(user_word.word, user_word.src_lang.c_str());
+        if (!unique_words.contains(shuffled_word)) {
+            guess_words.push_back(shuffled_word);
+            unique_words.insert(shuffled_word);
         }
-
-        guess_words.push_back(std::move(word));
+        ++retries;
     }
 
-    constexpr uint32_t guess_words_count = 3;
+    // if failed to have different words add left
     while (guess_words.size() != guess_words_count) {
-        auto shuffled_word = core::text_processing::shuffle_string(user_word.word, user_word.src_lang.c_str());
-        guess_words.push_back(std::move(shuffled_word));
+        if (user_word.word.size() > 3) {
+            guess_words.push_back(core::text_processing::shuffle_string_in_the_middle(user_word.word, user_word.src_lang.c_str()));
+        } else {
+            guess_words.push_back(core::text_processing::shuffle_string(user_word.word, user_word.src_lang.c_str()));
+        }
     }
 
     auto letters = core::text_processing::extract_letters_as_strings(user_word.word, user_word.src_lang.c_str());
@@ -54,15 +54,25 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
         std::make_move_iterator(letters.end())
     );
 
-    if (guess_words.size() > 1) {
-        auto& second_guess_word = guess_words.at(1);
-        auto letters = core::text_processing::extract_letters_as_strings(second_guess_word, user_word.src_lang.c_str());
+    {
+        auto random_word_nums = local_utils::random::get_random_nums_in_range(min_num, max_num, 1);
 
-        constexpr uint32_t guess_letters_to_add_from_second_word = 3;
+        // get word by id from db
+        auto random_word_result = co_await translations_db->execSqlCoro(
+            "select word from " + word_phrase_table_name + " where dst_lang = $1 and id = $2 limit 1",
+            user_word.dst_lang,
+            *random_word_nums.begin()
+        );
+
+        auto random_word = random_word_result[0]["word"].as<std::string>();
+
+        auto letters = core::text_processing::extract_letters_as_strings(random_word, user_word.src_lang.c_str());
+
+        constexpr uint32_t guess_letters_to_add_from_random_word = 3;
         uint32_t letters_added = 0;
 
         for (auto& letter : letters) {
-            if (++letters_added > guess_letters_to_add_from_second_word) break;
+            if (++letters_added > guess_letters_to_add_from_random_word) break;
             guess_letters.push_back(std::move(letter));
         }
     }
