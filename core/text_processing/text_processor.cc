@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <random>
+#include <chrono>
 
 namespace core::text_processing
 {
@@ -389,8 +390,10 @@ std::string shuffle_string_in_the_middle(const std::string& str, const char* lan
     size_t end = length * 2 / 3;
 
     std::random_device rd;
-    std::mt19937 gen(rd());
-    std::shuffle(chars_vec.begin() + start, chars_vec.begin() + end, gen);
+    auto now = std::chrono::high_resolution_clock::now();
+    auto duration = now.time_since_epoch();
+    uint64_t seed = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+    std::shuffle(chars_vec.begin() + start, chars_vec.begin() + end, std::default_random_engine(seed));
 
     icu::UnicodeString shuffled_str;
     shuffled_str.append(chars_vec.data(), start);

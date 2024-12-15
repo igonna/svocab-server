@@ -32,7 +32,8 @@ Task<> UserFocusGroup::isFocusGroupUpdateRequired(HttpRequestPtr req, std::funct
         auto result = co_await users_db->execSqlCoro(
             "SELECT 1 FROM user_sequence WHERE user_id = $1"
             " AND (focus_group_last_update_time IS DISTINCT FROM"
-            " COALESCE(NULLIF(focus_group->'versions'->>$2, '')::integer, NULL) OR NOT (focus_group->'versions' ? $2))", 
+            " COALESCE(NULLIF(focus_group->'versions'->>$2, '')::integer, NULL) OR NOT (focus_group->'versions' ? $2))"
+            " AND (focus_group->'group_id' IS NOT NULL)",
             user_id, device_num_str
         );
 

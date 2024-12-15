@@ -40,11 +40,7 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
 
     // if failed to have different words add left
     while (guess_words.size() != guess_words_count) {
-        if (user_word.word.size() > 3) {
-            guess_words.push_back(core::text_processing::shuffle_string_in_the_middle(user_word.word, user_word.src_lang.c_str()));
-        } else {
-            guess_words.push_back(core::text_processing::shuffle_string(user_word.word, user_word.src_lang.c_str()));
-        }
+        guess_words.push_back(core::text_processing::shuffle_string(user_word.word, user_word.src_lang.c_str()));
     }
 
     auto letters = core::text_processing::extract_letters_as_strings(user_word.word, user_word.src_lang.c_str());
