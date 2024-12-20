@@ -415,34 +415,12 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto new_focus_group_id = co_await get_new_focus_group_id(users_db, user_id);
 
         // create json focus group
-        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id);
+        auto is_multiple_languages = co_await get_is_multiple_languages(users_db, user_id);
+        auto user_special_offer_type_opt = co_await get_user_special_offer_type(users_db, user_id);
+        auto user_special_offer_type = user_special_offer_type_opt.has_value() ? user_special_offer_type_opt.value() : "";
+        auto learned_this_time = co_await get_learned_this_time(users_db, user_id);
 
-        // add special offer type to focus group
-        auto user_special_offer_type = co_await get_user_special_offer_type(users_db, user_id);
-        if (user_special_offer_type.has_value()) {
-            result_focus_group["special_offer_type"] = user_special_offer_type.value();
-        } else {
-            result_focus_group["special_offer_type"] = Json::nullValue;
-        }
-
-        // add learned this time
-        auto learned_this_time_result = co_await users_db->execSqlCoro(
-            "select learned_this_time from user_statistics where user_id = $1", user_id
-        );
-        auto learned_this_time_value = learned_this_time_result[0]["learned_this_time"].as<uint32_t>();
-        result_focus_group["learned_this_time"] = learned_this_time_value;
-
-        // add versions
-        auto& versions = result_focus_group["versions"] = Json::objectValue;
-        versions[std::to_string(device_num)] = current_time;
-
-        // add is multiple languages
-        auto languages_count_result = co_await users_db->execSqlCoro(
-            "select user_id, COUNT(DISTINCT src_lang) AS unique_src_lang_count"
-            " from user_language_pairs where is_enabled = true and user_id = $1 GROUP BY user_id", user_id
-        );
-        auto unique_src_lang_count = languages_count_result[0]["unique_src_lang_count"].as<uint32_t>();
-        result_focus_group["is_multiple_languages"] = unique_src_lang_count > 1;
+        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
 
         // update db focus group
         auto focus_group_json_str = local_utils::json::json_to_string(result_focus_group);
@@ -464,10 +442,25 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
-Json::Value UserFocusGroup::create_focus_group_json(const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, uint32_t focus_group_id) {
+Json::Value UserFocusGroup::create_focus_group_json(
+    const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
+    uint32_t focus_group_id,
+    uint32_t learned_this_time,
+    bool is_multiple_languages,
+    uint32_t device_num,
+    const std::string& special_offer_type
+) {
     Json::Value result;
 
     result["group_id"] = focus_group_id;
+    auto& versions = result["versions"] = Json::objectValue;
+    versions[std::to_string(device_num)] = local_utils::time::get_unix_timestamp();
+    result["is_multiple_languages"] = is_multiple_languages;
+    if (special_offer_type.size()) {
+        result["special_offer_type"] = special_offer_type;
+    } else {
+        result["special_offer_type"] = Json::nullValue;
+    }
     auto& words = result["words"] = Json::arrayValue;
 
     uint32_t word_num = 0;
@@ -698,16 +691,12 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
         auto new_focus_group_id = co_await get_new_focus_group_id(users_db, user_id);
 
         // create json focus group
-        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id);
-        result_focus_group["special_offer_type"] = old_focus_group.isMember("special_offer_type") 
-            ? old_focus_group["special_offer_type"] : Json::nullValue;
+        auto is_multiple_languages = co_await get_is_multiple_languages(users_db, user_id);
+        auto user_special_offer_type_opt = co_await get_user_special_offer_type(users_db, user_id);
+        auto user_special_offer_type = user_special_offer_type_opt.has_value() ? user_special_offer_type_opt.value() : "";
+        auto learned_this_time = co_await get_learned_this_time(users_db, user_id);
 
-        // add learned this time
-        auto learned_this_time_result = co_await users_db->execSqlCoro(
-            "select learned_this_time from user_statistics where user_id = $1", user_id
-        );
-        auto learned_this_time_value = learned_this_time_result[0]["learned_this_time"].as<uint32_t>();
-        result_focus_group["learned_this_time"] = learned_this_time_value;
+        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
 
         // update new focus group with old results
         auto& new_words = result_focus_group["words"];
@@ -730,10 +719,6 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
                 }
             }
         }
-
-        // add versions
-        auto& versions = result_focus_group["versions"] = Json::objectValue;
-        versions[std::to_string(device_num)] = current_time;
 
         // update db focus group
         auto focus_group_json_str = local_utils::json::json_to_string(result_focus_group);
@@ -1146,5 +1131,25 @@ Task<> UserFocusGroup::completeFocusGroup(HttpRequestPtr req, std::function<void
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
     co_return local_utils::Response::JSON_OK(callback, focus_group_summary);
+}
+
+Task<uint32_t> UserFocusGroup::get_learned_this_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto statistics_info_result = co_await users_db->execSqlCoro(
+        "select learned_this_time, last_learn_time from user_statistics where user_id = $1", user_id
+    );
+    auto learned_this_time = statistics_info_result[0]["learned_this_time"].as<uint32_t>();
+	auto last_learn_time = statistics_info_result[0]["last_learn_time"].as<uint32_t>();
+
+    auto current_time = local_utils::time::get_unix_timestamp();
+
+    co_return (current_time - last_learn_time > local_constants::statistics::learned_this_time_expire_seconds) ? 0 : learned_this_time;
+}
+
+Task<bool> UserFocusGroup::get_is_multiple_languages(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto languages_count_result = co_await users_db->execSqlCoro(
+        "select user_id, COUNT(DISTINCT src_lang) AS unique_src_lang_count"
+        " from user_language_pairs where is_enabled = true and user_id = $1 GROUP BY user_id", user_id
+    );
+    co_return languages_count_result[0]["unique_src_lang_count"].as<uint32_t>() > 1;
 }
 }

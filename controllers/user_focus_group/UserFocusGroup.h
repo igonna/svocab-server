@@ -58,7 +58,15 @@ private:
 
 	Task<uint32_t> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
-	Json::Value create_focus_group_json(const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, uint32_t focus_group_id);
+	Json::Value create_focus_group_json(
+		const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
+		uint32_t focus_group_id,
+		uint32_t learned_this_time,
+		bool is_multiple_languages,
+		uint32_t device_num,
+		const std::string& special_offer_type = ""
+	);
+
 	void clear_focus_group_from_technical_data(Json::Value& focus_group);
 	std::tuple<uint32_t, uint32_t> decode_word_id(const std::string& word_id_str);
 
@@ -77,5 +85,8 @@ private:
 		std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
 		uint32_t focus_group_size
 	);
+
+	Task<uint32_t> get_learned_this_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+	Task<bool> get_is_multiple_languages(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 };
 }
