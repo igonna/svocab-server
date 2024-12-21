@@ -16,7 +16,7 @@ namespace random {
 
         std::unordered_set<uint32_t> result;
 
-        if (count < 0 || min_num == max_num) return result;
+        if (count <= 0 || min_num >= max_num) return result;
 
         while (result.size() != count) {
             result.insert(distr(gen));

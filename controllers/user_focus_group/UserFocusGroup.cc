@@ -456,6 +456,7 @@ Json::Value UserFocusGroup::create_focus_group_json(
     auto& versions = result["versions"] = Json::objectValue;
     versions[std::to_string(device_num)] = local_utils::time::get_unix_timestamp();
     result["is_multiple_languages"] = is_multiple_languages;
+    result["learned_this_time"] = learned_this_time;
     if (special_offer_type.size()) {
         result["special_offer_type"] = special_offer_type;
     } else {

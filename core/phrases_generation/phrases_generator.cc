@@ -52,24 +52,27 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
 
     {
         auto random_word_nums = local_utils::random::get_random_nums_in_range(min_num, max_num, 1);
+        auto random_word_id = random_word_nums.size() ? *random_word_nums.begin() : 0;
 
         // get word by id from db
         auto random_word_result = co_await translations_db->execSqlCoro(
             "select word from " + word_phrase_table_name + " where dst_lang = $1 and id = $2 limit 1",
             user_word.dst_lang,
-            *random_word_nums.begin()
+            random_word_id
         );
 
-        auto random_word = random_word_result[0]["word"].as<std::string>();
+        if (random_word_result.size()) {
+            auto random_word = random_word_result[0]["word"].as<std::string>();
 
-        auto letters = core::text_processing::extract_letters_as_strings(random_word, user_word.src_lang.c_str());
+            auto random_word_letters = core::text_processing::extract_letters_as_strings(random_word, user_word.src_lang.c_str());
 
-        constexpr uint32_t guess_letters_to_add_from_random_word = 3;
-        uint32_t letters_added = 0;
+            constexpr uint32_t guess_letters_to_add_from_random_word = 3;
+            uint32_t letters_added = 0;
 
-        for (auto& letter : letters) {
-            if (++letters_added > guess_letters_to_add_from_random_word) break;
-            guess_letters.push_back(std::move(letter));
+            for (auto& letter : random_word_letters) {
+                if (++letters_added > guess_letters_to_add_from_random_word) break;
+                guess_letters.push_back(std::move(letter));
+            }
         }
     }
 
