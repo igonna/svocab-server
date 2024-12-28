@@ -125,7 +125,7 @@ std::unordered_set<uint32_t> get_desired_script_codes(const char* language) {
         return desired_script_codes;
     }
 
-    for (int i = 0; i < script_count; ++i) {
+    for (uint32_t i = 0; i < script_count; ++i) {
         desired_script_codes.insert(script_buff[i]);
     }
 
@@ -185,16 +185,17 @@ namespace special_chars {
 }
 
 bool is_word_char_valid(UChar32 c, LID lang_id, const std::unordered_set<uint32_t>& desired_script_codes, bool non_spacing_mark_required) {
-    // if (is_alpha_from_lang(c, lang_id) && is_char_script_desired(c, desired_script_codes)) return true;
-    if (is_char_script_desired(c, desired_script_codes)) return true;
-
     auto char_type = u_charType(c);
 
-    if (char_type == U_LOWERCASE_LETTER || char_type == U_UPPERCASE_LETTER || char_type == U_OTHER_LETTER) {
-        return true;
-    }
+    if (is_alpha_from_lang(c, lang_id)) {
+        if (is_char_script_desired(c, desired_script_codes)) return true;
 
-    if (non_spacing_mark_required && char_type == U_NON_SPACING_MARK) return true;
+        // if (char_type == U_LOWERCASE_LETTER || char_type == U_UPPERCASE_LETTER || char_type == U_OTHER_LETTER) {
+        //     return true;
+        // }
+    } else {
+        if (non_spacing_mark_required && char_type == U_NON_SPACING_MARK) return true;
+    }
 
     // language specific
     if (lang_id == LID::ja) {
