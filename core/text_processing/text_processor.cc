@@ -23,51 +23,6 @@
 namespace core::text_processing
 {
 
-enum class LID : int32_t {unknown = 0, en = 1033};
-
-inline bool is_alpha_from_lang(UChar32 ch, LID lang_id) {
-    if (lang_id == LID::en) {
-        return (ch >= 0x41 && ch <= 0x5A) || (ch >= 0x61 && ch <= 0x7A);
-    }
-    return u_isalpha(ch);
-}
-
-LID get_lang_id_from_lang(const char* lang) {
-    static const std::unordered_map<std::string, LID> ids = {{"en", LID::en}};
-
-    try {
-        return ids.at(lang);
-    } catch (...) {
-        return LID::unknown;
-    }
-}
-
-uint32_t get_desired_script_code(const char* language) {
-    UErrorCode status = U_ZERO_ERROR;
-    UScriptCode script_buff[10] = {USCRIPT_INVALID_CODE};
-    int script_count = uscript_getCode(language, script_buff, ULOC_KEYWORDS_CAPACITY, &status);
-
-    uint32_t desired_script_code = 0;
-
-    if (!U_FAILURE(status)) {
-        if (script_count > 0) {
-            desired_script_code = script_buff[0];
-        }
-    }
-    return desired_script_code;
-}
-
-inline bool is_char_script_desired(UChar c, uint32_t desired_script_code) {
-    UErrorCode status = U_ZERO_ERROR;
-    UScriptCode script_code = uscript_getScript(c, &status);
-
-    if (U_FAILURE(status)) {
-        return true;
-    }
-
-    return script_code == desired_script_code;
-}
-
 UChar32 get_apostrophe_for_lang(const std::string& lang) {
     static const std::unordered_map<std::string, UChar32> apostrophes_per_lang = {
         // Languages with U+2019 (Typographic Apostrophe)
@@ -159,6 +114,98 @@ inline bool is_apostrophe(UChar32 c) {
     return apostrophe_symbols.contains(c);
 }
 
+std::unordered_set<uint32_t> get_desired_script_codes(const char* language) {
+    UErrorCode status = U_ZERO_ERROR;
+    UScriptCode script_buff[10] = {USCRIPT_INVALID_CODE};
+    int script_count = uscript_getCode(language, script_buff, ULOC_KEYWORDS_CAPACITY, &status);
+
+    std::unordered_set<uint32_t> desired_script_codes;
+
+    if (U_FAILURE(status) || script_count < 1) {
+        return desired_script_codes;
+    }
+
+    for (int i = 0; i < script_count; ++i) {
+        desired_script_codes.insert(script_buff[i]);
+    }
+
+    desired_script_codes.insert(static_cast<uint32_t>(USCRIPT_INHERITED));
+
+    return desired_script_codes;
+}
+
+inline std::string unicode_to_str(const icu::UnicodeString& unicode_str) {
+    std::string utf8Str;
+    unicode_str.toUTF8String(utf8Str);
+    return utf8Str;
+}
+
+inline bool is_char_script_desired(UChar c, const std::unordered_set<uint32_t>& desired_script_codes) {
+    UErrorCode status = U_ZERO_ERROR;
+    UScriptCode script_code = uscript_getScript(c, &status);
+
+    if (U_FAILURE(status)) {
+        return true;
+    }
+
+    return desired_script_codes.contains(script_code);
+}
+
+enum class LID : int32_t {unknown = 0, en = 1, ja = 2, ca = 3};
+
+LID get_lang_id_from_lang(const char* lang) {
+    static const std::unordered_map<std::string, LID> ids = {
+        {"en", LID::en},
+        {"ja", LID::ja},
+        {"ca", LID::ca}
+    };
+
+    try {
+        return ids.at(lang);
+    } catch (...) {
+        return LID::unknown;
+    }
+}
+
+inline bool is_alpha_from_lang(UChar32 ch, LID lang_id) {
+    if (lang_id == LID::en) {
+        return (ch >= 0x41 && ch <= 0x5A) || (ch >= 0x61 && ch <= 0x7A);
+    }
+    return u_isalpha(ch);
+}
+
+inline bool is_non_spacing_mark_required(const std::string& language) {
+    static const std::unordered_set<std::string> non_spacing_mark_langs = {"ar", "fa", "mr", "hi", "ta", "te", "kn", "ml", "bn", "gu", "pa"};
+    return non_spacing_mark_langs.contains(language);
+}
+
+namespace special_chars {
+    static const std::unordered_set<UChar32> japanese = {0x30FC};
+    static const std::unordered_set<UChar32> catalan = {0xB7};
+}
+
+bool is_word_char_valid(UChar32 c, LID lang_id, const std::unordered_set<uint32_t>& desired_script_codes, bool non_spacing_mark_required) {
+    // if (is_alpha_from_lang(c, lang_id) && is_char_script_desired(c, desired_script_codes)) return true;
+    if (is_char_script_desired(c, desired_script_codes)) return true;
+
+    auto char_type = u_charType(c);
+
+    if (char_type == U_LOWERCASE_LETTER || char_type == U_UPPERCASE_LETTER || char_type == U_OTHER_LETTER) {
+        return true;
+    }
+
+    if (non_spacing_mark_required && char_type == U_NON_SPACING_MARK) return true;
+
+    // language specific
+    if (lang_id == LID::ja) {
+        if (special_chars::japanese.contains(c)) return true;
+    } else if (lang_id == LID::ca) {
+        if (special_chars::catalan.contains(c)) return true;
+    }
+
+    return false;
+}
+
 std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language) {
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> words_data;
     
@@ -174,9 +221,11 @@ std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_fr
 
     bi->setText(text);
 
-    uint32_t desired_script_code = get_desired_script_code(language);
+    auto desired_script_codes = get_desired_script_codes(language);
 
     auto lang_id = get_lang_id_from_lang(language);
+
+    auto non_spacing_mark_required = is_non_spacing_mark_required(language);
 
     int32_t start = bi->first();
     for (int32_t end = bi->next(); end != icu::BreakIterator::DONE; start = end, end = bi->next()) {
@@ -190,14 +239,18 @@ std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_fr
         for (int32_t i = 0; i < word.length(); ++i) {
             UChar32 c = word.char32At(i);
 
-            bool is_apostr = is_apostrophe(c);
-            if (!(is_alpha_from_lang(c, lang_id) && is_char_script_desired(c, desired_script_code)) && !is_apostr || u_isdigit(c)) {
+            if (u_isdigit(c)) {
                 is_valid_word = false;
                 break;
             }
 
-            if (is_apostr) {
+            if (is_apostrophe(c)) {
                 word.setCharAt(i, get_apostrophe_for_lang(language));
+            } else {
+                if (!is_word_char_valid(c, lang_id, desired_script_codes, non_spacing_mark_required)) {
+                    is_valid_word = false;
+                    break;
+                }
             }
         }
 
