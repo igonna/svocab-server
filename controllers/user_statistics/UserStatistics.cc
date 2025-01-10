@@ -33,8 +33,13 @@ Task<> UserStatistics::getUserStatistics(HttpRequestPtr req, std::function<void(
         statistics["learned_this_time"] = 
             (current_time - last_learn_time > local_constants::statistics::learned_this_time_expire_seconds) 
             ? 0 : row["learned_this_time"].as<uint32_t>();
-        statistics["learned_today"] = row["learned_today"].as<uint32_t>();
-        statistics["repeated_today"] = row["repeated_today"].as<uint32_t>();
+
+        auto days_since_current_time = local_utils::time::get_days_passed_since_epoch(current_time);
+        auto days_since_last_learn_time = local_utils::time::get_days_passed_since_epoch(last_learn_time);
+        auto days_difference_since_last_learn = days_since_current_time - days_since_last_learn_time;
+
+        statistics["learned_today"] = days_difference_since_last_learn == 0 ? row["learned_today"].as<uint32_t>() : 0;
+        statistics["repeated_today"] = days_difference_since_last_learn == 0 ? row["repeated_today"].as<uint32_t>() : 0;
         statistics["total_learned_words"] = row["learned_words_total"].as<uint32_t>();
 
         // performance
