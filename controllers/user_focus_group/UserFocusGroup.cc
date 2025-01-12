@@ -33,7 +33,7 @@ Task<> UserFocusGroup::isFocusGroupUpdateRequired(HttpRequestPtr req, std::funct
             "SELECT 1 FROM user_sequence WHERE user_id = $1"
             " AND (focus_group_last_update_time IS DISTINCT FROM"
             " COALESCE(NULLIF(focus_group->'versions'->>$2, '')::integer, NULL) OR NOT (focus_group->'versions' ? $2))"
-            " AND (focus_group->'group_id' IS NOT NULL)",
+            " AND (focus_group->'group_id' IS NOT NULL) FOR SHARE",
             user_id, device_num_str
         );
 
@@ -757,7 +757,6 @@ Task<> UserFocusGroup::setCurrentWordPhase(HttpRequestPtr req, std::function<voi
     }
 
     try {
-        auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
         auto device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
 
@@ -771,7 +770,15 @@ Task<> UserFocusGroup::setCurrentWordPhase(HttpRequestPtr req, std::function<voi
 
         auto new_version_str = std::to_string(current_time);
 
-        auto update_word_phrase_result = co_await users_db->execSqlCoro(
+        auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
+
+        auto update_word_phrase_result = co_await transaction->execSqlCoro(
+            " WITH selected_rows AS ("
+                " SELECT focus_group, focus_group_last_update_time"
+                " FROM user_sequence"
+                " WHERE user_id = $2 AND focus_group_id = $3"
+                " FOR UPDATE"
+            " )"
             " UPDATE user_sequence SET focus_group = jsonb_set("
                 " CASE "
                     " WHEN COALESCE((focus_group #>> '{versions," + device_num_str + "}')::int, -1) = focus_group_last_update_time"
@@ -793,6 +800,19 @@ Task<> UserFocusGroup::setCurrentWordPhase(HttpRequestPtr req, std::function<voi
             " , focus_group_last_update_time = $1 WHERE user_id = $2 AND focus_group_id = $3", current_time, user_id, focus_group_id
         );
 
+        transaction->setCommitCallback([moved_callback = std::move(callback)](bool success) -> void {
+            if (success) {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::k200OK);
+                moved_callback(resp);
+            } else {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::k500InternalServerError);
+                resp->setBody("something_wrong");
+                moved_callback(resp);
+            }
+        });
+
         if (!update_word_phrase_result.affectedRows()) {
             throw std::runtime_error("no_word_was_updated");
         }
@@ -800,7 +820,6 @@ Task<> UserFocusGroup::setCurrentWordPhase(HttpRequestPtr req, std::function<voi
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
-    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> UserFocusGroup::setSpecialOfferPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
