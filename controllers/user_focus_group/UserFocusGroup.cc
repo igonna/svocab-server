@@ -715,7 +715,7 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
                 auto old_word_str = old_word["word"].as<std::string>();
                 auto old_word_src_lang = old_word["src_lang"].as<std::string>();
 
-                if (new_word_str == new_word_str && new_word_src_lang == old_word_src_lang) {
+                if (new_word_str == old_word_str && new_word_src_lang == old_word_src_lang) {
                     new_word["current_phase"] = old_word["current_phase"];
                     new_word["phases_mistakes"] = old_word["phases_mistakes"];
                 }
