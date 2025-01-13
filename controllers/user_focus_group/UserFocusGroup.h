@@ -59,6 +59,7 @@ private:
 	Task<uint32_t> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
 	Json::Value create_focus_group_json(
+		uint32_t current_time,
 		const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
 		uint32_t focus_group_id,
 		uint32_t learned_this_time,

@@ -420,7 +420,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
         auto user_special_offer_type = user_special_offer_type_opt.has_value() ? user_special_offer_type_opt.value() : "";
         auto learned_this_time = co_await get_learned_this_time(users_db, user_id);
 
-        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
+        result_focus_group = create_focus_group_json(current_time, focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
 
         // update db focus group
         auto focus_group_json_str = local_utils::json::json_to_string(result_focus_group);
@@ -443,6 +443,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
 }
 
 Json::Value UserFocusGroup::create_focus_group_json(
+    uint32_t current_time,
     const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
     uint32_t focus_group_id,
     uint32_t learned_this_time,
@@ -454,7 +455,7 @@ Json::Value UserFocusGroup::create_focus_group_json(
 
     result["group_id"] = focus_group_id;
     auto& versions = result["versions"] = Json::objectValue;
-    versions[std::to_string(device_num)] = local_utils::time::get_unix_timestamp();
+    versions[std::to_string(device_num)] = current_time;
     result["is_multiple_languages"] = is_multiple_languages;
     result["learned_this_time"] = learned_this_time;
     if (special_offer_type.size()) {
@@ -697,7 +698,7 @@ Task<> UserFocusGroup::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::func
         auto user_special_offer_type = user_special_offer_type_opt.has_value() ? user_special_offer_type_opt.value() : "";
         auto learned_this_time = co_await get_learned_this_time(users_db, user_id);
 
-        result_focus_group = create_focus_group_json(focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
+        result_focus_group = create_focus_group_json(current_time, focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
 
         // update new focus group with old results
         auto& new_words = result_focus_group["words"];

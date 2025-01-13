@@ -1,13 +1,11 @@
 #include "text_processor.h"
 
-#include <unicode/uchar.h>
 #include <unicode/brkiter.h>
 #include <memory>
 #include <unordered_map>
 #include <map>
 
 #include <iostream>
-#include <unicode/uscript.h>
 
 #include <unicode/uchar.h>
 #include <unicode/uscript.h>
@@ -134,7 +132,7 @@ std::unordered_set<uint32_t> get_desired_script_codes(const char* language) {
     return desired_script_codes;
 }
 
-inline std::string unicode_to_str(const icu::UnicodeString& unicode_str) {
+std::string unicode_to_str(const icu::UnicodeString& unicode_str) {
     std::string utf8Str;
     unicode_str.toUTF8String(utf8Str);
     return utf8Str;
@@ -405,11 +403,8 @@ std::string unicode_str_to_lower(const std::string& str, const char* language) {
     return utf8_str;
 }
 
-std::string shuffle_string(const std::string& str, const char* language) {
-    auto locale = icu::Locale(language);
-
+std::string shuffle_string(const std::string& str) {
     auto unicode_str = core::text_processing::string_to_unicode(str);
-    unicode_str = unicode_str.toLower(locale);
 
     std::vector<UChar> chars_vec;
     chars_vec.assign(unicode_str.getBuffer(), unicode_str.getBuffer() + unicode_str.length());
@@ -424,6 +419,19 @@ std::string shuffle_string(const std::string& str, const char* language) {
     shuffled_str.toUTF8String(utf8_str);
 
     return utf8_str;
+}
+
+icu::UnicodeString shuffle_unicode_string(const icu::UnicodeString& unicode_str) {
+    std::vector<UChar> chars_vec;
+    chars_vec.assign(unicode_str.getBuffer(), unicode_str.getBuffer() + unicode_str.length());
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(chars_vec.begin(), chars_vec.end(), rd);
+
+    icu::UnicodeString shuffled_str(chars_vec.data(), chars_vec.size());
+
+    return shuffled_str;
 }
 
 std::string shuffle_string_in_the_middle(const std::string& str, const char* language) {

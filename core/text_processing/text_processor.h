@@ -23,6 +23,8 @@ namespace core::text_processing
         return icu::UnicodeString::fromUTF8(icu::StringPiece(str.data()));
     }
 
+    std::string unicode_to_str(const icu::UnicodeString& unicode_str);
+
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language);
     std::string text_to_processed_source(icu::UnicodeString&& text, const char* language);
 
@@ -33,7 +35,8 @@ namespace core::text_processing
     std::vector<std::string> extract_words_and_punctuation_from_str(const std::string& str, const char* language);
     std::string unicode_str_to_lower(const std::string& str, const char* language);
 
-    std::string shuffle_string(const std::string& str, const char* language);
+    std::string shuffle_string(const std::string& str);
+    icu::UnicodeString shuffle_unicode_string(const icu::UnicodeString& unicode_str);
     std::string shuffle_string_in_the_middle(const std::string& str, const char* language);
     std::vector<std::string> extract_letters_as_strings(const std::string& str, const char* language);
 }

@@ -1,7 +1,6 @@
 #include "OpenaiPhraseGeneration.h"
 #include "utils/utils.h"
 #include "core/text_processing/text_processor.h"
-#include <unicode/uchar.h>
 #include <drogon/drogon.h>
 #include "utils/constants.h"
 #include "core/postgres/queries.h"
