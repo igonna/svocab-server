@@ -9,20 +9,12 @@
 
 namespace local_utils {
 namespace random {
-    std::unordered_set<uint32_t> get_random_nums_in_range(uint32_t min_num, uint32_t max_num, uint32_t count) {
+    uint32_t get_random_number(uint32_t min, uint32_t max) {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<> distr(min_num, max_num);
+        std::uniform_int_distribution<> dis(min, max);
 
-        std::unordered_set<uint32_t> result;
-
-        if (count <= 0 || min_num >= max_num) return result;
-
-        while (result.size() != count) {
-            result.insert(distr(gen));
-        }
-
-        return result;
+        return dis(gen);
     }
 }
 

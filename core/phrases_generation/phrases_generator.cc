@@ -92,15 +92,10 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
     auto max_num = max_word_phrase_table_id[0]["max_id"].as<uint32_t>();
 
     // get random word from db
-    auto random_word_nums = local_utils::random::get_random_nums_in_range(min_num, max_num, 1);
-    auto random_word_id = random_word_nums.size() ? *random_word_nums.begin() : 0;
-    auto random_word_result = co_await translations_db->execSqlCoro(
-        "select word from " + word_phrase_table_name + " where dst_lang = $1 and id = $2 limit 1",
-        user_word.dst_lang,
-        random_word_id
-    );
+    auto random_word_id = local_utils::random::get_random_number(min_num, max_num);
+    auto random_word_result = co_await translations_db->execSqlCoro("select word from " + word_phrase_table_name + " where dst_lang = $1 and id = $2 limit 1", user_word.dst_lang, random_word_id);
 
-    std::string random_word = random_word_result.size() ? random_word_result[0]["word"].as<std::string>() : core::text_processing::shuffle_string("-_ioeu|~qse");
+    std::string random_word = random_word_result.size() ? random_word_result[0]["word"].as<std::string>() : user_word.word;
 
     // add guess letters
     std::vector<std::string> guess_letters;
@@ -122,8 +117,6 @@ drogon::Task<FocusGroupPhrase> PhrasesGenerator::generate_phrase_with_words_and_
             guess_letters.push_back(std::move(letter));
         }
     }
-
-
 
     // add guess words
     auto guess_words = get_guess_words(user_word.word, random_word);

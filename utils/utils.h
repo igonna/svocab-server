@@ -17,7 +17,7 @@ namespace json {
 }
 
 namespace random {
-    std::unordered_set<uint32_t> get_random_nums_in_range(uint32_t min_num, uint32_t max_num, uint32_t count);
+    uint32_t get_random_number(uint32_t min, uint32_t max);
 }
 
 // utils
