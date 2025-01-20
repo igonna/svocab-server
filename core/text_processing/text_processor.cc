@@ -391,6 +391,36 @@ std::vector<std::string> extract_words_and_punctuation_from_str(const std::strin
     return result;
 }
 
+std::vector<std::string> extract_words_from_str(const std::string& str, const char* language) {
+    auto unicode_str = core::text_processing::string_to_unicode(str);
+    
+    UErrorCode status = U_ZERO_ERROR;
+    auto locale = icu::Locale(language);
+    std::unique_ptr<icu::BreakIterator> bi(icu::BreakIterator::createWordInstance(locale, status));
+    if (U_FAILURE(status)) {
+        throw std::runtime_error("failed_to_process");
+    }
+
+    bi->setText(unicode_str);
+
+    std::vector<std::string> result;
+
+    int32_t start = bi->first();
+    for (int32_t end = bi->next(); end != icu::BreakIterator::DONE; start = end, end = bi->next()) {
+
+        icu::UnicodeString word_or_punctuation;
+        unicode_str.extractBetween(start, end, word_or_punctuation);
+
+        if (word_or_punctuation.length() && !u_isalpha(word_or_punctuation[0])) continue;
+
+        std::string utf8_word_or_punctuation;
+        word_or_punctuation.toUTF8String(utf8_word_or_punctuation);
+        result.push_back(std::move(utf8_word_or_punctuation));
+    }
+
+    return result;
+}
+
 std::string unicode_str_to_lower(const std::string& str, const char* language) {
     auto locale = icu::Locale(language);
 

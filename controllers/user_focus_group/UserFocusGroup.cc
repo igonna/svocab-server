@@ -403,6 +403,7 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 || user_words_sequence.empty() 
                 || focus_group_phrases.empty()
             ) {
+                std::cout << "here: " << focus_group_phrases.size() << " " << std::endl;
                 co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
             }
         } catch (const focus_group_generation_exceptions::user_blocked_from_generation& e) {
@@ -442,6 +443,44 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
+Json::Value UserFocusGroup::replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
+    Json::Value json_parts = Json::arrayValue;
+    auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
+    auto words_to_replace_vec = core::text_processing::extract_words_from_str(words, lang.c_str());
+    std::unordered_set<std::string> words_to_replace(words_to_replace_vec.begin(), words_to_replace_vec.end());
+    auto words_to_replace_count = words_to_replace.size();
+
+    uint32_t words_to_replace_passed = 0;
+
+    std::string phrase_part_to_add;
+    for (auto& part : phrase_parts) {
+        auto lower_part = core::text_processing::unicode_str_to_lower(part, lang.c_str());
+        if (words_to_replace.contains(lower_part) || words_to_replace.contains(part)) {
+            ++words_to_replace_passed;
+
+            if (words_to_replace_passed < words_to_replace_count) {
+                continue;
+            } else {
+                words_to_replace_passed = 0;
+            }
+
+            if (phrase_part_to_add.size()) {
+                json_parts.append(phrase_part_to_add);
+                phrase_part_to_add.clear();
+            }
+            json_parts.append(Json::nullValue);
+        } else if (!words_to_replace_passed) {
+            phrase_part_to_add += part;
+        }
+    }
+
+    if (phrase_part_to_add.size()) {
+        json_parts.append(phrase_part_to_add);
+    }
+
+    return json_parts;
+}
+
 Json::Value UserFocusGroup::create_focus_group_json(
     uint32_t current_time,
     const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
@@ -478,28 +517,11 @@ Json::Value UserFocusGroup::create_focus_group_json(
         new_word["word_translation"] = phrase.generated_phrase.dst_word;
         
         auto& guess_phrase = new_word["guess_phrase"] = Json::arrayValue;
-        auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase.generated_phrase.src_phrase, phrase.generated_phrase.src_lang.c_str());
-        std::string phrase_part_to_add;
-
-        for (auto& part : phrase_parts) {
-            auto lower_part = core::text_processing::unicode_str_to_lower(part, phrase.generated_phrase.src_lang.c_str());
-            if (phrase.generated_phrase.src_word == lower_part) {
-                if (phrase_part_to_add.size()) {
-                    guess_phrase.append(phrase_part_to_add);
-                    phrase_part_to_add.clear();
-                }
-                guess_phrase.append(Json::nullValue);
-            } else {
-                phrase_part_to_add += part;
-            }
-        }
-
-        if (phrase_part_to_add.size()) {
-            guess_phrase.append(phrase_part_to_add);
-        }
+        auto& guess_phrasee = new_word["guess_phrase"] = replace_words_with_null(phrase.generated_phrase.src_phrase, phrase.generated_phrase.src_word, phrase.generated_phrase.src_lang);
 
         new_word["phrase"] = phrase.generated_phrase.src_phrase;
         new_word["phrase_translation"] = phrase.generated_phrase.dst_phrase;
+        new_word["phrase_translation_parts"] = replace_words_with_null(phrase.generated_phrase.dst_phrase, phrase.generated_phrase.dst_word, phrase.generated_phrase.dst_lang);
 
         new_word["current_phase"] = 0;
 

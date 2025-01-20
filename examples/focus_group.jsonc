@@ -15,6 +15,8 @@
             "word": "perforator",
             "word_translation": "сверильный станок",
             "phrase": "The perforator is behind the perforator!",
+            "->word_translation": "Сверильный станок",
+            "->phrase_translation_parts": [null, " стоит за cверильным станком!"],
             "phrase_translation": "Cверильный станок стоит за cверильным станком!",
             "current_phase": 0,
             "phases_mistakes": [false, false, false],

@@ -58,6 +58,8 @@ private:
 
 	Task<uint32_t> update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
+	Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang);
+
 	Json::Value create_focus_group_json(
 		uint32_t current_time,
 		const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
