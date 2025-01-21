@@ -161,7 +161,7 @@ Task<std::tuple<bool, uint32_t>> UserFocusGroup::is_user_generation_limit_reache
 
 Task<std::optional<std::string>> UserFocusGroup::get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto is_time_ready_to_show_offer_result = co_await users_db->execSqlCoro("select 1 from last_user_special_offer_time"
-        " where user_id = $1 and last_special_offer_time <= NOW() - INTERVAL '5 days'",
+        " where user_id = $1 and last_special_offer_time <= NOW() - INTERVAL '6 hours'",
         user_id
     );
 
@@ -173,7 +173,7 @@ Task<std::optional<std::string>> UserFocusGroup::get_user_special_offer_type(dro
         user_id
     );
 
-    auto user_reached_required_progress_result = co_await users_db->execSqlCoro("select 1 from user_statistics where user_id = $1 and learned_words_total > 150 limit 1", user_id);
+    auto user_reached_required_progress_result = co_await users_db->execSqlCoro("select 1 from user_statistics where user_id = $1 and learned_words_total > 30 limit 1", user_id);
  
     if (user_email_link_required_result.size() && user_reached_required_progress_result.size()) {
         co_await users_db->execSqlCoro("update last_user_special_offer_time set last_special_offer_time = NOW() where user_id = $1", user_id);
