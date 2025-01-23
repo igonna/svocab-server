@@ -870,27 +870,32 @@ Task<> UserTopics::setTopicOption(HttpRequestPtr req, std::function<void(const H
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto query = "update user_topics set " + option_name + " = $1, "
-            "last_update_id = last_update_id + 1 where user_id = $2 and topic_id = $3";
-
         static const std::unordered_set<std::string> bolean_options = {"exclude_word_if_not_present_in_all_sources", "exclude_word_if_very_rare"};
         static const std::unordered_set<std::string> int16_options = {"order_words_by"};
         static const std::unordered_set<std::string> float_options = {"mix_value", "skip_value"};
 
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+        auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
+
+        auto query = "update user_topics set " + option_name + " = $1, "
+            "last_update_id = last_update_id + 1 where user_id = $2 and topic_id = $3";
 
         if (int16_options.contains(option_name)) {
             auto result = co_await users_db->execSqlCoro(query, static_cast<int16_t>(std::stoi(value)), user_id, topic_id);
             if (!result.affectedRows()) throw std::runtime_error("not_updated");
 
-        } else if (bolean_options.contains(option_name)){
+        } else if (bolean_options.contains(option_name)) {
             auto result = co_await users_db->execSqlCoro(query, value == "true" ? true : false, user_id, topic_id);
             if (!result.affectedRows()) throw std::runtime_error("not_updated");
 
-        } else if (float_options.contains(option_name)){
-            auto result = co_await users_db->execSqlCoro(query, std::stof(value), user_id, topic_id);
-            if (!result.affectedRows()) throw std::runtime_error("not_updated");
-
+        } else if (float_options.contains(option_name)) {
+            if (topic_type == local_utils::topics::TopicType::user_topic) {
+                auto result = co_await users_db->execSqlCoro(query, std::stof(value), user_id, topic_id);
+                if (!result.affectedRows()) throw std::runtime_error("user_topic_not_updated");
+            } else if (topic_type == local_utils::topics::TopicType::global_topic) {
+                auto query = "update user_global_topics set " + option_name + " = $1 where user_id = $2 and topic_id = $3";
+                auto result = co_await users_db->execSqlCoro(query, std::stof(value), user_id, static_cast<uint32_t>(topic_id));
+                if (!result.affectedRows()) throw std::runtime_error("user_global_topic_not_updated");
+            }
         } else {
             co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "unknown_option");
         }
