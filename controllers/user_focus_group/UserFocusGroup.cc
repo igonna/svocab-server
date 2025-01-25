@@ -68,7 +68,7 @@ Task<std::vector<core::user_sequence_words::SequenceUserWord>> UserFocusGroup::g
             if (duplicates_count > static_cast<float>(user_words.size()) * local_constants::compress_user_words_on_percent) {
                 auto new_user_words_str = core::progress_words::user_words_to_str(user_words);
                 co_await users_db->execSqlCoro(
-                    "update user_words set words = $1 where user_id = $2 and last_update_id = $3",
+                    "update user_words set words = $1, focus_group = '{}' where user_id = $2 and last_update_id = $3",
                     new_user_words_str, user_id, last_update_id
                 );
             }
@@ -403,7 +403,6 @@ Task<> UserFocusGroup::getFocusGroup(HttpRequestPtr req, std::function<void(cons
                 || user_words_sequence.empty() 
                 || focus_group_phrases.empty()
             ) {
-                std::cout << "here: " << focus_group_phrases.size() << " " << std::endl;
                 co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
             }
         } catch (const focus_group_generation_exceptions::user_blocked_from_generation& e) {

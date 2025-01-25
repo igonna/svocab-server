@@ -341,6 +341,11 @@ Task<> UserTopics::setTopicTitle(HttpRequestPtr req, std::function<void(const Ht
     co_return local_utils::Response::OK(callback, "");
 }
 
+Task<bool> update_user_topic_title_if_empty(drogon::orm::DbClientPtr users_db, std::string topic_title, uint64_t user_id, uint64_t topic_id) {
+    auto result = co_await users_db->execSqlCoro("update user_topics set topic_title = $1 where user_id = $2 and topic_id = $3 and LENGTH(topic_title) = 0", topic_title, user_id, topic_id);
+    co_return result.affectedRows();
+}
+
 Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto topic_id_str = req->getHeader("topicId");
@@ -359,6 +364,7 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
     const std::string source_type = "text";
 
     uint32_t source_id;
+    bool topic_title_updated = false;
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -372,13 +378,14 @@ Task<> UserTopics::addTopicSourceText(HttpRequestPtr req, std::function<void(con
         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, text);
+        topic_title_updated = topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, "", topic_title_updated);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
@@ -432,6 +439,7 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
 
     const std::string source_type = "document";
     uint32_t source_id;
+    bool topic_title_updated = false;
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -451,13 +459,14 @@ Task<> UserTopics::addTopicSourceDocument(HttpRequestPtr req, std::function<void
         }
 
         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
+        topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
@@ -522,6 +531,7 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
 
     const std::string source_type = "website_url";
     uint32_t source_id;
+    bool topic_title_updated = false;
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -542,13 +552,14 @@ Task<> UserTopics::addTopicSourceWebsiteUrl(HttpRequestPtr req, std::function<vo
         }
 
         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
+        topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
@@ -570,6 +581,8 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
     if (text.empty()) {
         fail_type = "failed_to_fetch_captions";
     }
+
+    bool topic_title_updated = false;
     
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -590,13 +603,14 @@ Task<> UserTopics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<vo
         }
 
         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
+        topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type);
+    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
@@ -1098,12 +1112,13 @@ Task<> UserTopics::getTopicWords(HttpRequestPtr req, std::function<void(const Ht
     co_return local_utils::Response::OK(callback, result_body);
 }
 
-Json::Value UserTopics::createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type, const std::string& fail_type)
+Json::Value UserTopics::createTopicGenerationItem(uint32_t id, const std::string& title, const std::string& type, const std::string& fail_type, bool topic_title_updated)
 {
     Json::Value result;
     result["id"] = id;
     result["title"] = title;
     result["type"] = type;
+    result["topic_title_updated"] = topic_title_updated;
     if (fail_type.size()) {
         result["fail_type"] = fail_type;
     }
