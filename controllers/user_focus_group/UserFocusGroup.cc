@@ -68,7 +68,7 @@ Task<std::vector<core::user_sequence_words::SequenceUserWord>> UserFocusGroup::g
             if (duplicates_count > static_cast<float>(user_words.size()) * local_constants::compress_user_words_on_percent) {
                 auto new_user_words_str = core::progress_words::user_words_to_str(user_words);
                 co_await users_db->execSqlCoro(
-                    "update user_words set words = $1, focus_group = '{}' where user_id = $2 and last_update_id = $3",
+                    "update user_words set words = $1 where user_id = $2 and last_update_id = $3",
                     new_user_words_str, user_id, last_update_id
                 );
             }
@@ -100,7 +100,7 @@ Task<std::vector<core::user_sequence_words::SequenceUserWord>> UserFocusGroup::g
     auto user_sequence_words = core::user_sequence_words::sequence_user_words_str_to_vector(learning_sequence_str);
 
     co_await users_db->execSqlCoro(
-        " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2"
+        " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2, focus_group = '{}'"
         " where last_update_id = $3 and user_id = $4",
         current_time, learning_sequence_str, sequence_last_update_id, user_id
     );

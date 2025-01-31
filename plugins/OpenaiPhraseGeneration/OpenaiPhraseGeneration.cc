@@ -74,7 +74,7 @@ drogon::Task<bool> OpenaiPhraseGeneration::openai_is_word_translation_valid(cons
     co_return words.contains("yes");
 }
 
-std::string OpenaiPhraseGeneration::correct_phrase(std::string&& phrase) {
+std::string OpenaiPhraseGeneration::correct_phrase(std::string&& phrase, const std::string& lang) {
     auto unicode_phrase = core::text_processing::string_to_unicode(phrase);
     unicode_phrase.trim();
 
@@ -89,17 +89,21 @@ std::string OpenaiPhraseGeneration::correct_phrase(std::string&& phrase) {
         unicode_phrase.setCharAt(0, upper_char);
     }
 
+    core::text_processing::replace_apostrophe_for_lang(unicode_phrase, lang);
+
     std::string utf8_phrase;
     unicode_phrase.toUTF8String(utf8_phrase);
 
     return utf8_phrase;
 }
 
-std::string OpenaiPhraseGeneration::correct_word(std::string&& word) {
+std::string OpenaiPhraseGeneration::correct_word(std::string&& word, const std::string& lang) {
     auto unicode_word = core::text_processing::string_to_unicode(word);
     unicode_word.toLower();
 
     unicode_word.trim();
+
+    core::text_processing::replace_apostrophe_for_lang(unicode_word, lang);
 
     std::string utf8_word;
     unicode_word.toUTF8String(utf8_word);
@@ -151,9 +155,9 @@ std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extrac
         }
     }
 
-    src_phrase = correct_phrase(std::move(src_phrase));
-    dst_phrase = correct_phrase(std::move(dst_phrase));
-    dst_word = correct_word(std::move(dst_word));
+    src_phrase = correct_phrase(std::move(src_phrase), src_lang);
+    dst_phrase = correct_phrase(std::move(dst_phrase), dst_lang);
+    dst_word = correct_word(std::move(dst_word), dst_lang);
 
     if (src_phrase.empty() || dst_phrase.empty() || dst_word.empty()) {
         throw not_valid_response_format_exception();
@@ -315,6 +319,11 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
     if (word_phrase_translation_opt.has_value()) {
         auto value = word_phrase_translation_opt.value();
         auto [id, src_phrase, dst_phrase, dst_word] = *word_phrase_translation_opt;
+
+        src_phrase = correct_phrase(std::move(src_phrase), src_lang);
+        dst_phrase = correct_phrase(std::move(dst_phrase), dst_lang);
+        dst_word = correct_word(std::move(dst_word), dst_lang);
+
         co_return GeneratedPhrase(id, src_lang, dst_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
     }
 

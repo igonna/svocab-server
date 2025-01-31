@@ -205,6 +205,17 @@ bool is_word_char_valid(UChar32 c, LID lang_id, const std::unordered_set<uint32_
     return false;
 }
 
+icu::UnicodeString& replace_apostrophe_for_lang(icu::UnicodeString& str, const std::string& lang) {
+    for (int32_t i = 0; i < str.length(); ++i) {
+        UChar32 c = str.char32At(i);
+
+        if (is_apostrophe(c)) {
+            str.setCharAt(i, get_apostrophe_for_lang(lang));
+        }
+    }
+    return str;
+}
+
 std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language) {
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> words_data;
     

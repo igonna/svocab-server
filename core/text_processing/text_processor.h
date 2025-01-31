@@ -24,6 +24,7 @@ namespace core::text_processing
     }
 
     std::string unicode_to_str(const icu::UnicodeString& unicode_str);
+    icu::UnicodeString& replace_apostrophe_for_lang(icu::UnicodeString& str, const std::string& lang);
 
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language);
     std::string text_to_processed_source(icu::UnicodeString&& text, const char* language);

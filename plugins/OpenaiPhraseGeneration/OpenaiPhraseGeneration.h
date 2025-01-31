@@ -109,8 +109,8 @@ private:
 	drogon::Task<Json::Value> openai_get_response(const std::string& prompt);
 	drogon::Task<bool> openai_is_word_translation_valid(const std::string& src_lang_name, const std::string& dst_lang_name, const std::string& src_word, const std::string& dst_word);
 	std::tuple<std::string, std::string, std::string> extract_word_phrase_from_openai_response(const std::string& response, const std::string& src_word, const std::string& src_lang, const std::string& dst_lang);
-	std::string correct_phrase(std::string&& phrase);
-	std::string correct_word(std::string&& word);
+	std::string correct_phrase(std::string&& phrase, const std::string& lang);
+	std::string correct_word(std::string&& word, const std::string& lang);
 
 	drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::string>>> get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
 
