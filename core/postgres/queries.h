@@ -393,12 +393,6 @@ static drogon::Task<bool> does_user_have_subscription(drogon::orm::DbClientPtr u
         co_return true;
     }
 
-    bool is_user_admin = co_await is_user_of_sepcial_user_type(users_db, user_id, "admin");
-
-    if (is_user_admin) {
-        co_return true;
-    }
-
     bool is_user_tester = co_await is_user_of_sepcial_user_type(users_db, user_id, "tester");
 
     if (is_user_tester) {

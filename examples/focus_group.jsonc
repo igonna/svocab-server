@@ -31,6 +31,43 @@
     "learned_this_time": 0
 }
 
+// item (types: first, second, third, result, rate_us)
+// type: second
+{
+    "item_id": "2.2",
+    "item_type": "second",
+    "src_placeholder": "perforator",
+    "src_phrase": ["The", null, "is", "behind", "the", null, "!"],
+    "dst_placeholder": "сверильный станок",
+    "dst_phrase": [null, "стоит", "за", "cверильным", "станком!"],
+
+    "answers": ["perforatro", "perforator", "perforotar"]
+}
+
+// type: result
+{
+    "item_id": "2.3",
+    "item_type": "result",
+    "rows": [
+        {
+            "type": "new",
+            "value_1": 4,
+        },
+        {
+            "type": "in_learning",
+            "value_1": 2,
+            "value_2": 1024
+        },
+        {
+            "type": "mastered",
+            "value_1": 2,
+            "value_2": 512
+        }
+    ]
+}
+
+//
+
 // request: FocusGroup/complete_focus_group
 {
     // learned || failed || repeated could not exist

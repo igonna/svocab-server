@@ -1,0 +1,20 @@
+A good ratio is something like 50% common, 30% mid-frequency, 20% rare.
+
+hello
+hi
+what
+doomsday
+contending
+discomombulated
+
+3: most popular words
+2: medium words
+1: rarest word
+
+most popular words: measured by dictionary
+medium words: measured by dictionary
+rarest word: measured by dictionary
+
+what if no words in dictionary?
+1) all words will be rarest
+2) rarest words could be sorted by popularity based on initial source

@@ -31,168 +31,77 @@
     refresh_token
 
 #USER DEVICES
-(+)10.get_devices -> list
-
-(+)11.revoke_device -> ok
-    device_num
-
-(+)12.get_bare_token -> bare_token
+(+)10.get_bare_token -> bare_token
     refresh_token
     device_os_version
     device_model
 
-#LANGAUGES
-(+)13.get_supported_languages -> list
+(-)11.log_out_of_all_devices -> ok
 
-#USER LANGUAGES
-(+)14.set_language_pair_enabled -> ok
+#OFFERS
+(+)11.set_offer_passed
+
+#LANGAUGES
+(+)12.get_supported_languages -> list
+
+(+)13.set_language_pair_enabled -> ok
     src_lang
     dst_lang
     boolean
-
-(+)15.set_language_pair_mix_value -> ok
-    src_lang
-    dst_lang
-    float
-
-(+)16.get_language_pair_mix_options -> json
-    src_lang
-    dst_lang
 
 #USER TOPICS
-(+)17.create_topic -> json
+(-)20.create_topic() -> ok
     src_lang
     dst_lang
+    title: optional (youtube)
+    body: topic, link, text, youtube, html || body_from_data: file
+    type: topic, link, text, youtube, html, file
 
-(+)18.delete_topic -> ok
+(+)15.get_topics -> json
+
+(-)16.get_topic_progress -> json
     topic_id
 
-(+)19.get_topic_generation_window -> json
+(+)17.rename_topic -> ok
+    topic_id
+    body: new_name
+
+(-)18.edit_topic -> ok
+    topic_id
+    body: new_content
+
+(+)19.delete_topic -> ok
     topic_id
 
-(+)20.set_topic_title -> ok
-    topic_id
-    title
+(+)20.get_document_support_info -> json
 
-(+)21.add_topic_source -> ok
-    topic_id
-    source_type
-    body:content
+#SEQUENCE ITEMS
+(-)21.get_current_item -> json
+(-)22.get_next_item -> json
+    body_json: {item_id, 
+        action_type: answers_sum || hide || rate_us, 
+        value (arr for answers_sum, true || false for rate_us, empty for hide)
+    }
 
-(+)22.get_topic_source_text_content -> body
-    topic_id
-    text_id
+(+)23.is_updated -> ok
 
-(+)23.set_topic_source_text -> ok
-    topic_id
-    source_id
-    body:content
+#HIDDEN WORDS
+(+)24.get_hidden_words -> json
 
-(+)24.add_topic_source_document -> ok
-    topic_id
-    document
-
-(+)25.set_topic_option -> ok
-    topic_id
-    topic_option_name
-    value
-
-(+)26.set_topic_enabled -> ok
-    topic_id
-    boolean
-
-(+)26.set_user_global_topic_enabled -> ok
-    topic_id
-    dst_lang
-    boolean
-
-(+)27.set_topic_position -> ok
-    topic_id
-
-(+)28.get_topic_words -> list
-    topic_id
-
-(+)29.delete_topic_source -> ok
-    topic_id
-    source_type
-    source_id
-
-(+)30.get_user_topics -> json
-
-(+)31.get_topic_mix_options -> json
-    topic_id
-
-(+)32.get_topic_skip_options -> json
-    topic_id
-
-(+)33.get_first_user_global_topic_id -> json/not_found
-
-#GLOBAL TOPICS
-(+)36.add_global_topic_with_user_topic -> ok
-    user_topic_id
-    popularity
-
-(+)37.update_global_topic_with_user_topic -> ok
-    user_topic_id
-    global_topic_id
-
-(+)37.delete_global_topic -> ok
-    global_topic_id
-
-#FOCUS GROUP
-(+)39.get_focus_group -> json
-
-(+)44.get_previous_focus_group_result -> json
-
-(***)42.get_focus_group_with_hidden_word -> json
-    word_id
-
-(+)40.get_focus_group_last_update_time -> int
-
-(***)41.set_word_phase_passed -> ok
-    word_id
-    phase_num
-    mistake:bool
-
-(***)43.complete_focus_group -> json
-
-
-(+)45.set_special_offer_passed -> ok
-    type
-
-#USER CHECKPOINTS
-(+)45.get_checkpoints -> json
-
-(+)46.set_checkpoint -> ok
-    checkpoint_name
-    value
-
-#USER STATISTICS
-(+)47.get_statistics -> json
-
-#PROGRESS WORDS
-(+)48.get_learned_words -> list
-
-(+)49.remove_learned_word -> ok
-    src_lang
-    body:word
-
-(+)50.get_hidden_words -> list
-
-(+)51.remove_hidden_word -> ok
+(+)25.remove_hidden_word -> ok
     src_lang
     body:word
 
 #USER SUBSCRIPTION
-(***)52.add_subscription -> ok
+(-)26.add_subscription -> ok
     purchase_token
     # just send purchase token to google api
     # get response and set expiration time
 
-(***)53.update_subscription_status -> ok
+(-)27.update_subscription_status -> ok
     # can update subscription status only if subscription exists
 
-(***)54.is_subscription_cancelled -> json
+(-)28.is_subscription_cancelled -> json
 
 
 
