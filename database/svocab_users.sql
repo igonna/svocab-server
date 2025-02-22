@@ -157,13 +157,13 @@ CREATE TABLE user_topics (
     src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
 
-    topic_title TEXT NOT NULL DEFAULT '',
+    created_at INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
-    origin_type TEXT NOT NULL DEFAULT '',
-    origin_info TEXT NOT NULL DEFAULT '',
-
-    topic_words_sequence TEXT NOT NULL DEFAULT ''
+    title TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    origin_type TEXT NOT NULL,
+    words_sequence TEXT NOT NULL,
     PRIMARY KEY (topic_id, user_id)
 ) PARTITION BY HASH (user_id);
 
@@ -243,10 +243,10 @@ CREATE TABLE user_sequence_p1 PARTITION OF user_sequence FOR VALUES WITH (MODULU
 CREATE TABLE user_sequence_p2 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_sequence_p3 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_phrase_generation_limit_p0 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_phrase_generation_limit_p1 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_phrase_generation_limit_p2 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_phrase_generation_limit_p3 PARTITION OF user_phrase_generation_limit FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_limits_p0 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_limits_p1 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_limits_p2 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_limits_p3 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_checkpoints_p0 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_checkpoints_p1 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 1);

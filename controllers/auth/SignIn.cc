@@ -1,4 +1,4 @@
-#include "UserSignIn.h"
+#include "SignIn.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include "plugins/EmailSender.h"
@@ -6,7 +6,7 @@
 
 namespace v1
 {
-Task<> UserSignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> SignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
 
     if (!email.size() || !app().getPlugin<EmailSender>()->is_valid_email(email)) {
@@ -76,7 +76,7 @@ Task<> UserSignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(
     co_return callback(HttpResponse::newHttpResponse());
 }
 
-Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
     auto code = req->getHeader("code");
     
@@ -167,7 +167,7 @@ Task<> UserSignIn::signInEmail(HttpRequestPtr req, std::function<void(const Http
     co_return callback(resp);
 }
 
-Task<> UserSignIn::signInGoogle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> SignIn::signInGoogle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto token = req->getHeader("token");
 
     if (!token.size()) {

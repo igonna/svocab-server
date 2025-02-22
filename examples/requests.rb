@@ -50,12 +50,37 @@
     boolean
 
 #USER TOPICS
-(-)20.create_topic() -> ok
+(-)14.create_topic() -> ok
     src_lang
     dst_lang
-    title: optional (youtube)
-    body: topic, link, text, youtube, html || body_from_data: file
-    type: topic, link, text, youtube, html, file
+    origin: https:// (optional for links)
+    type: prompt, link, text, youtube, html, file
+    body: multipart/form-data: file
+
+prompt:
+    origin: no header
+    body: all the prompt
+
+link (try to extract as html, if failed, use this as link):
+    origin: no header
+    body: htpps://...
+
+text:
+    origin: no header
+    body: all the text
+
+youtube:
+    origin: https://youtube.com/...
+    body: title + \n + captions
+
+html:
+    origin: https://...
+    body: all the html
+
+file:
+    origin: no header
+    body: empty
+    multipart/from-data: all the file
 
 (+)15.get_topics -> json
 

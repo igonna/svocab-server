@@ -1,0 +1,1 @@
+#include "topic_extractor_factory.h"

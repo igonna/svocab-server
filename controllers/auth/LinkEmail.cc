@@ -1,11 +1,11 @@
-#include "UserLinkEmail.h"
+#include "LinkEmail.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include "plugins/EmailSender.h"
 
 namespace v1
 {
-Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> LinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
 
     if (!email.size() || !app().getPlugin<EmailSender>()->is_valid_email(email)) {
@@ -75,7 +75,7 @@ Task<> UserLinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void
     co_return callback(HttpResponse::newHttpResponse());
 }
 
-Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> LinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto email = req->getHeader("email");
     auto code = req->getHeader("code");
     
@@ -151,7 +151,7 @@ Task<> UserLinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(
     callback(HttpResponse::newHttpResponse());
 }
 
-Task<> UserLinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> LinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto token = req->getHeader("token");
 
     if (!token.size()) {

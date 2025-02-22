@@ -6,13 +6,13 @@ using namespace drogon;
 
 namespace v1
 {
-class UserRegister : public drogon::HttpController<UserRegister>
+class Register : public drogon::HttpController<Register>
 {
 public:
 	Task<> registerAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 	
 	METHOD_LIST_BEGIN
-	METHOD_ADD(UserRegister::registerAccount, "/register", Post);
+	METHOD_ADD(Register::registerAccount, "/register", Post);
 	METHOD_LIST_END
 };
 }

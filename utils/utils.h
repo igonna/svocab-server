@@ -214,44 +214,6 @@ namespace strings {
     std::string get_title_from_str(const std::string& str, uint32_t length);
 }
 
-namespace topics {
-    enum class TopicType : uint32_t {user_topic = 0, global_topic = 1};
-
-    static inline std::string topic_type_to_str(TopicType topic_type) {
-        return topic_type == TopicType::user_topic ? "user_topic" : "global_topic";
-    }
-
-    static inline std::tuple<uint64_t, TopicType> decode_topic_id_str(const std::string& encoded_topic_id) {
-        auto dot_pos = encoded_topic_id.find('.');
-        if (dot_pos == std::string::npos) throw std::invalid_argument("invalid format");
-        return {std::stoull(encoded_topic_id.substr(dot_pos + 1)), static_cast<TopicType>(std::stoull(encoded_topic_id.substr(0, dot_pos)))};
-    }
-
-    static inline uint64_t decode_user_topic_id_str(const std::string& encoded_topic_id) {
-        auto [topic_id, topic_type] = decode_topic_id_str(encoded_topic_id);
-
-        if (topic_type != TopicType::user_topic) {
-            throw std::runtime_error("not_user_topic");
-        }
-
-        return topic_id;
-    }
-
-    static inline uint32_t decode_global_topic_id_str(const std::string& encoded_topic_id) {
-        auto [topic_id, topic_type] = decode_topic_id_str(encoded_topic_id);
-
-        if (topic_type != TopicType::global_topic) {
-            throw std::runtime_error("not_global_topic");
-        }
-
-        return topic_id;
-    }
-
-    static inline std::string encode_topic_id(uint64_t topic_id, TopicType topic_type) {
-        return std::to_string(static_cast<uint64_t>(topic_type)) + '.' + std::to_string(topic_id);
-    }
-}
-
 namespace translations_db {
 static inline std::string create_word_phrase_table_name(const std::string& src_lang) {
     return "word_phrase_" + src_lang;

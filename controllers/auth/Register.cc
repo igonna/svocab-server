@@ -1,4 +1,4 @@
-#include "UserRegister.h"
+#include "Register.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include <drogon/HttpController.h>
@@ -12,7 +12,7 @@ using namespace drogon;
 
 namespace v1
 {
-Task<> UserRegister::registerAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr&)> callback) {
+Task<> Register::registerAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr&)> callback) {
     auto src_lang = req->getHeader("srcLang");
     auto dst_lang = req->getHeader("dstLang");
 

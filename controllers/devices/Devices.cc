@@ -1,4 +1,4 @@
-#include "UserDevices.h"
+#include "Devices.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include "core/secret/secret_key.h"
@@ -8,7 +8,7 @@
 
 namespace v1
 {
-Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto refresh_token = req->getHeader("refreshToken");
     auto device_os_version = req->getHeader("deviceOsVersion");
     auto device_model = req->getHeader("deviceModel");
@@ -76,88 +76,24 @@ Task<> UserDevices::getBareToken(HttpRequestPtr req, std::function<void(const Ht
     co_return local_utils::Response::OK(callback, bare_token);
 }
 
-Task<> UserDevices::getDevices(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Devices::logOutOfAllDevices(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     uint64_t user_id;
-    uint32_t device_num;
-
-    Json::Value response;
 
     try {
         user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
+        auto current_device_num = local_utils::attributes::get_value<uint32_t>(req, local_constants::attributes::device_num);
 
         auto users_db = app().getDbClient(local_constants::users_db);
-
-        auto resultEmail = co_await users_db->execSqlCoro("select 1 from users where id = $1 and email is not null limit 1",
-            user_id
-        );
-
-        bool is_email_linked = resultEmail.size();
 
         // revoke all user_devices
-        auto resultDevices = co_await users_db->execSqlCoro("select device_num, device_name, "
-            "device_os_version from user_devices where user_id = $1", 
-            user_id
+        auto resultDevices = co_await users_db->execSqlCoro(
+            "delete from user_devices where user_id = $1 and device_num != $2", user_id, current_device_num
         );
-
-        for (const auto &row : resultDevices) {
-            auto cur_device_num = row["device_num"].as<uint32_t>();
-            auto cur_device_name = row["device_name"].as<std::string>();
-            auto cur_device_os_version = row["device_os_version"].as<std::string>();
-
-            Json::Value cur_device;
-            cur_device["device_num"] = cur_device_num;
-            cur_device["device_name"] = cur_device_name;
-            cur_device["device_os_version"] = cur_device_os_version;
-
-            if (device_num == cur_device_num) {
-                response["this_device"] = cur_device;
-            } else {
-                response["other_devices"].append(cur_device);
-            }
-        }
-
-        response["email_link_required"] = !is_email_linked;
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
-    co_return callback(HttpResponse::newHttpJsonResponse(response));
+    co_return local_utils::Response::OK(callback, "");
 }
-
-Task<> UserDevices::revokeDevice(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    auto device_num_to_delete_str = req->getHeader("deviceNum");
-
-    if (!device_num_to_delete_str.size()) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
-
-    uint32_t device_num_to_delete = std::stoi(device_num_to_delete_str);
-
-    try {
-        uint64_t user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-
-        auto users_db = app().getDbClient(local_constants::users_db);
-        // delete device
-        auto deleteResult = co_await users_db->execSqlCoro("delete from user_devices "
-            "where user_id = $1 and device_num = $2",
-            user_id,
-            device_num_to_delete
-        );
-
-        if (!deleteResult.affectedRows()) {
-            throw std::runtime_error("device_not_exists");
-        }
-
-        auto rc = app().getRedisClient();
-        co_await core::device::revoke_device(rc, user_id, device_num_to_delete);
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-
-    co_return callback(HttpResponse::newHttpResponse());
-}
-
 };
