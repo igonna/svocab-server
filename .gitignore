@@ -63,3 +63,6 @@ out/
 drogon.log
 uploads/
 config.json
+
+# mac
+.DS_Store
