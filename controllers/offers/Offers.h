@@ -6,13 +6,13 @@ using namespace drogon;
 
 namespace v1
 {
-class UserCheckpoints : public drogon::HttpController<UserCheckpoints>
+class Offers : public drogon::HttpController<Offers>
 {
 public:
 	Task<> setCheckpoint(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
 	METHOD_LIST_BEGIN
-	METHOD_ADD(UserCheckpoints::setCheckpoint, "/set_checkpoint", Post, "JwtFilter");
+	METHOD_ADD(Offers::setCheckpoint, "/set_checkpoint", Post, "JwtFilter");
 	METHOD_LIST_END
 };
 }

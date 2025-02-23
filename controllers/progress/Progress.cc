@@ -1,4 +1,4 @@
-#include "UserProgress.h"
+#include "Progress.h"
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include "core/progress_words/progress_words.h"
@@ -7,7 +7,7 @@
 namespace v1
 {
 
-Task<> UserProgress::getLearnedWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Progress::getLearnedWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     std::string result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -46,7 +46,7 @@ Task<> UserProgress::getLearnedWords(HttpRequestPtr req, std::function<void(cons
     co_return local_utils::Response::OK(callback, result_body);
 }
 
-Task<> UserProgress::removeLearnedWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Progress::removeLearnedWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto src_lang = req->getHeader("srcLang");
     auto word = std::string(req->getBody());
 
@@ -76,7 +76,7 @@ Task<> UserProgress::removeLearnedWord(HttpRequestPtr req, std::function<void(co
     co_return local_utils::Response::OK(callback, "");
 }
 
-Task<> UserProgress::getHiddenWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     std::string result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -115,7 +115,7 @@ Task<> UserProgress::getHiddenWords(HttpRequestPtr req, std::function<void(const
     co_return local_utils::Response::OK(callback, result_body);
 }
 
-Task<> UserProgress::removeHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto src_lang = req->getHeader("srcLang");
     auto word = std::string(req->getBody());
 

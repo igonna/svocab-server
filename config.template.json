@@ -380,6 +380,11 @@
                 "model": "gpt-4o-mini",
                 "rpm_limit": 5000
             }
+        },
+        {
+            "name": "FrequentWords",
+            "dependencies": [],
+            "config": {}
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 

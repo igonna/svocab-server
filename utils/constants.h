@@ -23,7 +23,7 @@ namespace local_constants {
 
     static constexpr uint32_t focus_group_update_lock_key_expire_seconds = 8;
 
-    static constexpr uint32_t title_max_length = 60;
+    static constexpr uint32_t title_max_length = 30;
 
     static constexpr uint32_t first_phase_repeat_time_interval_in_seconds = 6*60*60;
 

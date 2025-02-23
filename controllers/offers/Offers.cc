@@ -1,10 +1,10 @@
-#include "UserCheckpoints.h"
+#include "Offers.h"
 #include "utils/constants.h"
 #include "utils/utils.h"
 
 namespace v1
 {
-Task<> UserCheckpoints::setCheckpoint(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+Task<> Offers::setCheckpoint(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto checkpoint_name = req->getHeader("checkpointName");
     auto value = req->getHeader("value");

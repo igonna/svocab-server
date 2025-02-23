@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <drogon/utils/coroutine.h>
 #include <drogon/drogon.h>
+#include <core/text_processing/text_processor.h>
 
 namespace local_utils {
 namespace random {
@@ -80,21 +81,43 @@ namespace supported_languages {
 
 namespace strings {
     std::string get_title_from_str(const std::string& str, uint32_t length) {
-        std::string title;
+        auto unicode_str = core::text_processing::string_to_unicode(str);
+        if (unicode_str.length() < length) length = unicode_str.length();
 
-        if (str.size() < length) {
-            length = str.size();
-        }
+        UChar32 prev_char = ' ';
+        const UChar32 whitespace = ' ';
 
-        for (uint32_t i = 0; i < length; ++i) {
-            if (str[i] == '\n') {
-                title += ' ';
-            } else {
-                title += str[i];
+        icu::UnicodeString title;
+
+        for (int32_t i = 0; i < length; ++i) {
+            UChar32 c = unicode_str.char32At(i);
+
+            if (u_isalpha(c)) {
+                title += c;
+            } else if (prev_char != whitespace) {
+                title += whitespace;
             }
+
+            prev_char = c;
         }
 
-        return title;
+        if (title.length()) {
+            unicode_str.setCharAt(0, u_toupper(unicode_str.char32At(0)));
+        }
+
+        return core::text_processing::unicode_to_str(title);
+    }
+}
+
+namespace file {
+    std::string get_string_from_file(std::string path) {
+        std::ifstream ifile(path);
+        if (!ifile)
+            return std::string();
+    
+        std::ostringstream ss;
+        ss << ifile.rdbuf();
+        return ss.str();
     }
 }
 }

@@ -4,6 +4,7 @@
 #include "utils/constants.h"
 #include <random>
 #include <unordered_set>
+#include <fstream>
 
 namespace local_utils {
 
@@ -48,7 +49,7 @@ namespace time {
 
 // utils
 namespace url {
-    static std::tuple<std::string, std::string> extract_host_and_path_from_url(const std::string& url) {
+    static std::tuple<std::string, std::string> extract_host_and_path_from_url(std::string_view url) {
         std::string host;
         std::string path;
 
@@ -222,5 +223,9 @@ static inline std::string create_word_phrase_table_name(const std::string& src_l
 static inline std::string create_banned_word_table_name(const std::string& src_lang) {
     return "banned_word_" + src_lang;
 }
+}
+
+namespace file {
+    std::string get_string_from_file(std::string path);
 }
 }

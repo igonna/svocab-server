@@ -18,3 +18,22 @@ rarest word: measured by dictionary
 what if no words in dictionary?
 1) all words will be rarest
 2) rarest words could be sorted by popularity based on initial source
+
+
+whatever hello what привет пока что где когда -> result: en->ru
+
+hello hola
+
+hello:
+    detected by c++: en, es
+    detected by dictionary: en, es
+    dictionary-weight: 6000
+    detected by chatgpt: en
+
+hola:
+    detected by c++: en, es
+    detected by dictionary: en, es
+    dictionary-weight: 10000
+    detected by chatgpt: en
+
+dictionary might not detect word: rely on c++

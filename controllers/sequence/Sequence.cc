@@ -1,4 +1,4 @@
-#include "UserSequence.h"
+#include "Sequence.h"
 #include "utils/utils.h"
 #include "core/postgres/queries.h"
 #include "core/progress_words/progress_words.h"
@@ -13,7 +13,7 @@
 namespace v1
 {
 
-Task<uint32_t> UserSequence::update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+Task<uint32_t> Sequence::update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto current_time = local_utils::time::get_unix_timestamp();
     auto result = co_await users_db->execSqlCoro("update user_sequence set focus_group_last_update_time = $1"
         " where user_id = $2 returning focus_group_last_update_time", current_time, user_id
@@ -22,7 +22,7 @@ Task<uint32_t> UserSequence::update_focus_group_last_update_time(drogon::orm::Db
     co_return new_focus_group_last_update_time;
 };
 
-Task<> UserSequence::isUpdated(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::isUpdated(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
@@ -49,7 +49,7 @@ Task<> UserSequence::isUpdated(HttpRequestPtr req, std::function<void(const Http
     }
 }
 
-Task<std::vector<core::user_sequence_words::SequenceUserWord>> UserSequence::get_updated_user_words_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t sequence_last_update_id) {
+Task<std::vector<core::user_sequence_words::SequenceUserWord>> Sequence::get_updated_user_words_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t sequence_last_update_id) {
     auto banned_words_plugin = app().getPlugin<BannedWords>();
     core::sequence_generation::SequenceGenerator sequence_generator(banned_words_plugin);
 
@@ -108,7 +108,7 @@ Task<std::vector<core::user_sequence_words::SequenceUserWord>> UserSequence::get
     co_return user_sequence_words;
 }
 
-Task<> UserSequence::increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint16_t count) {
+Task<> Sequence::increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint16_t count) {
     auto user_phrase_generation_limit_result = co_await users_db->execSqlCoro(
         "select generated_phrases_count, last_generation_start_time from user_phrase_generation_limit where user_id = $1",
         user_id
@@ -131,7 +131,7 @@ Task<> UserSequence::increase_generated_phrases_count(drogon::orm::DbClientPtr u
 }
 
 // is_limit_reached, time_limit_resets
-Task<std::tuple<bool, uint32_t>> UserSequence::is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription) {
+Task<std::tuple<bool, uint32_t>> Sequence::is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription) {
     auto user_phrase_generation_limit_result = co_await users_db->execSqlCoro(
         "select generated_phrases_count, last_generation_start_time from user_phrase_generation_limit where user_id = $1",
         user_id
@@ -159,7 +159,7 @@ Task<std::tuple<bool, uint32_t>> UserSequence::is_user_generation_limit_reached(
     }
 }
 
-Task<std::optional<std::string>> UserSequence::get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+Task<std::optional<std::string>> Sequence::get_user_special_offer_type(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto is_time_ready_to_show_offer_result = co_await users_db->execSqlCoro("select 1 from last_user_special_offer_time"
         " where user_id = $1 and last_special_offer_time <= NOW() - INTERVAL '6 hours'",
         user_id
@@ -193,7 +193,7 @@ Task<std::optional<std::string>> UserSequence::get_user_special_offer_type(drogo
     co_return std::nullopt;
 }
 
-Task<bool> UserSequence::is_user_blocked_from_generation(uint64_t user_id) {
+Task<bool> Sequence::is_user_blocked_from_generation(uint64_t user_id) {
     const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
     auto rc = app().getRedisClient();
     auto user_generation_blocked_result = co_await rc->execCommandCoro(
@@ -204,7 +204,7 @@ Task<bool> UserSequence::is_user_blocked_from_generation(uint64_t user_id) {
     co_return std::stoi(user_generation_blocked_result.asString()) > 0;
 }
 
-Task<> UserSequence::block_user_from_generation(uint64_t user_id) {
+Task<> Sequence::block_user_from_generation(uint64_t user_id) {
     const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
     auto rc = app().getRedisClient();
     co_await rc->execCommandCoro("set %s %s ex %d nx",
@@ -215,7 +215,7 @@ Task<> UserSequence::block_user_from_generation(uint64_t user_id) {
     co_return;
 }
 
-Task<uint32_t> UserSequence::get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+Task<uint32_t> Sequence::get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto new_focus_group_id_result = co_await users_db->execSqlCoro(
         "update user_sequence set focus_group_id = focus_group_id + 1 where user_id = $1 returning focus_group_id",
         user_id
@@ -224,7 +224,7 @@ Task<uint32_t> UserSequence::get_new_focus_group_id(drogon::orm::DbClientPtr use
     co_return new_focus_group_id;
 }
 
-Task<std::vector<core::phrases_generator::FocusGroupPhrase>> UserSequence::generate_focus_group_phrases(
+Task<std::vector<core::phrases_generator::FocusGroupPhrase>> Sequence::generate_focus_group_phrases(
     drogon::orm::DbClientPtr users_db,
     uint32_t user_id,
     bool user_has_subscription,
@@ -298,7 +298,7 @@ Task<std::vector<core::phrases_generator::FocusGroupPhrase>> UserSequence::gener
     co_return focus_group_phrases;
 }
 
-Task<> UserSequence::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::getFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value result_focus_group;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -442,7 +442,7 @@ Task<> UserSequence::getFocusGroup(HttpRequestPtr req, std::function<void(const 
     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
-Json::Value UserSequence::replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
+Json::Value Sequence::replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
     Json::Value json_parts = Json::arrayValue;
     auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
     auto words_to_replace_vec = core::text_processing::extract_words_from_str(words, lang.c_str());
@@ -480,7 +480,7 @@ Json::Value UserSequence::replace_words_with_null(const std::string& phrase, con
     return json_parts;
 }
 
-Json::Value UserSequence::create_focus_group_json(
+Json::Value Sequence::create_focus_group_json(
     uint32_t current_time,
     const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
     uint32_t focus_group_id,
@@ -551,7 +551,7 @@ Json::Value UserSequence::create_focus_group_json(
     return result;
 }
 
-void UserSequence::clear_focus_group_from_technical_data(Json::Value& focus_group) {
+void Sequence::clear_focus_group_from_technical_data(Json::Value& focus_group) {
     focus_group.removeMember("versions");
 
     if (focus_group.isMember("words")) {
@@ -563,7 +563,7 @@ void UserSequence::clear_focus_group_from_technical_data(Json::Value& focus_grou
     }
 }
 
-Task<> UserSequence::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value previous_focus_group_json;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
@@ -586,7 +586,7 @@ Task<> UserSequence::getPreviousFocusGroupResult(HttpRequestPtr req, std::functi
     co_return local_utils::Response::JSON_OK(callback, previous_focus_group_json);
 }
 
-Task<> UserSequence::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto word_id_str = req->getHeader("wordId");
 
     if (word_id_str.empty()) {
@@ -763,13 +763,13 @@ Task<> UserSequence::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::functi
     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
 }
 
-std::tuple<uint32_t, uint32_t> UserSequence::decode_word_id(const std::string& word_id_str) {
+std::tuple<uint32_t, uint32_t> Sequence::decode_word_id(const std::string& word_id_str) {
     auto dot_pos = word_id_str.find('.');
     if (dot_pos == std::string::npos) throw std::invalid_argument("invalid format");
     return {std::stoull(word_id_str.substr(0, dot_pos)), std::stoull(word_id_str.substr(dot_pos + 1))};
 }
 
-Task<> UserSequence::setCurrentWordPhase(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::setCurrentWordPhase(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto word_id_str = req->getHeader("wordId");
     auto phase_num_str = req->getHeader("phaseNum");
     auto mistake_str = req->getHeader("madeMistake");
@@ -844,7 +844,7 @@ Task<> UserSequence::setCurrentWordPhase(HttpRequestPtr req, std::function<void(
     }
 }
 
-Task<> UserSequence::setSpecialOfferPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::setSpecialOfferPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     auto type = req->getHeader("type");
 
     static const std::unordered_set<std::string> types = {"rate_us", "link_account"};
@@ -889,7 +889,7 @@ Task<> UserSequence::setSpecialOfferPassed(HttpRequestPtr req, std::function<voi
     co_return local_utils::Response::OK(callback, focus_group_last_update_time_str.c_str());
 }
 
-Json::Value UserSequence::get_focus_group_summary(const Json::Value& focus_group) {
+Json::Value Sequence::get_focus_group_summary(const Json::Value& focus_group) {
     uint32_t learned_count = 0;
     uint32_t failed_count = 0;
     uint32_t repeated_count = 0;
@@ -955,7 +955,7 @@ Json::Value UserSequence::get_focus_group_summary(const Json::Value& focus_group
     return summary;
 }
 
-Task<> UserSequence::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+Task<> Sequence::completeFocusGroup(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     Json::Value focus_group_summary;
 
     try {
@@ -1175,7 +1175,7 @@ Task<> UserSequence::completeFocusGroup(HttpRequestPtr req, std::function<void(c
     co_return local_utils::Response::JSON_OK(callback, focus_group_summary);
 }
 
-Task<uint32_t> UserSequence::get_learned_this_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+Task<uint32_t> Sequence::get_learned_this_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto statistics_info_result = co_await users_db->execSqlCoro(
         "select learned_this_time, last_learn_time from user_statistics where user_id = $1", user_id
     );
@@ -1187,7 +1187,7 @@ Task<uint32_t> UserSequence::get_learned_this_time(drogon::orm::DbClientPtr user
     co_return (current_time - last_learn_time > local_constants::statistics::learned_this_time_expire_seconds) ? 0 : learned_this_time;
 }
 
-Task<bool> UserSequence::get_is_multiple_languages(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+Task<bool> Sequence::get_is_multiple_languages(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto languages_count_result = co_await users_db->execSqlCoro(
         "select user_id, COUNT(DISTINCT src_lang) AS unique_src_lang_count"
         " from user_language_pairs where is_enabled = true and user_id = $1 GROUP BY user_id", user_id

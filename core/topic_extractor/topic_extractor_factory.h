@@ -4,22 +4,9 @@
 #include <memory>
 #include <drogon/utils/coroutine.h>
 #include <drogon/HttpController.h>
+#include "utils/exceptions.h"
 
 namespace core::topic_extractor {
-
-namespace exception {
-struct unknown_type : public std::exception {
-	const char* what() const noexcept override {
-		return "unknown_type";
-	}
-};
-
-struct not_valid_body : public std::exception {
-	const char* what() const noexcept override {
-		return "not_valid_body";
-	}
-};
-}
 
 
 struct TopicExctractor {
@@ -69,6 +56,8 @@ struct TopicExtractorFactory {
 	static drogon::Task<std::unique_ptr<TopicExctractor>> create_extractor(drogon::HttpRequestPtr req) {
 		auto type = req->getHeader("type");
 
+		if (!req->bodyLength()) throw exception::not_valid_body();
+
 		std::unique_ptr<TopicExctractor> topic_extractor;
 
 		if (type == "prompt") {
@@ -87,7 +76,7 @@ struct TopicExtractorFactory {
 			throw exception::unknown_type();
 		}
 
-		topic_extractor->init(req);
+		co_await topic_extractor->init(req);
 		co_return topic_extractor;
 	}
 };

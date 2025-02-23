@@ -186,11 +186,6 @@ Task<> Topics::setTopicTitle(HttpRequestPtr req, std::function<void(const HttpRe
     co_return local_utils::Response::OK(callback, "");
 }
 
-Task<bool> update_user_topic_title_if_empty(drogon::orm::DbClientPtr users_db, std::string topic_title, uint64_t user_id, uint64_t topic_id) {
-    auto result = co_await users_db->execSqlCoro("update user_topics set topic_title = $1 where user_id = $2 and topic_id = $3 and LENGTH(topic_title) = 0", topic_title, user_id, topic_id);
-    co_return result.affectedRows();
-}
-
 Task<> Topics::addTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
     auto topic_id_str = req->getHeader("topicId");
