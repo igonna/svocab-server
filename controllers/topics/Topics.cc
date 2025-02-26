@@ -7,6 +7,7 @@
 #include "core/postgres/queries.h"
 #include "core/text_processing/text_processor.h"
 #include "core/topic_extractor/topic_extractor_factory.h"
+#include "utils/exceptions.h"
 
 namespace v1
 {
@@ -14,8 +15,10 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
 {
     auto src_lang = req->getHeader("srcLang");
     auto dst_lang = req->getHeader("dstLang");
+    auto type = req->getHeader("type");
+    auto origin = req->getHeader("origin");
 
-    if (!src_lang.size() || !dst_lang.size()) {
+    if (src_lang.empty() || dst_lang.empty() || type.empty()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
@@ -42,34 +45,10 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
         if (!result.affectedRows()) {
             throw std::runtime_error("topic_not_created");
         }
-    } catch (const std::exception& e) {
+    } catch (const exception::custom_exception& e) {
         // !body->isMember("origin") || body->isMember("type") || body->isMember("content")
-        co_return local_utils::Response::Error::NOT_VALID_BODY(callback);
+        // co_return local_utils::Response::Error::ERROR(callback, k e.what());
     } catch (const std::exception& e) {
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-
-    co_return local_utils::Response::OK(callback, "");
-}
-
-Task<> Topics::deleteTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
-
-    if (!topic_id_str.size()) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
-
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
-
-        co_await users_db->execSqlCoro("delete from user_topics where user_id = $1 and topic_id = $2", user_id, topic_id);
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
 
@@ -159,74 +138,153 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
     co_return local_utils::Response::JSON_OK(callback, result_body);
 }
 
-Task<> Topics::setTopicTitle(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
-    auto topic_title = local_utils::strings::get_title_from_str(req->getHeader("topicTitle"), local_constants::title_max_length);
+Task<> Topics::getTopicProgress(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    // #1 version of function
+    // auto topic_id_str = req->getHeader("topicId");
 
-    if (!topic_id_str.size()) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
+    // if (!topic_id_str.size()) {
+    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    // }
 
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+    // std::string result_body;
+    // try {
+    //     auto users_db = app().getDbClient(local_constants::users_db);
+    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+    //     auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
 
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+    //     if (topic_type == local_utils::topics::TopicType::user_topic) {
+    //         result_body = co_await core::sql::get_topic_words_sequence_and_if_update(users_db, user_id, topic_id);
+    //     } else if (topic_type == local_utils::topics::TopicType::global_topic) {
+    //         result_body = co_await core::sql::get_global_topic_words_sequence(users_db, topic_id);
+    //     }
+    // } catch (const std::exception& e) {
+    //     LOG_ERROR << e.what();
+    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    // }
 
-        auto result = co_await users_db->execSqlCoro("update user_topics set topic_title = $1 where user_id = $2 and topic_id = $3", topic_title, user_id, topic_id);
-        if (!result.affectedRows()) {
-            throw std::runtime_error("not_updated");
-        }
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
+
+    // #2 version of function
+    // auto topic_id_str = req->getHeader("topicId");
+    // auto source_id = req->getHeader("sourceId");
+
+    // if (!(topic_id_str.size())) {
+    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    // }
+
+    // std::string result_body;
+    // try {
+    //     auto users_db = app().getDbClient(local_constants::users_db);
+
+    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+    //     auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+
+    //     auto result = co_await users_db->execSqlCoro(
+    //         "select sources_unprocessed->> $1 as body from user_topics where user_id = $2 and topic_id = $3", 
+    //         source_id, user_id, topic_id
+    //     );
+
+    //     if (!result.size()) {
+    //         throw std::runtime_error("not_found");
+    //     }
+        
+    //     result_body = result[0]["body"].as<std::string>();
+    // } catch (const std::exception& e) {
+    //     LOG_ERROR << e.what();
+    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    // }
+
+    // co_return local_utils::Response::OK(callback, result_body);
+    co_return local_utils::Response::OK(callback, "");
+}
+Task<> Topics::renameTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    // auto topic_id_str = req->getHeader("topicId");
+    // auto topic_title = local_utils::strings::get_title_from_str(req->getHeader("topicTitle"), local_constants::title_max_length);
+
+    // if (!topic_id_str.size()) {
+    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    // }
+
+    // try {
+    //     auto users_db = app().getDbClient(local_constants::users_db);
+    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+    //     auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+
+    //     auto result = co_await users_db->execSqlCoro("update user_topics set topic_title = $1 where user_id = $2 and topic_id = $3", topic_title, user_id, topic_id);
+    //     if (!result.affectedRows()) {
+    //         throw std::runtime_error("not_updated");
+    //     }
+    // } catch (const std::exception& e) {
+    //     LOG_ERROR << e.what();
+    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    // }
 
     co_return local_utils::Response::OK(callback, "");
 }
+Task<> Topics::updateTopicContent(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    // auto topic_id_str = req->getHeader("topicId");
+    // auto text = std::string(req->getBody());
+    // auto source_id_str = req->getHeader("sourceId");
 
-Task<> Topics::addTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+    // if (!(topic_id_str.size())) {
+    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    // }
+
+    // if (!text.size()) {
+    //     co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
+    // }
+
+    // auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
+    // const std::string source_type = "text";
+
+    // uint32_t source_id;
+
+    // try {
+    //     auto users_db = app().getDbClient(local_constants::users_db);
+
+    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+    //     auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+
+    //     auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+
+    //     auto unicode_str = core::text_processing::string_to_unicode(text);
+    //     std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+
+    //     source_id = std::stoi(source_id_str);
+    //     co_await core::sql::update_topic_source(users_db, user_id, topic_id, source_id, title, source_type, processed_words, text);
+    //     co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
+    // } catch (const std::exception& e) {
+    //     LOG_ERROR << e.what();
+    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    // }
+
+    // auto result_body = createTopicGenerationItem(source_id, title, source_type);
+    // co_return local_utils::Response::JSON_OK(callback, result_body);
+    co_return local_utils::Response::OK(callback, "");
+}
+
+Task<> Topics::deleteTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
 {
-    auto topic_id_str = req->getHeader("topicId");
-    auto text = std::string(req->getBody());
+    // auto topic_id_str = req->getHeader("topicId");
 
-    if (!(topic_id_str.size())) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
+    // if (!topic_id_str.size()) {
+    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    // }
 
-    if (!text.size()) {
-        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
-    }
+    // try {
+    //     auto users_db = app().getDbClient(local_constants::users_db);
+    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-    auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
+    //     auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
 
-    const std::string source_type = "text";
+    //     co_await users_db->execSqlCoro("delete from user_topics where user_id = $1 and topic_id = $2", user_id, topic_id);
+    //     co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+    // } catch (const std::exception& e) {
+    //     LOG_ERROR << e.what();
+    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    // }
 
-    uint32_t source_id;
-    bool topic_title_updated = false;
-
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
-
-        auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
-
-        auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
-
-        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, text);
-        topic_title_updated = topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-
-    auto result_body = createTopicGenerationItem(source_id, title, source_type, "", topic_title_updated);
-    co_return local_utils::Response::JSON_OK(callback, result_body);
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> Topics::getSupportedDocumentTypes(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -241,228 +299,168 @@ Task<> Topics::getSupportedDocumentTypes(HttpRequestPtr req, std::function<void(
     co_return local_utils::Response::JSON_OK(callback, result);
 }
 
-Task<> Topics::addTopicSourceDocument(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
+// Task<> Topics::addTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+// {
+//     auto topic_id_str = req->getHeader("topicId");
+//     auto text = std::string(req->getBody());
 
-    MultiPartParser multi_part_parser;
-    if (multi_part_parser.parse(req) != 0) {
-        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "empty");
-    }
+//     if (!(topic_id_str.size())) {
+//         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+//     }
 
-    auto &files = multi_part_parser.getFiles();
+//     if (!text.size()) {
+//         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
+//     }
 
-    if (!files.size()) {
-        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "no_files");
-    }
+//     auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
 
-    auto file = files[0];
-    auto content_type = file.getContentType();
+//     const std::string source_type = "text";
 
-    std::string title;
-    std::string text;
-    std::string fail_type;
+//     uint32_t source_id;
+//     bool topic_title_updated = false;
 
-    if (content_type == drogon::ContentType::CT_TEXT_PLAIN) {
-        text = file.fileContent();
-        title = local_utils::strings::get_title_from_str(file.getFileName(), local_constants::title_max_length);
-    } else if (content_type == drogon::ContentType::CT_APPLICATION_PDF) {
-        text = core::text_extraction::get_text_from_pdf(file.fileData(), file.fileLength());
-        title = local_utils::strings::get_title_from_str(file.getFileName(), local_constants::title_max_length);
-    } else if (content_type == drogon::ContentType::CT_TEXT_HTML) {
-        auto content = std::string(file.fileContent());
-        std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(content);
-        title = local_utils::strings::get_title_from_str(title, local_constants::title_max_length);
-    } else {
-        fail_type = "not_supported_format";
-    }
+//     try {
+//         auto users_db = app().getDbClient(local_constants::users_db);
 
-    const std::string source_type = "document";
-    uint32_t source_id;
-    bool topic_title_updated = false;
+//         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+//         auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
 
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
+//         auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+//         auto unicode_str = core::text_processing::string_to_unicode(text);
+//         std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-        std::string processed_words;
-        if (fail_type.empty()) {
-            auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
-            auto unicode_str = core::text_processing::string_to_unicode(text);
-            processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+//         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, text);
+//         topic_title_updated = topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
+//         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);        
+//     } catch (const std::exception& e) {
+//         LOG_ERROR << e.what();
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//     }
+
+//     auto result_body = createTopicGenerationItem(source_id, title, source_type, "", topic_title_updated);
+//     co_return local_utils::Response::JSON_OK(callback, result_body);
+// }
+
+// Task<> Topics::addTopicSourceDocument(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+// {
+//     auto topic_id_str = req->getHeader("topicId");
+
+//     MultiPartParser multi_part_parser;
+//     if (multi_part_parser.parse(req) != 0) {
+//         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "empty");
+//     }
+
+//     auto &files = multi_part_parser.getFiles();
+
+//     if (!files.size()) {
+//         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "no_files");
+//     }
+
+//     auto file = files[0];
+//     auto content_type = file.getContentType();
+
+//     std::string title;
+//     std::string text;
+//     std::string fail_type;
+
+//     if (content_type == drogon::ContentType::CT_TEXT_PLAIN) {
+//         text = file.fileContent();
+//         title = local_utils::strings::get_title_from_str(file.getFileName(), local_constants::title_max_length);
+//     } else if (content_type == drogon::ContentType::CT_APPLICATION_PDF) {
+//         text = core::text_extraction::get_text_from_pdf(file.fileData(), file.fileLength());
+//         title = local_utils::strings::get_title_from_str(file.getFileName(), local_constants::title_max_length);
+//     } else if (content_type == drogon::ContentType::CT_TEXT_HTML) {
+//         auto content = std::string(file.fileContent());
+//         std::tie(title, text) = core::text_extraction::extract_text_and_title_from_html(content);
+//         title = local_utils::strings::get_title_from_str(title, local_constants::title_max_length);
+//     } else {
+//         fail_type = "not_supported_format";
+//     }
+
+//     const std::string source_type = "document";
+//     uint32_t source_id;
+//     bool topic_title_updated = false;
+
+//     try {
+//         auto users_db = app().getDbClient(local_constants::users_db);
+
+//         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+//         auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+
+//         std::string processed_words;
+//         if (fail_type.empty()) {
+//             auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+//             auto unicode_str = core::text_processing::string_to_unicode(text);
+//             processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
         
-            if (processed_words.empty()) {
-                fail_type = "no_words_found";
-            }
-        }
+//             if (processed_words.empty()) {
+//                 fail_type = "no_words_found";
+//             }
+//         }
 
-        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
-        topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
+//         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
+//         topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
+//         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+//     } catch (const std::exception& e) {
+//         LOG_ERROR << e.what();
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
-    co_return local_utils::Response::JSON_OK(callback, result_body);
-}
+//     auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
+//     co_return local_utils::Response::JSON_OK(callback, result_body);
+// }
 
-Task<> Topics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
-    auto title = local_utils::strings::get_title_from_str(req->getHeader("title"), local_constants::title_max_length);
+// Task<> Topics::addTopicSourceYoutubeUrl(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
+// {
+//     auto topic_id_str = req->getHeader("topicId");
+//     auto title = local_utils::strings::get_title_from_str(req->getHeader("title"), local_constants::title_max_length);
 
-    if (!title.size()) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
+//     if (!title.size()) {
+//         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+//     }
 
-    const std::string source_type = "youtube_url";
-    uint32_t source_id;
-    std::string fail_type;
+//     const std::string source_type = "youtube_url";
+//     uint32_t source_id;
+//     std::string fail_type;
 
-    auto text = std::string(req->getBody());
+//     auto text = std::string(req->getBody());
 
-    if (text.empty()) {
-        fail_type = "failed_to_fetch_captions";
-    }
+//     if (text.empty()) {
+//         fail_type = "failed_to_fetch_captions";
+//     }
 
-    bool topic_title_updated = false;
+//     bool topic_title_updated = false;
     
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
+//     try {
+//         auto users_db = app().getDbClient(local_constants::users_db);
 
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
+//         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+//         auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
 
-        std::string processed_words;
-        if (fail_type.empty()) {
-            auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
+//         std::string processed_words;
+//         if (fail_type.empty()) {
+//             auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
 
-            auto unicode_str = core::text_processing::string_to_unicode(text);
-            processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+//             auto unicode_str = core::text_processing::string_to_unicode(text);
+//             processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
         
-            if (processed_words.empty()) {
-                fail_type = "no_words_found";
-            }
-        }
+//             if (processed_words.empty()) {
+//                 fail_type = "no_words_found";
+//             }
+//         }
 
-        source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
-        topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
+//         source_id = co_await core::sql::add_topic_source(users_db, user_id, topic_id, title, source_type, processed_words, "", fail_type);
+//         topic_title_updated = co_await update_user_topic_title_if_empty(users_db, title, user_id, topic_id);
+//         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);  
+//     } catch (const std::exception& e) {
+//         LOG_ERROR << e.what();
+//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//     }
 
-    auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
-    co_return local_utils::Response::JSON_OK(callback, result_body);
-}
-
-Task<> Topics::getTopicSourceTextContent(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
-    auto source_id = req->getHeader("sourceId");
-
-    if (!(topic_id_str.size())) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
-
-    std::string result_body;
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
-
-        auto result = co_await users_db->execSqlCoro(
-            "select sources_unprocessed->> $1 as body from user_topics where user_id = $2 and topic_id = $3", 
-            source_id, user_id, topic_id
-        );
-
-        if (!result.size()) {
-            throw std::runtime_error("not_found");
-        }
-        
-        result_body = result[0]["body"].as<std::string>();
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-
-    co_return local_utils::Response::OK(callback, result_body);
-}
-
-Task<> Topics::setTopicSourceText(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
-    auto text = std::string(req->getBody());
-    auto source_id_str = req->getHeader("sourceId");
-
-    if (!(topic_id_str.size())) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
-
-    if (!text.size()) {
-        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "body_is_empty");
-    }
-
-    auto title = local_utils::strings::get_title_from_str(text, local_constants::title_max_length);
-    const std::string source_type = "text";
-
-    uint32_t source_id;
-
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
-
-        auto topic_src_lang = co_await core::sql::get_user_topic_src_lang(users_db, user_id, topic_id);
-
-        auto unicode_str = core::text_processing::string_to_unicode(text);
-        std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
-
-        source_id = std::stoi(source_id_str);
-        co_await core::sql::update_topic_source(users_db, user_id, topic_id, source_id, title, source_type, processed_words, text);
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-
-    auto result_body = createTopicGenerationItem(source_id, title, source_type);
-    co_return local_utils::Response::JSON_OK(callback, result_body);
-}
-
-Task<> Topics::getTopicWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto topic_id_str = req->getHeader("topicId");
-
-    if (!topic_id_str.size()) {
-        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    }
-
-    std::string result_body;
-    try {
-        auto users_db = app().getDbClient(local_constants::users_db);
-        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-        auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
-
-        if (topic_type == local_utils::topics::TopicType::user_topic) {
-            result_body = co_await core::sql::get_topic_words_sequence_and_if_update(users_db, user_id, topic_id);
-        } else if (topic_type == local_utils::topics::TopicType::global_topic) {
-            result_body = co_await core::sql::get_global_topic_words_sequence(users_db, topic_id);
-        }
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
-    }
-
-    co_return local_utils::Response::OK(callback, result_body);
-}
+//     auto result_body = createTopicGenerationItem(source_id, title, source_type, fail_type, topic_title_updated);
+//     co_return local_utils::Response::JSON_OK(callback, result_body);
+// }
 
 Json::Value Topics::createTopicsList(const drogon::orm::Result& lang_pairs_rows, const drogon::orm::Result& topics_rows, const std::string& to_translate_lang)
 {
@@ -498,7 +496,7 @@ Json::Value Topics::createTopicsList(const drogon::orm::Result& lang_pairs_rows,
 
         if (lang_pair_topics.contains(lang_pair_key)) {
             auto& lang_pair_topics_ref = lang_pair_topics[lang_pair_key];
-            lang_pair_topics_ref->append(createTopicJson(row));
+            // lang_pair_topics_ref->append(createTopicJson(row));
         }
     }
 

@@ -283,6 +283,61 @@ std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_fr
     return words_data;
 }
 
+std::vector<icu::UnicodeString> get_unicode_words_from_text_as_vector(const icu::UnicodeString& text, const char* language) {
+    std::vector<icu::UnicodeString> unicode_words;
+    
+    UErrorCode status = U_ZERO_ERROR;
+    auto locale = icu::Locale(language);
+    std::unique_ptr<icu::BreakIterator> bi(icu::BreakIterator::createWordInstance(locale, status));
+    if (U_FAILURE(status)) {
+        throw std::runtime_error("failed_to_process");
+    }
+
+    bi->setText(text);
+
+    auto desired_script_codes = get_desired_script_codes(language);
+
+    auto lang_id = get_lang_id_from_lang(language);
+
+    auto non_spacing_mark_required = is_non_spacing_mark_required(language);
+
+    int32_t start = bi->first();
+    for (int32_t end = bi->next(); end != icu::BreakIterator::DONE; start = end, end = bi->next()) {
+        if (!u_isalpha(text[start])) continue;
+
+        icu::UnicodeString word;
+        text.extractBetween(start, end, word);
+        word = word.toLower(locale);
+
+        bool is_valid_word = true;
+        for (int32_t i = 0; i < word.length(); ++i) {
+            UChar32 c = word.char32At(i);
+
+            if (u_isdigit(c)) {
+                is_valid_word = false;
+                break;
+            }
+
+            if (is_apostrophe(c)) {
+                word.setCharAt(i, get_apostrophe_for_lang(language));
+            } else {
+                if (!is_word_char_valid(c, lang_id, desired_script_codes, non_spacing_mark_required)) {
+                    is_valid_word = false;
+                    break;
+                }
+            }
+        }
+
+        if (!is_valid_word) {
+            continue;
+        }
+
+        unicode_words.push_back(word);
+    }
+
+    return unicode_words;
+}
+
 std::string text_to_processed_source(icu::UnicodeString&& text, const char* language) {
     auto words_data = get_words_data_from_text(std::move(text), language);
 

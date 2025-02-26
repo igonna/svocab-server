@@ -9,7 +9,7 @@ namespace core::topic_extractor {
 using namespace drogon;
 
 std::string extract_text_from_html(const std::string& html) {
-
+    return "";
 }
 
 drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) try {
@@ -41,11 +41,12 @@ drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) try {
     origin_type = "link";
     // words_sequence = ;
 
-    std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+    // std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
 
-    if (title.empty()) {
-        title = local_utils::strings::get_title_from_str(words_sequence, local_constants::title_max_length);
-    }
+    // if (title.empty()) {
+    //     title = local_utils::strings::get_title_from_str(words_sequence, local_constants::title_max_length);
+    // }
+    co_return;
 } catch (const std::exception& e) {
     throw exception::data_extract_fail();
 }

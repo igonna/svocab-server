@@ -9,8 +9,8 @@
 namespace core::topic_extractor {
 
 
-struct TopicExctractor {
-	virtual ~TopicExctractor() = default;
+struct TopicExtractor {
+	virtual ~TopicExtractor() = default;
 	virtual drogon::Task<> init(drogon::HttpRequestPtr req) = 0;
 
 	inline std::string get_title() const { return title; }
@@ -25,53 +25,52 @@ protected:
 	std::string words_sequence;
 };
 
+// struct PromptExtractor : public TopicExtractor {
+// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+// };
 
-struct PromptExtractor : public TopicExctractor {
+struct LinkExtractor : public TopicExtractor {
 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
 };
 
-struct LinkExtractor : public TopicExctractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-};
+// struct TextExtractor : public TopicExtractor {
+// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+// };
 
-struct TextExtractor : public TopicExctractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-};
+// struct YoutubeExtractor : public TopicExtractor {
+// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+// };
 
-struct YoutubeExtractor : public TopicExctractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-};
+// struct HtmlExtractor : public TopicExtractor {
+// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+// };
 
-struct HtmlExtractor : public TopicExctractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-};
-
-struct FileExtractor : public TopicExctractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-};
+// struct FileExtractor : public TopicExtractor {
+// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+// };
 
 
 struct TopicExtractorFactory {
 
-	static drogon::Task<std::unique_ptr<TopicExctractor>> create_extractor(drogon::HttpRequestPtr req) {
+	static drogon::Task<std::unique_ptr<TopicExtractor>> create_extractor(drogon::HttpRequestPtr req) {
 		auto type = req->getHeader("type");
 
 		if (!req->bodyLength()) throw exception::not_valid_body();
 
-		std::unique_ptr<TopicExctractor> topic_extractor;
+		std::unique_ptr<TopicExtractor> topic_extractor;
 
 		if (type == "prompt") {
-			topic_extractor = std::make_unique<PromptExtractor>();
+			// topic_extractor = std::make_unique<PromptExtractor>();
 		} else if ("link") {
 			topic_extractor = std::make_unique<LinkExtractor>();
 		} else if ("text") {
-			topic_extractor = std::make_unique<TextExtractor>();
+			// topic_extractor = std::make_unique<TextExtractor>();
 		} else if ("youtube") {
-			topic_extractor = std::make_unique<YoutubeExtractor>();
+			// topic_extractor = std::make_unique<YoutubeExtractor>();
 		} else if ("html") {
-			topic_extractor = std::make_unique<HtmlExtractor>();
+			// topic_extractor = std::make_unique<HtmlExtractor>();
 		} else if ("file") {
-			topic_extractor = std::make_unique<FileExtractor>();
+			// topic_extractor = std::make_unique<FileExtractor>();
 		} else {
 			throw exception::unknown_type();
 		}

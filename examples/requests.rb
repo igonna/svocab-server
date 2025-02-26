@@ -58,26 +58,32 @@
     body: multipart/form-data: file
 
 prompt:
+    type: prompt
     origin: no header
     body: all the prompt
 
 link (try to extract as html, if failed, use this as link):
+    type: link
     origin: no header
     body: htpps://...
 
 text:
+    type: text
     origin: no header
     body: all the text
 
 youtube:
+    type: youtube
     origin: https://youtube.com/...
     body: title + \n + captions
 
 html:
+    type: html
     origin: https://...
     body: all the html
 
 file:
+    type: file
     origin: no header
     body: empty
     multipart/from-data: all the file

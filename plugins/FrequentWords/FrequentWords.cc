@@ -1,36 +1,47 @@
 #include "FrequentWords.h"
-#include <random>
-#include <regex>
-#include <unicode/unistr.h>
-#include <unicode/normalizer2.h>
-#include <drogon/HttpClient.h>
-#include <curl/curl.h>
+#include "core/text_processing/text_processor.h"
 #include "utils/utils.h"
-
 #include <filesystem>
-
-namespace fs = std::filesystem;
 
 using namespace drogon;
 
 void FrequentWords::initAndStart(const Json::Value &config) {
-    const std::string frequent_words_dir = "frequent_words";
-    local_utils::file::get_string_from_file()
+    frequent_words_dir = config["frequent_words_dir"].asString();
 
-    fs::path current_directory = fs::current_path();
+    for (const auto& file : std::filesystem::directory_iterator(frequent_words_dir)) {
+        auto file_content = local_utils::file::get_string_from_file(file.path());
+        auto unicode_file_content = core::text_processing::string_to_unicode(file_content);
+        file_content.clear();
 
-    // Loop through all files and directories in the current directory
-    for (const auto& entry : fs::directory_iterator(current_directory)) {
-        // Print the filename (path of each entry)
-        if (fs::is_regular_file(entry)) { // Only list regular files, not directories
-            std::cout << entry.path().filename() << std::endl;
+        std::string language = file.path().filename();
+        auto words = core::text_processing::get_unicode_words_from_text_as_vector(unicode_file_content, language.c_str());
+        unicode_file_content.remove();
+
+        std::unordered_map<icu::UnicodeString, uint32_t, UnicodeStringHash, UnicodeStringEqual> words_frequencies;
+
+        const auto words_count = words.size();
+
+        for (uint32_t i = 0; i < words_count; ++i) {
+            words_frequencies.insert({words[i], first_word_frequency - i});
         }
+
+        languages_words_frequencies.insert({std::move(language), std::move(words_frequencies)});
     }
-    
+
+    if (languages_words_frequencies.empty()) {
+        LOG_ERROR << "Frequent words not found!";
+        std::terminate();
+    }
+
+    LOG_INFO << "Frequent words initialized";
 }
 
-void FrequentWords::shutdown() {}
+const WordsFrequencies* FrequentWords::get_words_frequencies_for_lang(const std::string& lang) const {
+    auto it = languages_words_frequencies.find(lang);
+    
+    if (it != languages_words_frequencies.end()) {
+        return &(it->second);
+    }
 
-uint32_t FrequentWords::get_word_weight(std::string lang, icu::UnicodeString word) const {
-
+    return nullptr;
 }
