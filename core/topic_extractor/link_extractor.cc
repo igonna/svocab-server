@@ -3,52 +3,47 @@
 #include "utils/exceptions.h"
 #include "core/text_extraction/html_extractor.h"
 #include "core/text_processing/text_processor.h"
+#include "core/website_fetch/website_fetch.h"
+#include "plugins/FrequentWords/FrequentWords.h"
 
 namespace core::topic_extractor {
 
 using namespace drogon;
 
-std::string extract_text_from_html(const std::string& html) {
-    return "";
-}
-
-drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) try {
-    const auto& url = req->getBody();
+drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) {
+    const auto url = std::string(req->getBody());
 
     if (!url.size()) {
         throw exception::not_valid_body();
     }
 
-    auto [host, path] = local_utils::url::extract_host_and_path_from_url(url);
+    try {
+        core::website_fetch::CurlFetchWebsite website_fetcher;
+        std::string website_body = website_fetcher.fetch_html(url);
 
-    auto client = HttpClient::newHttpClient(host);
-    auto website_request = HttpRequest::newHttpRequest();
-    website_request->addHeader("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36");
-    website_request->setPath(path);
-    website_request->setMethod(Get);
+        std::tie(title, website_body) = core::text_extraction::extract_text_and_title_from_html(website_body);
 
-    drogon::HttpResponsePtr website_resp = co_await client->sendRequestCoro(website_request);
+        if (website_body.empty()) throw exception::data_extract_fail();
 
-    if (website_resp->getStatusCode() != k200OK) throw exception::data_extract_fail();
+        auto src_lang = req->getHeader("srcLang");
+        auto dst_lang = req->getHeader("dstLang");
 
-    auto website_body = std::string(website_resp->getBody());
-    std::tie(title, website_body) = core::text_extraction::extract_text_and_title_from_html(website_body);
+        auto frequent_words_plugin = app().getPlugin<FrequentWords>();
+        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(website_body, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
 
-    if (website_body.empty()) throw exception::data_extract_fail();
+        if (prioritized_words_sequence.empty()) throw exception::data_extract_fail();
 
-    title = local_utils::strings::get_title_from_str(title, local_constants::title_max_length);
-    origin = url;
-    origin_type = "link";
-    // words_sequence = ;
+        title = local_utils::strings::get_title_from_str(title, local_constants::title_max_length);
+        origin = std::move(url);
+        origin_type = "link";
+        words_sequence = std::move(prioritized_words_sequence);
 
-    // std::string processed_words = core::text_processing::text_to_processed_source(std::move(unicode_str), topic_src_lang.c_str());
+    } catch (const std::exception& e) {
+        LOG_ERROR << url << " " << e.what();
+        throw exception::data_extract_fail();
+    }
 
-    // if (title.empty()) {
-    //     title = local_utils::strings::get_title_from_str(words_sequence, local_constants::title_max_length);
-    // }
     co_return;
-} catch (const std::exception& e) {
-    throw exception::data_extract_fail();
 }
 
 }

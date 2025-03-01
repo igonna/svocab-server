@@ -282,7 +282,7 @@ static drogon::Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::
 }
 
 static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::DbClientPtr translations_db) {
-    for (auto src_lang : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
+    for (auto src_lang : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
 
         // create table for each src_lang
         auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
@@ -310,8 +310,8 @@ static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::D
             " ) PARTITION BY LIST (dst_lang)"
         );
 
-        for (auto dst_lang : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
-            if (!strcmp(src_lang, dst_lang)) continue;
+        for (auto dst_lang : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
+            if (src_lang == dst_lang) continue;
 
             // create partition table for each dst_lang
             auto partition_table_name = std::string("word_phrase_") + src_lang + "_" + dst_lang;

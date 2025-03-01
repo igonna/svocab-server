@@ -9,7 +9,7 @@
 using namespace drogon;
 
 BannedWords::BannedWords() {
-    for (auto lang : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
+    for (auto lang : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
         auto new_banned_words_ptr = std::make_shared<BannedWordsList>();
         banned_words_by_lang.emplace(lang, new_banned_words_ptr);
     }

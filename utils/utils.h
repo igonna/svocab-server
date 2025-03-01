@@ -53,10 +53,10 @@ namespace url {
         std::string host;
         std::string path;
 
-        char c = '/';
+        char slash = '/';
         uint32_t count = 0;
         for (char i : url) {
-            if (i == c) {
+            if (i == slash) {
                 ++count;
             }
 
@@ -72,6 +72,34 @@ namespace url {
         }
 
         return {host, path};
+    }
+
+    static std::tuple<std::string, std::string, std::string> extract_scheme_and_host_and_path_from_url(std::string_view url) {
+        std::string scheme;
+        std::string host;
+        std::string path;
+
+        char slash = '/';
+        uint32_t count = 0;
+        for (char i : url) {
+            if (i == slash) {
+                ++count;
+            }
+
+            if (count > 2) {
+                path += i;
+            } else if (count > 1 && i != slash) {
+                host += i;
+            } else {
+                scheme  += i;
+            }
+        }
+
+        if (!host.size()) {
+            throw std::runtime_error("not_valid_host");
+        }
+
+        return {scheme, host, path};
     }
 }
 
@@ -209,6 +237,7 @@ namespace supported_languages {
     std::string get_language_title_localized(const std::string& lang_tag, const std::string& to_translate_lang_tag);
     std::string get_supported_languages_as_string(const std::string& to_translate_lang_tag);
     std::string get_country_code_or_empty(const std::string& src_lang);
+    bool is_language_supported(const std::string& language);
 }
 
 namespace strings {

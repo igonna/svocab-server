@@ -33,9 +33,9 @@ struct LinkExtractor : public TopicExtractor {
 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
 };
 
-// struct TextExtractor : public TopicExtractor {
-// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-// };
+struct TextExtractor : public TopicExtractor {
+	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+};
 
 // struct YoutubeExtractor : public TopicExtractor {
 // 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
@@ -61,15 +61,15 @@ struct TopicExtractorFactory {
 
 		if (type == "prompt") {
 			// topic_extractor = std::make_unique<PromptExtractor>();
-		} else if ("link") {
+		} else if (type == "link") {
 			topic_extractor = std::make_unique<LinkExtractor>();
-		} else if ("text") {
-			// topic_extractor = std::make_unique<TextExtractor>();
-		} else if ("youtube") {
+		} else if (type == "text") {
+			topic_extractor = std::make_unique<TextExtractor>();
+		} else if (type == "youtube") {
 			// topic_extractor = std::make_unique<YoutubeExtractor>();
-		} else if ("html") {
+		} else if (type == "html") {
 			// topic_extractor = std::make_unique<HtmlExtractor>();
-		} else if ("file") {
+		} else if (type == "file") {
 			// topic_extractor = std::make_unique<FileExtractor>();
 		} else {
 			throw exception::unknown_type();

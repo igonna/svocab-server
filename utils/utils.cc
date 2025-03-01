@@ -52,7 +52,7 @@ namespace supported_languages {
         }
 
         std::string result;
-        for (auto i : local_constants::languages::chat_gpt_supported_languages_sorted_by_learning_popularity) {
+        for (auto i : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
             if (supported_locales.contains(i)) {
                 result += std::string(i) + ';' + local_utils::supported_languages::get_language_title_localized(i, to_translate_lang_tag);
 
@@ -76,6 +76,10 @@ namespace supported_languages {
         return local_constants::languages::language_to_country.contains(src_lang) 
                 ? local_constants::languages::language_to_country.at(src_lang) 
                 : "";
+    }
+
+    bool is_language_supported(const std::string& language) {
+        return local_constants::languages::ai_supported_languages_sorted_by_learning_popularity.contains(language);
     }
 }
 

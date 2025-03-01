@@ -1,5 +1,10 @@
 #pragma once
 
+#include <unordered_set>
+#include <cstdint>
+#include <unordered_map>
+#include <string>
+
 namespace local_constants {
     static constexpr char users_db[] = "svocab_users";
     static constexpr char devices_info_db[] = "devices_info";
@@ -41,10 +46,14 @@ namespace local_constants {
 
     static constexpr uint32_t user_blocked_focus_group_generation_seconds = 60*3;
 
+namespace word_frequency {
+    const uint32_t first_word_frequency = 10000000;
+}
+
 namespace languages {
     static constexpr uint32_t lang_tag_size = 2;
 
-    static constexpr auto chat_gpt_supported_languages_sorted_by_learning_popularity = {
+    static const std::unordered_set<std::string> ai_supported_languages_sorted_by_learning_popularity = {
         "en", "es", "fr", "de", "zh", "ja", "it", "pt", "ru", "ko", "ar", "nl", "sv", 
         "tr", "hi", "no", "el", "pl", "vi", "id", "da", "th", "uk", "fa", "cs", "fi", 
         "ro", "sw", "hu", "ca", "bn", "is", "ms", "sr", "hr", "hy", "ka", "sq", "bs", 
@@ -118,7 +127,7 @@ namespace languages {
 }
 
 namespace redis {
-    static constexpr std::string secret_key_name = "secret";
+    static const std::string secret_key_name = "secret";
     static constexpr uint8_t secret_key_length = 16;
     static const std::string devices_info_update_key_name = "devices_info_update";
     static const std::string global_rank_update_key_name = "global_rank_update";
@@ -126,8 +135,8 @@ namespace redis {
 }
 
 namespace attributes {
-    static constexpr std::string user_id = "user_id";
-    static constexpr std::string device_num = "device_num";
+    static const std::string user_id = "user_id";
+    static const std::string device_num = "device_num";
 }
 
 namespace topics {

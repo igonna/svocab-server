@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
+#include "plugins/FrequentWords/FrequentWords.h"
 
 namespace core::text_processing
 {
@@ -28,6 +29,7 @@ namespace core::text_processing
 
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language);
     std::vector<icu::UnicodeString> get_unicode_words_from_text_as_vector(const icu::UnicodeString& text, const char* language);
+    std::string create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
 
     std::string text_to_processed_source(icu::UnicodeString&& text, const char* language);
 

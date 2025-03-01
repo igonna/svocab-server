@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <random>
 #include <chrono>
+#include "utils/predicates.h"
 
 namespace core::text_processing
 {
@@ -336,6 +337,138 @@ std::vector<icu::UnicodeString> get_unicode_words_from_text_as_vector(const icu:
     }
 
     return unicode_words;
+}
+
+bool update_word_and_check_if_valid(
+    icu::UnicodeString& word,
+    const icu::Locale& locale,
+    const char* language,
+    core::text_processing::LID lang_id,
+    const std::unordered_set<uint32_t>& desired_script_codes,
+    bool non_spacing_mark_required
+) {
+    word = word.toLower(locale);
+
+    for (int32_t i = 0; i < word.length(); ++i) {
+        UChar32 c = word.char32At(i);
+
+        if (u_isdigit(c)) {
+            return false;
+        }
+
+        if (is_apostrophe(c)) {
+            word.setCharAt(i, get_apostrophe_for_lang(language));
+        } else {
+            if (!is_word_char_valid(c, lang_id, desired_script_codes, non_spacing_mark_required)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+std::string create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
+    UErrorCode status = U_ZERO_ERROR;
+    auto locale = icu::Locale(language_src);
+    std::unique_ptr<icu::BreakIterator> bi(icu::BreakIterator::createWordInstance(locale, status));
+    if (U_FAILURE(status)) {
+        throw std::runtime_error("failed_to_process");
+    }
+
+    auto text = core::text_processing::string_to_unicode(str);
+    bi->setText(text);
+
+    // lang_src
+    auto desired_script_codes_src = get_desired_script_codes(language_src);
+    auto lang_id_src = get_lang_id_from_lang(language_src);
+    auto non_spacing_mark_required_src = is_non_spacing_mark_required(language_src);
+
+    // lang_dst
+    auto desired_script_codes_dst = get_desired_script_codes(language_dst);
+    auto lang_id_dst = get_lang_id_from_lang(language_dst);
+    auto non_spacing_mark_required_dst = is_non_spacing_mark_required(language_dst);
+
+    auto words_frequencies_src = frequent_words_plugin->get_words_frequencies_for_lang(language_src);
+    auto words_frequencies_dst = frequent_words_plugin->get_words_frequencies_for_lang(language_dst);
+
+    std::unordered_set<icu::UnicodeString, predicates::UnicodeStringHash, predicates::UnicodeStringEqual> already_processed_words;
+
+    std::multimap<uint32_t, icu::UnicodeString> common_words;
+    std::multimap<uint32_t, icu::UnicodeString> rare_words;
+    std::multimap<uint32_t, icu::UnicodeString> exotic_words;
+
+    int32_t start = bi->first();
+    for (int32_t end = bi->next(); end != icu::BreakIterator::DONE; start = end, end = bi->next()) {
+        if (!u_isalpha(text[start])) continue;
+
+        icu::UnicodeString word;
+        text.extractBetween(start, end, word);
+        word = word.toLower(locale);
+
+        bool is_valid_word_src = update_word_and_check_if_valid(
+            word, locale, language_src, lang_id_src, desired_script_codes_src, non_spacing_mark_required_src
+        );
+
+        bool is_valid_word_dst = update_word_and_check_if_valid(
+            word, locale, language_dst, lang_id_dst, desired_script_codes_dst, non_spacing_mark_required_dst
+        );
+
+        if (already_processed_words.contains(word)) continue;
+
+        if (!is_valid_word_src && !is_valid_word_dst) {
+            continue;
+        }
+
+        // get frequency and category of word
+        uint32_t word_frequency;
+        WordRarityCategory word_rarity_category;
+
+        if (is_valid_word_src && is_valid_word_dst) {
+            auto [frequency_src, category_src] = words_frequencies_src->get_frequency(word);
+            auto [frequency_dst, category_dst] = words_frequencies_dst->get_frequency(word);
+    
+            bool is_src = frequency_src > frequency_dst;
+            word_frequency = is_src ? frequency_src : frequency_dst;
+            word_rarity_category = is_src ? category_src : category_dst;
+        } else if (is_valid_word_src) {
+            std::tie(word_frequency, word_rarity_category) = words_frequencies_src->get_frequency(word);
+        } else if (is_valid_word_dst) {
+            std::tie(word_frequency, word_rarity_category) = words_frequencies_dst->get_frequency(word);
+        }
+
+        std::cout << word_frequency << " = " << unicode_to_str(word) << std::endl;
+
+        // mark word processed
+        already_processed_words.insert(word);
+
+        // insert word into a category
+        if (word_rarity_category == WordRarityCategory::common) {
+            common_words.insert({word_frequency, std::move(word)});
+        } else if (word_rarity_category == WordRarityCategory::rare) {
+            rare_words.insert({word_frequency, std::move(word)});
+        } else {
+            exotic_words.insert({word_frequency, std::move(word)});
+        }
+    }
+
+    // TODO: mix words properly
+    // TODO: also rank words without dataset (to order even undetected words)
+    std::string result;
+
+    for (const auto& common_word : common_words) {
+        result += unicode_to_str(common_word.second) + ' ';
+    }
+
+    for (const auto& rare_word : rare_words) {
+        result += unicode_to_str(rare_word.second) + ' ';
+    }
+
+    for (const auto& exotic_word : exotic_words) {
+        result += unicode_to_str(exotic_word.second) + ' ';
+    }
+
+    return result;
 }
 
 std::string text_to_processed_source(icu::UnicodeString&& text, const char* language) {

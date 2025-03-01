@@ -16,10 +16,15 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
     auto src_lang = req->getHeader("srcLang");
     auto dst_lang = req->getHeader("dstLang");
     auto type = req->getHeader("type");
-    auto origin = req->getHeader("origin");
 
     if (src_lang.empty() || dst_lang.empty() || type.empty()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    if (!local_utils::supported_languages::is_language_supported(src_lang) 
+        || !local_utils::supported_languages::is_language_supported(dst_lang)) 
+    {
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "language not supported");
     }
 
     try {
@@ -36,23 +41,26 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
 
         auto current_time = local_utils::time::get_unix_timestamp();
 
-        auto result = co_await users_db->execSqlCoro(
-            "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence)",
-            " values ($1, $2, $3, $4, $5, $6, $7, $8)",
-            user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence
-        );
+        auto debug_output = title + '\n' + origin + '\n' + origin_type + '\n' + words_sequence;
 
-        if (!result.affectedRows()) {
-            throw std::runtime_error("topic_not_created");
-        }
+        co_return local_utils::Response::OK(callback, debug_output);
+
+        // auto result = co_await users_db->execSqlCoro(
+        //     "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence)",
+        //     " values ($1, $2, $3, $4, $5, $6, $7, $8)",
+        //     user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence
+        // );
+
+        // if (!result.affectedRows()) {
+        //     throw std::runtime_error("topic_not_created");
+        // }
     } catch (const exception::custom_exception& e) {
-        // !body->isMember("origin") || body->isMember("type") || body->isMember("content")
-        // co_return local_utils::Response::Error::ERROR(callback, k e.what());
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::ERROR(callback, k500InternalServerError, e.what());
     } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
     }
-
-    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
@@ -68,6 +76,7 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
+        // are you sure that you need this query?
         auto lang_pairs_result = co_await users_db->execSqlCoro(
             " select src_lang, dst_lang, mix_value"
             " from user_language_pairs"
@@ -75,57 +84,23 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
         );
 
         auto topics_result = co_await users_db->execSqlCoro(
-            "( "
-                "select "
-                "ut.topic_id,"
-                "ulp.src_lang,"
-                "ulp.dst_lang,"
-                "ulp.mix_value as lang_mix_value,"
-                "ut.topic_title,"
-                "ut.order_words_by,"
-                "ut.mix_value,"
-                "ut.skip_value,"
-                "ut.is_enabled,"
-                "ut.position,"
-                "0 as topic_type,"
-                "ulp.last_enable_time as ulp_last_enable_time "
-                "from user_language_pairs as ulp "
-                "left join user_topics as ut "
-                "on ut.user_id = ulp.user_id "
-                "and ut.src_lang = ulp.src_lang "
-                "and ut.dst_lang = ulp.dst_lang "
-                "where ulp.is_enabled = true "
-                "and ulp.user_id = $1 "
-                "and topic_id is not null "
-            ") "
-            "UNION "
-                "( "
-                "select "
-                "gt.topic_id,"
-                "ulp.src_lang,"
-                "ulp.dst_lang,"
-                "ulp.mix_value as lang_mix_value,"
-                "gt.src_title_en as topic_title,"
-                "null as order_words_by,"
-                "COALESCE(ugt.mix_value, 1) as mix_value,"
-                "COALESCE(ugt.skip_value, 0) as skip_value,"
-                "COALESCE(ugt.is_enabled, false) as is_enabled,"
-                "gt.default_position as position,"
-                "1 as topic_type,"
-                "ulp.last_enable_time as ulp_last_enable_time "
-                "from user_language_pairs as ulp "
-                "left join global_topics as gt "
-                "on gt.src_lang = ulp.src_lang "
-                "left join user_global_topics as ugt "
-                "on gt.topic_id = ugt.topic_id "
-                "and gt.src_lang = ugt.src_lang "
-                "and ugt.dst_lang = ulp.dst_lang "
-                "and ugt.user_id = ulp.user_id "
-                "where ulp.is_enabled = true "
-                "and ulp.user_id = $1 "
-                "and gt.topic_id is not null "
-                ") "
-            "order by ulp_last_enable_time asc, is_enabled desc, position asc, topic_type asc",
+            " select"
+                " ut.topic_id,"
+                " ulp.src_lang,"
+                " ulp.dst_lang,"
+                " ut.title,"
+                " ut.created_at,"
+                " ut.is_enabled,"
+                " ulp.last_enable_time as ulp_last_enable_time"
+            " from user_language_pairs as ulp"
+            " left join user_topics as ut"
+            " on ut.user_id = ulp.user_id"
+            " and ut.src_lang = ulp.src_lang"
+            " and ut.dst_lang = ulp.dst_lang"
+            " where ulp.is_enabled = true and ut.is_enabled = true"
+            " and ulp.user_id = 0"
+            " and topic_id is not null"
+            " order by ulp_last_enable_time asc, created_at desc",
             user_id
         );
 
