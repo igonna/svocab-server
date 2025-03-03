@@ -29,6 +29,13 @@ namespace core::text_processing
 
     std::unordered_map<std::string, std::pair<uint32_t, uint32_t>> get_words_data_from_text(icu::UnicodeString&& text, const char* language);
     std::vector<icu::UnicodeString> get_unicode_words_from_text_as_vector(const icu::UnicodeString& text, const char* language);
+
+    std::vector<icu::UnicodeString> mix_multimaps(
+        const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m1,
+        const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m2,
+        const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m3
+    );
+
     std::string create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
 
     std::string text_to_processed_source(icu::UnicodeString&& text, const char* language);
@@ -45,4 +52,6 @@ namespace core::text_processing
     icu::UnicodeString shuffle_unicode_string(const icu::UnicodeString& unicode_str);
     std::string shuffle_string_in_the_middle(const std::string& str, const char* language);
     std::vector<std::string> extract_letters_as_strings(const std::string& str, const char* language);
+
+    std::string get_str_untill_char(const std::string& str, char c);
 }

@@ -159,6 +159,18 @@ namespace user_generation_limit {
     static constexpr uint32_t generation_limit_subscriber_user = 320;
 }
 
+namespace user_file_processing_limit {
+    static constexpr uint32_t file_processing_limit_reset_seconds = 60*60*3;
+    static constexpr uint32_t file_processing_limit_free_user = 2;
+    static constexpr uint32_t file_processing_limit_subscriber_user = 20;
+};
+
+namespace user_topic_generation_limit {
+    static constexpr uint32_t topic_generation_limit_reset_seconds = 60*60*3;
+    static constexpr uint32_t topic_generation_limit_free_user = 3;
+    static constexpr uint32_t topic_generation_limit_subscriber_user = 20;
+};
+
 namespace focus_group {
     static constexpr uint8_t min_focus_group_size = 2;
     static constexpr uint8_t max_focus_group_size = 6;

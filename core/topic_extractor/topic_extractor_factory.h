@@ -37,17 +37,17 @@ struct TextExtractor : public TopicExtractor {
 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
 };
 
-// struct YoutubeExtractor : public TopicExtractor {
-// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-// };
+struct YoutubeExtractor : public TopicExtractor {
+	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+};
 
-// struct HtmlExtractor : public TopicExtractor {
-// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-// };
+struct HtmlExtractor : public TopicExtractor {
+	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+};
 
-// struct FileExtractor : public TopicExtractor {
-// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-// };
+struct FileExtractor : public TopicExtractor {
+	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+};
 
 
 struct TopicExtractorFactory {
@@ -66,11 +66,11 @@ struct TopicExtractorFactory {
 		} else if (type == "text") {
 			topic_extractor = std::make_unique<TextExtractor>();
 		} else if (type == "youtube") {
-			// topic_extractor = std::make_unique<YoutubeExtractor>();
+			topic_extractor = std::make_unique<YoutubeExtractor>();
 		} else if (type == "html") {
-			// topic_extractor = std::make_unique<HtmlExtractor>();
+			topic_extractor = std::make_unique<HtmlExtractor>();
 		} else if (type == "file") {
-			// topic_extractor = std::make_unique<FileExtractor>();
+			topic_extractor = std::make_unique<FileExtractor>();
 		} else {
 			throw exception::unknown_type();
 		}

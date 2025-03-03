@@ -1,3 +1,5 @@
+#pragma once
+
 #include <drogon/orm/DbClient.h>
 #include <drogon/utils/coroutine.h>
 #include <string>
@@ -401,4 +403,59 @@ static drogon::Task<bool> does_user_have_subscription(drogon::orm::DbClientPtr u
 
     co_return false;
 }
+
+namespace user_limits {
+
+inline drogon::Task<> increase_processed_files_count(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint16_t count) {
+    auto user_limits_result = co_await users_db->execSqlCoro(
+        "select processed_files_count, last_processed_file_start_time from user_limits where user_id = $1",
+        user_id
+    );
+
+    auto processed_files_count = user_limits_result[0]["processed_files_count"].as<uint16_t>(); 
+    auto last_processed_file_start_time = user_limits_result[0]["last_processed_file_start_time"].as<uint32_t>();
+
+    auto current_time = local_utils::time::get_unix_timestamp();
+
+    if (current_time - last_processed_file_start_time > local_constants::user_file_processing_limit::file_processing_limit_reset_seconds) {
+        co_await users_db->execSqlCoro("update user_limits set processed_files_count = 1,"
+            " last_processed_file_start_time = $1 where user_id = $2", current_time, user_id
+        );
+    } else {
+        co_await users_db->execSqlCoro("update user_limits set processed_files_count = processed_files_count + $1"
+            " where user_id = $2", count, user_id
+        );
+    }
+}
+
+inline drogon::Task<std::tuple<bool, uint32_t>> is_user_processing_files_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription) {
+    auto user_limits = co_await users_db->execSqlCoro(
+        "select processed_files_count, last_processed_file_start_time from user_limits where user_id = $1",
+        user_id
+    );
+
+    auto current_time = local_utils::time::get_unix_timestamp();
+
+    auto processed_files_count = user_limits[0]["processed_files_count"].as<uint16_t>(); 
+    auto last_processed_file_start_time = user_limits[0]["last_processed_file_start_time"].as<uint32_t>();
+
+    if (current_time - last_processed_file_start_time > local_constants::user_file_processing_limit::file_processing_limit_reset_seconds) {
+        co_return {false, 0};
+    }
+
+    auto max_generated_phrases = user_has_subscription 
+        ? local_constants::user_file_processing_limit::file_processing_limit_subscriber_user 
+        : local_constants::user_file_processing_limit::file_processing_limit_free_user;
+
+    auto time_limit_resets = last_processed_file_start_time + local_constants::user_file_processing_limit::file_processing_limit_reset_seconds;
+
+    if (processed_files_count > max_generated_phrases) {
+        co_return {true, time_limit_resets};
+    } else {
+        co_return {false, 0};
+    }
+}
+
+}
+
 }

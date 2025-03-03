@@ -368,6 +368,28 @@ bool update_word_and_check_if_valid(
     return true;
 }
 
+
+std::vector<icu::UnicodeString> mix_multimaps(const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m1,
+    const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m2,
+    const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m3) {
+
+    auto it1 = m1.begin(), it2 = m2.begin(), it3 = m3.begin();
+    std::vector<icu::UnicodeString> result;
+
+    while (it1 != m1.end() || it2 != m2.end() || it3 != m3.end()) {
+        for (int i = 0; i < 3 && it1 != m1.end(); ++i, ++it1)
+            result.push_back(it1->second);
+
+        for (int i = 0; i < 2 && it2 != m2.end(); ++i, ++it2)
+            result.push_back(it2->second);
+
+        for (int i = 0; i < 1 && it3 != m3.end(); ++i, ++it3)
+            result.push_back(it3->second);
+    }
+
+    return result;
+}
+
 std::string create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
     UErrorCode status = U_ZERO_ERROR;
     auto locale = icu::Locale(language_src);
@@ -394,9 +416,9 @@ std::string create_prioritized_words_sequence(const std::string& str, FrequentWo
 
     std::unordered_set<icu::UnicodeString, predicates::UnicodeStringHash, predicates::UnicodeStringEqual> already_processed_words;
 
-    std::multimap<uint32_t, icu::UnicodeString> common_words;
-    std::multimap<uint32_t, icu::UnicodeString> rare_words;
-    std::multimap<uint32_t, icu::UnicodeString> exotic_words;
+    std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>> common_words;
+    std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>> rare_words;
+    std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>> exotic_words;
 
     int32_t start = bi->first();
     for (int32_t end = bi->next(); end != icu::BreakIterator::DONE; start = end, end = bi->next()) {
@@ -437,8 +459,6 @@ std::string create_prioritized_words_sequence(const std::string& str, FrequentWo
             std::tie(word_frequency, word_rarity_category) = words_frequencies_dst->get_frequency(word);
         }
 
-        std::cout << word_frequency << " = " << unicode_to_str(word) << std::endl;
-
         // mark word processed
         already_processed_words.insert(word);
 
@@ -452,20 +472,19 @@ std::string create_prioritized_words_sequence(const std::string& str, FrequentWo
         }
     }
 
-    // TODO: mix words properly
-    // TODO: also rank words without dataset (to order even undetected words)
+    text.remove();
+
+    auto mixed_words = mix_multimaps(common_words, rare_words, exotic_words);
+
+    already_processed_words.clear();
+    common_words.clear();
+    rare_words.clear();
+    exotic_words.clear();
+
     std::string result;
 
-    for (const auto& common_word : common_words) {
-        result += unicode_to_str(common_word.second) + ' ';
-    }
-
-    for (const auto& rare_word : rare_words) {
-        result += unicode_to_str(rare_word.second) + ' ';
-    }
-
-    for (const auto& exotic_word : exotic_words) {
-        result += unicode_to_str(exotic_word.second) + ' ';
+    for (const auto& word : mixed_words) {
+        result += unicode_to_str(word) + ' ';
     }
 
     return result;
@@ -697,7 +716,6 @@ std::string shuffle_string_in_the_middle(const std::string& str, const char* lan
     return utf8_str;
 }
 
-
 std::vector<std::string> extract_letters_as_strings(const std::string& str, const char* language) {
     auto locale = icu::Locale(language);
 
@@ -718,5 +736,13 @@ std::vector<std::string> extract_letters_as_strings(const std::string& str, cons
     }
 
     return result;
+}
+
+std::string get_str_untill_char(const std::string& str, char c) {
+    size_t pos = str.find(c);
+    if (pos != std::string::npos) {
+        return str.substr(0, pos);
+    }
+    return str;
 }
 }
