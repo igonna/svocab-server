@@ -53,9 +53,6 @@ drogon::Task<> PromptExtractor::init(drogon::HttpRequestPtr req) {
 
     } catch (const OpenaiGeneration::systems_are_busy_exception& e) {
         throw exception::systems_are_busy();
-    } catch (const std::exception& e) {
-        LOG_ERROR << e.what();
-        throw exception::data_extract_fail();
     }
 
     co_return;

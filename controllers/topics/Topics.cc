@@ -42,7 +42,7 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
         auto current_time = local_utils::time::get_unix_timestamp();
 
         auto result = co_await users_db->execSqlCoro(
-            "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence)",
+            "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence)"
             " values ($1, $2, $3, $4, $5, $6, $7, $8)",
             user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence
         );
@@ -50,6 +50,8 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
         if (!result.affectedRows()) {
             throw std::runtime_error("topic_not_created");
         }
+
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const exception::unknown_type& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
     } catch (const exception::not_valid_body& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
     } catch (const exception::not_valid_header& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
@@ -61,6 +63,8 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
+
+    co_return local_utils::Response::OK(callback, "");
 }
 
 Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)

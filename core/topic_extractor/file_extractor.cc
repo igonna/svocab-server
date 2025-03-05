@@ -75,7 +75,7 @@ drogon::Task<> FileExtractor::init(drogon::HttpRequestPtr req) {
 
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        throw exception::data_extract_fail();
+        throw;
     }
 
     co_return;
