@@ -24,7 +24,7 @@ Task<> Languages::getSupportedLanguages(HttpRequestPtr req, std::function<void(c
         }
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     std::string supported_languages = local_utils::supported_languages::get_supported_languages_as_string(to_translate_lang);
@@ -39,7 +39,7 @@ Task<> Languages::getSupportedLanguages(HttpRequestPtr req, std::function<void(c
 
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return local_utils::Response::OK(callback, supported_languages);
@@ -79,7 +79,7 @@ Task<> Languages::setLanguagePairEnabled(HttpRequestPtr req, std::function<void(
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return local_utils::Response::OK(callback, "");

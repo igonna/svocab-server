@@ -34,7 +34,7 @@ Task<> SignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(cons
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // check if email exists
@@ -48,7 +48,7 @@ Task<> SignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(cons
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // create code
@@ -62,7 +62,7 @@ Task<> SignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(cons
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // send code to email
@@ -70,7 +70,7 @@ Task<> SignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(cons
         app().getPlugin<EmailSender>()->send_email(email, email_code);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return callback(HttpResponse::newHttpResponse());
@@ -105,7 +105,7 @@ Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResp
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // check if code valid
@@ -120,7 +120,7 @@ Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResp
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     uint64_t user_id;
@@ -151,7 +151,7 @@ Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResp
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // delete verify_attempts && code && code_requests key on success
@@ -182,7 +182,7 @@ Task<> SignIn::signInGoogle(HttpRequestPtr req, std::function<void(const HttpRes
         co_return local_utils::Response::Error::FORBIDDEN(callback, e.what());
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     uint64_t user_id;
@@ -213,7 +213,7 @@ Task<> SignIn::signInGoogle(HttpRequestPtr req, std::function<void(const HttpRes
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     auto resp = HttpResponse::newHttpResponse();

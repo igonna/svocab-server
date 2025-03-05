@@ -65,7 +65,7 @@ Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpRe
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // get secret key
@@ -91,7 +91,7 @@ Task<> Devices::logOutOfAllDevices(HttpRequestPtr req, std::function<void(const 
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return local_utils::Response::OK(callback, "");

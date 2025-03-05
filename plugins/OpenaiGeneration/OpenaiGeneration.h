@@ -51,13 +51,14 @@ struct GeneratedPhrase {
 	std::string dst_phrase;
 };
 
-class OpenaiPhraseGeneration : public drogon::Plugin<OpenaiPhraseGeneration> {
+class OpenaiGeneration : public drogon::Plugin<OpenaiGeneration> {
 public:
-	OpenaiPhraseGeneration();
+	OpenaiGeneration();
 	void initAndStart(const Json::Value &config) override;
 	void shutdown() override;
 	
 	drogon::Task<GeneratedPhrase> generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription);
+	drogon::Task<std::string> generate_words_list(const std::string& lang, const std::string& topic, bool has_subscription);
 
 public:
 	// exceptions
@@ -115,6 +116,7 @@ private:
 	drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::string>>> get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
 
 	drogon::Task<bool> increase_free_users_openai_limit();
+	drogon::Task<> check_openai_limit(bool has_subscription);
 
 	drogon::Task<> await_other_server_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word);
 	drogon::Task<> set_generating_word(const std::string& word_key);

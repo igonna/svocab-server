@@ -372,7 +372,7 @@
             "config": {}
         },
         {
-            "name": "OpenaiPhraseGeneration",
+            "name": "OpenaiGeneration",
             "dependencies": [],
             "config": {
                 "url": "https://api.openai.com/v1/chat/completions",

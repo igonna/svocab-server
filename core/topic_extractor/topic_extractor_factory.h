@@ -25,9 +25,9 @@ protected:
 	std::string words_sequence;
 };
 
-// struct PromptExtractor : public TopicExtractor {
-// 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
-// };
+struct PromptExtractor : public TopicExtractor {
+	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+};
 
 struct LinkExtractor : public TopicExtractor {
 	drogon::Task<> init(drogon::HttpRequestPtr req) override;
@@ -60,7 +60,7 @@ struct TopicExtractorFactory {
 		std::unique_ptr<TopicExtractor> topic_extractor;
 
 		if (type == "prompt") {
-			// topic_extractor = std::make_unique<PromptExtractor>();
+			topic_extractor = std::make_unique<PromptExtractor>();
 		} else if (type == "link") {
 			topic_extractor = std::make_unique<LinkExtractor>();
 		} else if (type == "text") {

@@ -41,25 +41,25 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
 
         auto current_time = local_utils::time::get_unix_timestamp();
 
-        auto debug_output = title + '\n' + origin + '\n' + origin_type + '\n' + words_sequence;
+        auto result = co_await users_db->execSqlCoro(
+            "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence)",
+            " values ($1, $2, $3, $4, $5, $6, $7, $8)",
+            user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence
+        );
 
-        co_return local_utils::Response::OK(callback, debug_output);
-
-        // auto result = co_await users_db->execSqlCoro(
-        //     "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence)",
-        //     " values ($1, $2, $3, $4, $5, $6, $7, $8)",
-        //     user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence
-        // );
-
-        // if (!result.affectedRows()) {
-        //     throw std::runtime_error("topic_not_created");
-        // }
-    } catch (const exception::custom_exception& e) {
-        LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::ERROR(callback, k500InternalServerError, e.what());
+        if (!result.affectedRows()) {
+            throw std::runtime_error("topic_not_created");
+        }
+    } catch (const exception::unknown_type& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
+    } catch (const exception::not_valid_body& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
+    } catch (const exception::not_valid_header& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
+    } catch (const exception::data_extract_fail& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
+    } catch (const exception::systems_are_busy& e) { co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, e.what());
+    } catch (const exception::file_processing_limit_reached& e) { co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, e.what());
+    } catch (const exception::prompt_topic_generation_limit_reached& e) { co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, e.what());
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 }
 
@@ -107,7 +107,7 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
         result_body = createTopicsList(lang_pairs_result, topics_result, to_translate_lang);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return local_utils::Response::JSON_OK(callback, result_body);
@@ -134,7 +134,7 @@ Task<> Topics::getTopicProgress(HttpRequestPtr req, std::function<void(const Htt
     //     }
     // } catch (const std::exception& e) {
     //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
     // }
 
 
@@ -165,7 +165,7 @@ Task<> Topics::getTopicProgress(HttpRequestPtr req, std::function<void(const Htt
     //     result_body = result[0]["body"].as<std::string>();
     // } catch (const std::exception& e) {
     //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
     // }
 
     // co_return local_utils::Response::OK(callback, result_body);
@@ -191,7 +191,7 @@ Task<> Topics::renameTopic(HttpRequestPtr req, std::function<void(const HttpResp
     //     }
     // } catch (const std::exception& e) {
     //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
     // }
 
     co_return local_utils::Response::OK(callback, "");
@@ -230,7 +230,7 @@ Task<> Topics::updateTopicContent(HttpRequestPtr req, std::function<void(const H
     //     co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);    
     // } catch (const std::exception& e) {
     //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
     // }
 
     // auto result_body = createTopicGenerationItem(source_id, title, source_type);
@@ -256,7 +256,7 @@ Task<> Topics::deleteTopic(HttpRequestPtr req, std::function<void(const HttpResp
     //     co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
     // } catch (const std::exception& e) {
     //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
     // }
 
     co_return local_utils::Response::OK(callback, "");

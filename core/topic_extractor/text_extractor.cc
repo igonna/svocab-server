@@ -13,7 +13,7 @@ using namespace drogon;
 drogon::Task<> TextExtractor::init(drogon::HttpRequestPtr req) {
     const auto text = std::string(req->getBody());
 
-    if (!text.size()) {
+    if (text.empty()) {
         throw exception::not_valid_body();
     }
 

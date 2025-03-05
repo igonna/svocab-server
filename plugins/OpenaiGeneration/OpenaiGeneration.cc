@@ -1,4 +1,4 @@
-#include "OpenaiPhraseGeneration.h"
+#include "OpenaiGeneration.h"
 #include "utils/utils.h"
 #include "core/text_processing/text_processor.h"
 #include <drogon/drogon.h>
@@ -10,9 +10,9 @@
 
 using namespace drogon;
 
-OpenaiPhraseGeneration::OpenaiPhraseGeneration() {}
+OpenaiGeneration::OpenaiGeneration() {}
 
-void OpenaiPhraseGeneration::initAndStart(const Json::Value &config) {
+void OpenaiGeneration::initAndStart(const Json::Value &config) {
     api_key = config["api_key"].asString();
     model = config["model"].asString();
     url = config["url"].asString();
@@ -21,9 +21,9 @@ void OpenaiPhraseGeneration::initAndStart(const Json::Value &config) {
     free_users_openai_rpm_limit = rpm_limit - rpm_limit * 0.2f;
 }
 
-void OpenaiPhraseGeneration::shutdown() {}
+void OpenaiGeneration::shutdown() {}
 
-drogon::Task<Json::Value> OpenaiPhraseGeneration::openai_get_response(const std::string& prompt) {
+drogon::Task<Json::Value> OpenaiGeneration::openai_get_response(const std::string& prompt) {
     auto [host, path] = local_utils::url::extract_host_and_path_from_url(url);
 
     auto client = HttpClient::newHttpClient(host);
@@ -62,7 +62,7 @@ drogon::Task<Json::Value> OpenaiPhraseGeneration::openai_get_response(const std:
     }
 }
 
-drogon::Task<bool> OpenaiPhraseGeneration::openai_is_word_translation_valid(const std::string& src_lang_name, const std::string& dst_lang_name, const std::string& src_word, const std::string& dst_word) {
+drogon::Task<bool> OpenaiGeneration::openai_is_word_translation_valid(const std::string& src_lang_name, const std::string& dst_lang_name, const std::string& src_word, const std::string& dst_word) {
     std::string prompt = std::string("is ") + dst_lang_name + " \'" + dst_word + "\' a possible translation for " + src_lang_name + " \'" + src_word + "\', output only yes or no";
 
     auto response = co_await openai_get_response(prompt);
@@ -74,7 +74,7 @@ drogon::Task<bool> OpenaiPhraseGeneration::openai_is_word_translation_valid(cons
     co_return words.contains("yes");
 }
 
-std::string OpenaiPhraseGeneration::correct_phrase(std::string&& phrase, const std::string& lang) {
+std::string OpenaiGeneration::correct_phrase(std::string&& phrase, const std::string& lang) {
     auto unicode_phrase = core::text_processing::string_to_unicode(phrase);
     unicode_phrase.trim();
 
@@ -97,7 +97,7 @@ std::string OpenaiPhraseGeneration::correct_phrase(std::string&& phrase, const s
     return utf8_phrase;
 }
 
-std::string OpenaiPhraseGeneration::correct_word(std::string&& word, const std::string& lang) {
+std::string OpenaiGeneration::correct_word(std::string&& word, const std::string& lang) {
     auto unicode_word = core::text_processing::string_to_unicode(word);
     unicode_word.toLower();
 
@@ -125,7 +125,7 @@ bool is_valid_dst_word(const icu::UnicodeString& word) {
     return true;
 }
 
-std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extract_word_phrase_from_openai_response(const std::string& response, const std::string& src_word, const std::string& src_lang, const std::string& dst_lang) {
+std::tuple<std::string, std::string, std::string> OpenaiGeneration::extract_word_phrase_from_openai_response(const std::string& response, const std::string& src_word, const std::string& src_lang, const std::string& dst_lang) {
     std::string src_phrase, dst_phrase, dst_word;
 
     auto str_size = response.size();
@@ -200,7 +200,7 @@ std::tuple<std::string, std::string, std::string> OpenaiPhraseGeneration::extrac
     return {src_phrase, dst_phrase, dst_word};
 }
 
-drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::string>>> OpenaiPhraseGeneration::get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::string>>> OpenaiGeneration::get_word_phrase_translation(drogon::orm::DbClientPtr translations_db, const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
     auto word_phrase_table_name = local_utils::translations_db::create_word_phrase_table_name(src_lang);
 
     auto word_translation_result = co_await translations_db->execSqlCoro(
@@ -233,7 +233,7 @@ drogon::Task<std::optional<std::tuple<uint32_t, std::string, std::string, std::s
 }
 
 // return true if limit ok
-drogon::Task<bool> OpenaiPhraseGeneration::increase_free_users_openai_limit() {
+drogon::Task<bool> OpenaiGeneration::increase_free_users_openai_limit() {
     try {
         auto rc = app().getRedisClient();
 
@@ -267,11 +267,20 @@ drogon::Task<bool> OpenaiPhraseGeneration::increase_free_users_openai_limit() {
     }
 }
 
+drogon::Task<> OpenaiGeneration::check_openai_limit(bool has_subscription) {
+    if (!has_subscription) {
+        auto limit_ok = co_await increase_free_users_openai_limit();
+        if (!limit_ok) {
+            throw systems_are_busy_exception();
+        }
+    }
+}
+
 std::string create_word_generation_key(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
     return src_lang + ';' + dst_lang + ';' + src_word;
 }
 
-drogon::Task<> OpenaiPhraseGeneration::await_other_server_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
+drogon::Task<> OpenaiGeneration::await_other_server_word_generation(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word) {
     auto rc = app().getRedisClient();
 
     const auto word_key = create_word_generation_key(src_lang, dst_lang, src_word);
@@ -293,17 +302,17 @@ drogon::Task<> OpenaiPhraseGeneration::await_other_server_word_generation(const 
     }
 }
 
-drogon::Task<> OpenaiPhraseGeneration::set_generating_word(const std::string& word_key) {
+drogon::Task<> OpenaiGeneration::set_generating_word(const std::string& word_key) {
     auto rc = app().getRedisClient();
     co_await rc->execCommandCoro("set %s %s ex %d nx", word_key.c_str(), "", word_generation_expire_seconds);
 }
 
-drogon::Task<> OpenaiPhraseGeneration::delete_generating_word(const std::string& word_key) {
+drogon::Task<> OpenaiGeneration::delete_generating_word(const std::string& word_key) {
     auto rc = app().getRedisClient();
     co_await rc->execCommandCoro("del %s", word_key);
 }
 
-drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
+drogon::Task<GeneratedPhrase> OpenaiGeneration::generate_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& src_word, bool has_subscription) {
     co_await await_other_server_word_generation(src_lang, dst_lang, src_word);
 
     auto translations_db = app().getDbClient(local_constants::translations_db);
@@ -327,15 +336,6 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
         co_return GeneratedPhrase(id, src_lang, dst_lang, src_word, std::move(dst_word), std::move(src_phrase), std::move(dst_phrase));
     }
 
-    auto check_openai_limit = [&]() -> drogon::Task<> {
-        if (!has_subscription) {
-            auto limit_ok = co_await increase_free_users_openai_limit();
-            if (!limit_ok) {
-                throw systems_are_busy_exception();
-            }
-        }
-    };
-
     const auto src_lang_name = local_utils::supported_languages::get_language_title_localized(src_lang, "en");
     const auto dst_lang_name = local_utils::supported_languages::get_language_title_localized(dst_lang, "en");
 
@@ -354,7 +354,7 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
         while(retry_count < max_retries) {
 
             try {
-                co_await check_openai_limit();
+                co_await check_openai_limit(has_subscription);
 
                 co_await set_generating_word(word_key);
 
@@ -363,7 +363,7 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
 
                 auto [src_phrase, dst_phrase, dst_word] = extract_word_phrase_from_openai_response(response_message, src_word, src_lang, dst_lang);
 
-                co_await check_openai_limit();
+                co_await check_openai_limit(has_subscription);
                 auto is_word_translation_valid = co_await openai_is_word_translation_valid(src_lang_name, dst_lang_name, src_word, dst_word);
 
                 if (is_word_translation_valid) {
@@ -401,4 +401,38 @@ drogon::Task<GeneratedPhrase> OpenaiPhraseGeneration::generate_phrase(const std:
     }
 
     throw word_not_valid_exception();
+}
+
+drogon::Task<std::string> OpenaiGeneration::generate_words_list(const std::string& lang, const std::string& topic, bool has_subscription) {
+    const auto lang_name = local_utils::supported_languages::get_language_title_localized(lang, "en");
+
+    const std::string prompt = std::string("generate up to 200 popular ") + lang_name + " words for this topic '" + topic + "', output only words separated by ,";
+
+    uint32_t retry_count = 0;
+    const uint32_t max_retries = 3;
+
+    try {
+        while(retry_count < max_retries) {
+
+            try {
+                co_await check_openai_limit(has_subscription);
+
+                auto response = co_await openai_get_response(prompt);
+                auto response_message = response["choices"][0]["message"]["content"].as<std::string>();
+
+                co_return response_message;
+            } catch (const json_parse_failed_exception& e) {
+                // retry
+            } catch (const phrase_not_contains_a_word_exception& e) {
+                // retry
+            }
+
+            ++retry_count;
+        }
+
+    } catch (const std::exception& e) {
+        throw systems_are_busy_exception();
+    }
+
+    co_return "";
 }

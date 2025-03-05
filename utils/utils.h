@@ -217,7 +217,7 @@ namespace Error {
         ERROR(callback, drogon::k400BadRequest, "not_valid_body");
     }
 
-    static inline void SOMETHING_WRONG(std::function<void (const drogon::HttpResponsePtr &)> &callback) {
+    static inline void SERVER_ERROR(std::function<void (const drogon::HttpResponsePtr &)> &callback) {
         ERROR(callback, drogon::k500InternalServerError, "something_wrong");
     }
 

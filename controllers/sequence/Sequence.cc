@@ -5,7 +5,7 @@
 #include "core/sequence_generation/sequence_generator.h"
 #include "plugins/BannedWords/BannedWords.h"
 #include "core/user_sequence_words/user_sequence_words.h"
-#include "plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h"
+#include "plugins/OpenaiGeneration/OpenaiGeneration.h"
 #include "core/phrases_generation/phrases_generator.h"
 #include <vector>
 #include <utility>
@@ -45,7 +45,7 @@
 
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 // }
 
@@ -238,7 +238,7 @@
 //     uint8_t gen_attempts_count = 0;
 //     constexpr uint8_t max_gen_attempts_limit = 30;
 
-//     auto openai_phrase_generation = app().getPlugin<OpenaiPhraseGeneration>();
+//     auto openai_phrase_generation = app().getPlugin<OpenaiGeneration>();
 //     auto translations_db = app().getDbClient(local_constants::translations_db);
 //     core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
 
@@ -279,7 +279,7 @@
 //                         src_words_already_added.insert(src_word_key);
 //                     }
 
-//                 } catch (const OpenaiPhraseGeneration::systems_are_busy_exception& e) {
+//                 } catch (const OpenaiGeneration::systems_are_busy_exception& e) {
 //                     throw focus_group_generation_exceptions::systems_are_busy_exception();
 //                 }
 //             }
@@ -436,7 +436,7 @@
 //         }
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 
 //     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
@@ -581,7 +581,7 @@
 //         }
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 //     co_return local_utils::Response::JSON_OK(callback, previous_focus_group_json);
 // }
@@ -757,7 +757,7 @@
 //         }
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 
 //     co_return local_utils::Response::JSON_OK(callback, result_focus_group);
@@ -840,7 +840,7 @@
 //         }
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 // }
 
@@ -883,7 +883,7 @@
 //         }
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 
 //     co_return local_utils::Response::OK(callback, focus_group_last_update_time_str.c_str());
@@ -1170,7 +1170,7 @@
 //         co_await increase_generated_phrases_count(users_db, user_id, learned_words_count + repeated_words_count);
 //     } catch (const std::exception& e) {
 //         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 //     co_return local_utils::Response::JSON_OK(callback, focus_group_summary);
 // }

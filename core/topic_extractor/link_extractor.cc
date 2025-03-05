@@ -13,7 +13,7 @@ using namespace drogon;
 drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) {
     const auto url = std::string(req->getBody());
 
-    if (!url.size()) {
+    if (url.empty()) {
         throw exception::not_valid_body();
     }
 

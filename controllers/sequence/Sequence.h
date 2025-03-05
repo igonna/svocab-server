@@ -2,7 +2,7 @@
 
 #include <drogon/HttpController.h>
 #include <core/user_sequence_words/user_sequence_words.h>
-#include <plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h>
+#include <plugins/OpenaiGeneration/OpenaiGeneration.h>
 #include "core/phrases_generation/phrases_generator.h"
 
 using namespace drogon;

@@ -34,10 +34,26 @@ namespace exception {
         }
     };
 
+    struct systems_are_busy : public custom_exception {
+        const char* what() const noexcept override {
+            return "systems_are_busy";
+        }
+    };
+
     struct file_processing_limit_reached : public custom_exception {
         std::string message;
     
         file_processing_limit_reached(const std::string& msg) : message(msg) {}
+    
+        const char* what() const noexcept override {
+            return message.c_str();
+        }
+    };
+
+    struct prompt_topic_generation_limit_reached : public custom_exception {
+        std::string message;
+    
+        prompt_topic_generation_limit_reached(const std::string& msg) : message(msg) {}
     
         const char* what() const noexcept override {
             return message.c_str();

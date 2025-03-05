@@ -33,7 +33,7 @@ drogon::Task<> FileExtractor::init(drogon::HttpRequestPtr req) {
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         auto user_has_subscription = co_await core::sql::does_user_have_subscription(users_db, user_id);
-        auto [limit_reached, limit_resets_time] = co_await core::sql::user_limits::is_user_processing_files_limit_reached(
+        auto [limit_reached, limit_resets_time] = co_await core::sql::user_limits::is_processing_files_limit_reached(
             users_db, user_id, user_has_subscription
         );
 
@@ -71,7 +71,7 @@ drogon::Task<> FileExtractor::init(drogon::HttpRequestPtr req) {
         origin_type = "file";
         words_sequence = std::move(prioritized_words_sequence);
 
-        co_await core::sql::user_limits::increase_processed_files_count(users_db, user_id, 1);
+        co_await core::sql::user_limits::increase_processing_files_count(users_db, user_id, 1);
 
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();

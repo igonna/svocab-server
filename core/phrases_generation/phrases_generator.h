@@ -1,6 +1,6 @@
 #pragma once
 
-#include "plugins/OpenaiPhraseGeneration/OpenaiPhraseGeneration.h"
+#include "plugins/OpenaiGeneration/OpenaiGeneration.h"
 #include "core/user_sequence_words/user_sequence_words.h"
 #include <drogon/utils/coroutine.h>
 #include <cstdint>
@@ -42,7 +42,7 @@ struct FocusGroupPhrase {
 
 class PhrasesGenerator {
 public:
-    PhrasesGenerator (OpenaiPhraseGeneration *openai_phrase_generation, drogon::orm::DbClientPtr translations_db) 
+    PhrasesGenerator (OpenaiGeneration *openai_phrase_generation, drogon::orm::DbClientPtr translations_db) 
         : openai_phrase_generation(openai_phrase_generation), translations_db(translations_db) {}
     PhrasesGenerator() = delete;
 
@@ -63,7 +63,7 @@ private:
         drogon::Task<FocusGroupPhrase>
     >> phrases_to_generate;
 
-    OpenaiPhraseGeneration *openai_phrase_generation;
+    OpenaiGeneration *openai_phrase_generation;
     drogon::orm::DbClientPtr translations_db;
 };
 

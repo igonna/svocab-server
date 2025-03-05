@@ -45,7 +45,7 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     uint64_t user_id;
@@ -94,7 +94,7 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
         });
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return;
@@ -118,7 +118,7 @@ Task<> Account::getAccountInfo(HttpRequestPtr req, std::function<void(const Http
         has_subscription = result[0]["has_subscription"].as<bool>();
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     Json::Value response;
@@ -166,7 +166,7 @@ Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpR
         auto deleteResult = co_await users_db->execSqlCoro("delete from users where id = $1", user_id);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return callback(HttpResponse::newHttpResponse());

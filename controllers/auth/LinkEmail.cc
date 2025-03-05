@@ -33,7 +33,7 @@ Task<> LinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(con
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // check if email already exists
@@ -47,7 +47,7 @@ Task<> LinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(con
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // create code
@@ -61,7 +61,7 @@ Task<> LinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(con
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // send code to email
@@ -69,7 +69,7 @@ Task<> LinkEmail::getCodeForEmailLink(HttpRequestPtr req, std::function<void(con
         app().getPlugin<EmailSender>()->send_email(email, email_code);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return callback(HttpResponse::newHttpResponse());
@@ -104,7 +104,7 @@ Task<> LinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(cons
         );
     } catch (const std::exception &e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // check if code valid
@@ -119,7 +119,7 @@ Task<> LinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(cons
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // update email
@@ -137,7 +137,7 @@ Task<> LinkEmail::linkEmailToAccount(HttpRequestPtr req, std::function<void(cons
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // delete verify_attempts && code && code_requests key on success
@@ -167,7 +167,7 @@ Task<> LinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(con
         co_return local_utils::Response::Error::FORBIDDEN(callback, e.what());
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // check if email already exists
@@ -181,7 +181,7 @@ Task<> LinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(con
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     // update email
@@ -199,7 +199,7 @@ Task<> LinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(con
         }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     callback(HttpResponse::newHttpResponse());

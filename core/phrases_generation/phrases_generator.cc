@@ -142,7 +142,7 @@ drogon::Task<std::vector<FocusGroupPhrase>> PhrasesGenerator::get_generated_phra
         try {
             auto generated_phrase = co_await generation_task;
             generated_phrases.push_back(std::move(generated_phrase));
-        } catch (const OpenaiPhraseGeneration::word_not_valid_exception& e) {
+        } catch (const OpenaiGeneration::word_not_valid_exception& e) {
             user_word_ref->is_passed = true;
         }
     }

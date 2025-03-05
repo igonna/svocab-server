@@ -40,7 +40,7 @@ Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const Htt
 
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return local_utils::Response::OK(callback, result_body);
@@ -70,7 +70,7 @@ Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const H
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SOMETHING_WRONG(callback);
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
     co_return local_utils::Response::OK(callback, "");
