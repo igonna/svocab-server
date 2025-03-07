@@ -106,7 +106,7 @@ namespace strings {
         }
 
         if (title.length()) {
-            unicode_str.setCharAt(0, u_toupper(unicode_str.char32At(0)));
+            title.setCharAt(0, u_toupper(title.char32At(0)));
         }
 
         return core::text_processing::unicode_to_str(title);

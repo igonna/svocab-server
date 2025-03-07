@@ -54,6 +54,12 @@ Task<> Languages::setLanguagePairEnabled(HttpRequestPtr req, std::function<void(
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
+    if (!local_utils::supported_languages::is_language_supported(src_lang) 
+        || !local_utils::supported_languages::is_language_supported(dst_lang)) 
+    {
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "language not supported");
+    }
+
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
@@ -77,11 +83,10 @@ Task<> Languages::setLanguagePairEnabled(HttpRequestPtr req, std::function<void(
         }
 
         co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
-
-    co_return local_utils::Response::OK(callback, "");
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 }

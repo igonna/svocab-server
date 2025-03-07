@@ -157,7 +157,7 @@ CREATE TABLE user_topics (
     src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
 
-    created_at INT NOT NULL,
+    last_update_time INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 
     title TEXT NOT NULL,

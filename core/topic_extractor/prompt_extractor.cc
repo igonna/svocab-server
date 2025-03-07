@@ -12,7 +12,7 @@ namespace core::topic_extractor {
 
 using namespace drogon;
 
-drogon::Task<> PromptExtractor::init(drogon::HttpRequestPtr req) {
+drogon::Task<> PromptExtractor::init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) {
     const auto prompt = std::string(req->getBody());
 
     if (prompt.empty()) {
@@ -32,9 +32,6 @@ drogon::Task<> PromptExtractor::init(drogon::HttpRequestPtr req) {
         if (limit_reached) {
             throw exception::prompt_topic_generation_limit_reached(std::to_string(limit_resets_time));
         }
-
-        auto src_lang = req->getHeader("srcLang");
-        auto dst_lang = req->getHeader("dstLang");
 
         auto openai_generation_plugin = app().getPlugin<OpenaiGeneration>();
         auto text = co_await openai_generation_plugin->generate_words_list(src_lang, prompt, user_has_subscription);

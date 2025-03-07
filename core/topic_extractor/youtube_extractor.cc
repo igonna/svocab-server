@@ -10,7 +10,7 @@ namespace core::topic_extractor {
 
 using namespace drogon;
 
-drogon::Task<> YoutubeExtractor::init(drogon::HttpRequestPtr req) {
+drogon::Task<> YoutubeExtractor::init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) {
     const auto title_and_captions = std::string(req->getBody());
     origin = req->getHeader("origin");
 
@@ -24,9 +24,6 @@ drogon::Task<> YoutubeExtractor::init(drogon::HttpRequestPtr req) {
 
     try {
         title = core::text_processing::get_str_untill_char(title_and_captions, '\n');
-
-        auto src_lang = req->getHeader("srcLang");
-        auto dst_lang = req->getHeader("dstLang");
 
         auto frequent_words_plugin = app().getPlugin<FrequentWords>();
         auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(title_and_captions, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());

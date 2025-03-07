@@ -11,7 +11,7 @@ namespace core::topic_extractor {
 
 struct TopicExtractor {
 	virtual ~TopicExtractor() = default;
-	virtual drogon::Task<> init(drogon::HttpRequestPtr req) = 0;
+	virtual drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) = 0;
 
 	inline std::string get_title() const { return title; }
 	inline std::string get_origin() const { return origin; }
@@ -26,33 +26,33 @@ protected:
 };
 
 struct PromptExtractor : public TopicExtractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+	drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) override;
 };
 
 struct LinkExtractor : public TopicExtractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+	drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) override;
 };
 
 struct TextExtractor : public TopicExtractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+	drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) override;
 };
 
 struct YoutubeExtractor : public TopicExtractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+	drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) override;
 };
 
 struct HtmlExtractor : public TopicExtractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+	drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) override;
 };
 
 struct FileExtractor : public TopicExtractor {
-	drogon::Task<> init(drogon::HttpRequestPtr req) override;
+	drogon::Task<> init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) override;
 };
 
 
 struct TopicExtractorFactory {
 
-	static drogon::Task<std::unique_ptr<TopicExtractor>> create_extractor(drogon::HttpRequestPtr req) {
+	static drogon::Task<std::unique_ptr<TopicExtractor>> create_extractor(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) {
 		auto type = req->getHeader("type");
 
 		if (!req->bodyLength()) throw exception::not_valid_body();
@@ -75,7 +75,7 @@ struct TopicExtractorFactory {
 			throw exception::unknown_type();
 		}
 
-		co_await topic_extractor->init(req);
+		co_await topic_extractor->init(req, src_lang, dst_lang);
 		co_return topic_extractor;
 	}
 };

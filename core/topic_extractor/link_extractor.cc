@@ -10,7 +10,7 @@ namespace core::topic_extractor {
 
 using namespace drogon;
 
-drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) {
+drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) {
     const auto url = std::string(req->getBody());
 
     if (url.empty()) {
@@ -24,9 +24,6 @@ drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req) {
         std::tie(title, website_body) = core::text_extraction::extract_text_and_title_from_html(website_body);
 
         if (website_body.empty()) throw exception::data_extract_fail();
-
-        auto src_lang = req->getHeader("srcLang");
-        auto dst_lang = req->getHeader("dstLang");
 
         auto frequent_words_plugin = app().getPlugin<FrequentWords>();
         auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(website_body, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());

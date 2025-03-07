@@ -13,7 +13,7 @@ namespace core::topic_extractor {
 
 using namespace drogon;
 
-drogon::Task<> FileExtractor::init(drogon::HttpRequestPtr req) {
+drogon::Task<> FileExtractor::init(drogon::HttpRequestPtr req, const std::string& src_lang, const std::string& dst_lang) {
     MultiPartParser multi_part_parser;
     if (multi_part_parser.parse(req) != 0) {
         throw exception::not_valid_body();
@@ -53,9 +53,6 @@ drogon::Task<> FileExtractor::init(drogon::HttpRequestPtr req) {
         } else {
             throw exception::not_valid_body();
         }
-
-        auto src_lang = req->getHeader("srcLang");
-        auto dst_lang = req->getHeader("dstLang");
 
         auto frequent_words_plugin = app().getPlugin<FrequentWords>();
         auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(text, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());

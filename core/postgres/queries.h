@@ -429,4 +429,19 @@ drogon::Task<std::tuple<bool, uint32_t>> is_generated_phrases_limit_reached(drog
 
 }
 
+namespace language_pair {
+static inline drogon::Task<std::optional<std::pair<std::string, std::string>>> get_latest_enabled_language_pair(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto result = co_await users_db->execSqlCoro(
+        " SELECT src_lang, dst_lang FROM user_language_pairs WHERE user_id = $1 AND is_enabled = TRUE ORDER BY last_enable_time DESC LIMIT 1",
+        user_id
+    );
+
+    if (!result.size()) {
+        co_return std::nullopt;
+    }
+
+    co_return std::make_pair(result[0]["src_lang"].as<std::string>(), result[0]["dst_lang"].as<std::string>());
+}
+}
+
 }
