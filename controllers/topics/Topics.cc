@@ -309,10 +309,9 @@ Task<> Topics::renameTopic(HttpRequestPtr req, std::function<void(const HttpResp
 }
 
 Task<> Topics::updateTopicContent(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    auto type = req->getHeader("type");
     auto topic_id_str = req->getHeader("topicId");
 
-    if (type.empty() || topic_id_str.empty()) {
+    if (topic_id_str.empty()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
