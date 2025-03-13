@@ -10,8 +10,8 @@
 #include <vector>
 #include <utility>
 
-// namespace v1
-// {
+namespace v1
+{
 
 // Task<uint32_t> Sequence::update_focus_group_last_update_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
 //     auto current_time = local_utils::time::get_unix_timestamp();
@@ -1194,4 +1194,4 @@
 //     );
 //     co_return languages_count_result[0]["unique_src_lang_count"].as<uint32_t>() > 1;
 // }
-// }
+}

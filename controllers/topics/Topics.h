@@ -35,5 +35,6 @@ public:
 private:
 	Json::Value createTopicsList(const drogon::orm::Result& lang_pairs_rows, const drogon::orm::Result& topics_rows, const std::string& to_translate_lang);
 	Json::Value createTopicsTitlesList(const drogon::orm::Result& topics_rows);
+	std::string createTopicProgressList(const std::vector<std::string>& topic_words, const std::unordered_map<std::string, std::pair<bool, uint16_t>> words_progress);
 };
 }

@@ -14,7 +14,7 @@ public:
 	Task<> setLanguagePairEnabled(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
     METHOD_LIST_BEGIN
-    METHOD_ADD(Languages::getSupportedLanguages, "/get", Get);
+    METHOD_ADD(Languages::getSupportedLanguages, "/get_supported_languages", Get);
     METHOD_ADD(Languages::setLanguagePairEnabled, "/set_language_pair_enabled", Post, "JwtFilter");
     METHOD_LIST_END
 };

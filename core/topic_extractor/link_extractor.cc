@@ -26,7 +26,7 @@ drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req, const std::string
         if (website_body.empty()) throw exception::data_extract_fail();
 
         auto frequent_words_plugin = app().getPlugin<FrequentWords>();
-        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(website_body, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
+        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence_as_str(website_body, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
 
         if (prioritized_words_sequence.empty()) throw exception::data_extract_fail();
 

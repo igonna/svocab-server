@@ -444,4 +444,37 @@ static inline drogon::Task<std::optional<std::pair<std::string, std::string>>> g
 }
 }
 
+namespace user_words {
+
+inline std::string double_single_quote(const std::string& input) {
+    std::string result = input;
+    size_t pos = 0;
+    while ((pos = result.find("'", pos)) != std::string::npos) {
+        result.insert(pos, "'");
+        pos += 2;
+    }
+    return result;
+}
+
+// word, is_learned, learn_confirmation_level
+inline drogon::Task<std::unordered_map<std::string, std::pair<bool, uint16_t>>> get_user_words_progress(drogon::orm::DbClientPtr users_db, uint64_t user_id, const char* src_lang, const std::vector<std::string>& words) {
+    std::string query = "SELECT word, is_learned, learn_confirmation_level FROM user_words WHERE user_id = $1 and src_lang = $2 and word IN (";
+    for (const auto& word : words) {
+        query += "'" + double_single_quote(word) + "',";
+    }
+    query.back() = ')';
+
+    auto words_progress = co_await users_db->execSqlCoro(query, user_id, src_lang);
+
+    std::unordered_map<std::string, std::pair<bool, uint16_t>> result;
+    for (const auto& row : words_progress) {
+        auto word = row["word"].as<std::string>();
+        auto is_learned = row["is_learned"].as<bool>();
+        auto learn_confirmation_level = row["learn_confirmation_level"].as<uint16_t>();
+        result.insert({std::move(word), std::make_pair(is_learned, learn_confirmation_level)});
+    }
+
+    co_return result;
+}
+}
 }

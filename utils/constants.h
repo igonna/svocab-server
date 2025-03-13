@@ -181,4 +181,8 @@ namespace focus_group {
 namespace statistics {
     static constexpr uint32_t learned_this_time_expire_seconds = 60*10;
 }
+
+namespace learn_progress {
+    static constexpr uint8_t mastered_confirmation_level = 5;
+}
 }

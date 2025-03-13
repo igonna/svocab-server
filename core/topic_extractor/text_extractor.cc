@@ -19,7 +19,7 @@ drogon::Task<> TextExtractor::init(drogon::HttpRequestPtr req, const std::string
 
     try {
         auto frequent_words_plugin = app().getPlugin<FrequentWords>();
-        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(text, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
+        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence_as_str(text, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
 
         if (prioritized_words_sequence.empty()) throw exception::data_extract_fail();
 

@@ -11,15 +11,6 @@ CREATE TABLE users (
     UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
--- CREATE TABLE user_checkpoints (
---     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
---     principles_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
---     flow_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
---     filter_tutorial_passed BOOLEAN NOT NULL DEFAULT FALSE,
---     first_user_global_topic_checked BOOLEAN NOT NULL DEFAULT FALSE,
---     rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
--- ) PARTITION BY HASH (user_id);
-
 CREATE TABLE user_checkpoints (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
@@ -29,16 +20,6 @@ CREATE TABLE last_user_special_offer_time (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     last_special_offer_time TIMESTAMP NOT NULL DEFAULT NOW()
 ) PARTITION BY HASH (user_id);
-
--- CREATE TABLE user_language_pairs (
---     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
---     src_lang CHAR(2) NOT NULL,
---     dst_lang CHAR(2) NOT NULL,
---     mix_value REAL NOT NULL DEFAULT 1.0,
---     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
---     last_enable_time INT NOT NULL,
---     PRIMARY KEY (user_id, src_lang, dst_lang)
--- ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_language_pairs (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
@@ -67,16 +48,18 @@ CREATE TABLE user_devices (
 CREATE TABLE user_words (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     src_lang CHAR(2) NOT NULL,
-    words TEXT NOT NULL DEFAULT '', -- word;1;0;1729174120;
-    last_update_id INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (user_id, src_lang)
-) PARTITION BY HASH (user_id);
+    word TEXT NOT NULL,
 
--- CREATE TABLE user_phrase_generation_limit (
---     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
---     generated_phrases_count SMALLINT NOT NULL DEFAULT 0,
---     last_generation_start_time INT NOT NULL DEFAULT 0
--- ) PARTITION BY HASH (user_id);
+    is_learned BOOLEAN NOT NULL DEFAULT FALSE,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+
+    learn_confirmation_level SMALLINT NOT NULL DEFAULT 0,
+    right_guess_count SMALLINT NOT NULL DEFAULT 0,
+    wrong_guess_count SMALLINT NOT NULL DEFAULT 0,
+
+    last_update_time INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, src_lang, word)
+) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_limits (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -157,6 +140,7 @@ CREATE TABLE user_topics (
     src_lang CHAR(2) NOT NULL,
     dst_lang CHAR(2) NOT NULL,
 
+    created_at INT NOT NULL,
     last_update_time INT NOT NULL,
     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
 

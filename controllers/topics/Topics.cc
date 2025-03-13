@@ -8,6 +8,7 @@
 #include "core/text_processing/text_processor.h"
 #include "core/topic_extractor/topic_extractor_factory.h"
 #include "utils/exceptions.h"
+#include "plugins/FrequentWords/FrequentWords.h"
 
 namespace v1
 {
@@ -43,9 +44,9 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
         auto current_time = local_utils::time::get_unix_timestamp();
 
         auto result = co_await users_db->execSqlCoro(
-            "insert into user_topics (user_id, src_lang, dst_lang, last_update_time, title, origin, origin_type, words_sequence)"
-            " values ($1, $2, $3, $4, $5, $6, $7, $8)",
-            user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence
+            "insert into user_topics (user_id, src_lang, dst_lang, created_at, title, origin, origin_type, words_sequence, last_update_time)"
+            " values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            user_id, src_lang, dst_lang, current_time, title, origin, origin_type, words_sequence, current_time
         );
 
         if (!result.affectedRows()) {
@@ -158,7 +159,7 @@ Task<> Topics::getTopicsTitles(HttpRequestPtr req, std::function<void(const Http
             " WHERE ut.user_id = $1"
                 " AND ut.is_enabled = true"
                 " AND ut.topic_id IS NOT NULL"
-            " ORDER BY ut.last_update_time DESC", user_id
+            " ORDER BY ut.created_at DESC", user_id
         );
 
         auto json_names = createTopicsTitlesList(topics_result);
@@ -193,7 +194,7 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
                 " ulp.src_lang,"
                 " ulp.dst_lang,"
                 " ut.title,"
-                " ut.last_update_time,"
+                " ut.created_at,"
                 " ut.is_enabled,"
                 " ulp.last_enable_time as ulp_last_enable_time"
             " from user_language_pairs as ulp"
@@ -204,7 +205,7 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
             " where ulp.is_enabled = true and ut.is_enabled = true"
             " and ulp.user_id = $1"
             " and topic_id is not null"
-            " order by ulp_last_enable_time asc, last_update_time desc", user_id
+            " order by ulp_last_enable_time asc, created_at desc", user_id
         );
 
         auto json_topics = createTopicsList(lang_pairs_result, topics_result, to_translate_lang);
@@ -216,62 +217,40 @@ Task<> Topics::getTopics(HttpRequestPtr req, std::function<void(const HttpRespon
 }
 
 Task<> Topics::getTopicProgress(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    // #1 version of function
-    // auto topic_id_str = req->getHeader("topicId");
+    auto topic_id_str = req->getHeader("topicId");
 
-    // if (!topic_id_str.size()) {
-    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    // }
+    if (topic_id_str.empty()) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
 
-    // std::string result_body;
-    // try {
-    //     auto users_db = app().getDbClient(local_constants::users_db);
-    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-    //     auto [topic_id, topic_type] = local_utils::topics::decode_topic_id_str(topic_id_str);
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+        auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+        auto topic_id = std::stoul(topic_id_str);
 
-    //     if (topic_type == local_utils::topics::TopicType::user_topic) {
-    //         result_body = co_await core::sql::get_topic_words_sequence_and_if_update(users_db, user_id, topic_id);
-    //     } else if (topic_type == local_utils::topics::TopicType::global_topic) {
-    //         result_body = co_await core::sql::get_global_topic_words_sequence(users_db, topic_id);
-    //     }
-    // } catch (const std::exception& e) {
-    //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
-    // }
+        auto topic_result = co_await users_db->execSqlCoro(
+            "select src_lang, dst_lang, words_sequence from user_topics where user_id = $1 and topic_id = $2",
+            user_id, topic_id
+        );
 
+        if (topic_result.empty()) {
+            co_return local_utils::Response::Error::ERROR(callback, k404NotFound, "topic_not_exists");
+        }
 
-    // #2 version of function
-    // auto topic_id_str = req->getHeader("topicId");
-    // auto source_id = req->getHeader("sourceId");
+        const auto& src_lang = topic_result[0]["src_lang"].as<std::string>();
+        const auto& dst_lang = topic_result[0]["dst_lang"].as<std::string>();
+        const auto& words_sequence = topic_result[0]["words_sequence"].as<std::string>();
 
-    // if (!(topic_id_str.size())) {
-    //     co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
-    // }
+        auto frequent_words_plugin = app().getPlugin<FrequentWords>();
+        auto words_sequence_vec = core::text_processing::extract_words_from_str(words_sequence, src_lang.c_str());
+        auto user_words_progress = co_await core::sql::user_words::get_user_words_progress(users_db, user_id, src_lang.c_str(), words_sequence_vec);
 
-    // std::string result_body;
-    // try {
-    //     auto users_db = app().getDbClient(local_constants::users_db);
-
-    //     auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-    //     auto topic_id = local_utils::topics::decode_user_topic_id_str(topic_id_str);
-
-    //     auto result = co_await users_db->execSqlCoro(
-    //         "select sources_unprocessed->> $1 as body from user_topics where user_id = $2 and topic_id = $3", 
-    //         source_id, user_id, topic_id
-    //     );
-
-    //     if (!result.size()) {
-    //         throw std::runtime_error("not_found");
-    //     }
-        
-    //     result_body = result[0]["body"].as<std::string>();
-    // } catch (const std::exception& e) {
-    //     LOG_ERROR << e.what();
-    //     co_return local_utils::Response::Error::SERVER_ERROR(callback);
-    // }
-
-    // co_return local_utils::Response::OK(callback, result_body);
-    co_return local_utils::Response::OK(callback, "");
+        auto topic_words_progress_list = createTopicProgressList(words_sequence_vec, user_words_progress);
+        co_return local_utils::Response::OK(callback, topic_words_progress_list);
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+    }
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 
 Task<> Topics::renameTopic(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -455,6 +434,27 @@ Json::Value Topics::createTopicsTitlesList(const drogon::orm::Result& topics_row
         new_id_title["title"] = row["title"].as<std::string>();
         topics_titles.append(std::move(new_id_title));
     }
+
+    return result;
+}
+
+std::string Topics::createTopicProgressList(const std::vector<std::string>& topic_words, const std::unordered_map<std::string, std::pair<bool, uint16_t>> words_progress) {
+    std::string result;
+    uint8_t status = 0;
+
+    for (const auto& word : topic_words) {
+        auto word_progress = words_progress.find(word);
+        if (word_progress != words_progress.end()) {
+            status = word_progress->second.first 
+                ? 2 
+                : (word_progress->second.second >= local_constants::learn_progress::mastered_confirmation_level ? 1 : 0);
+        } else {
+            status = 0;
+        }
+        result += word + ';' + std::to_string(status) + '\n';
+    }
+
+    if (result.size()) result.pop_back();
 
     return result;
 }

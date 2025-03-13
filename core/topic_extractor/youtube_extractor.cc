@@ -26,7 +26,7 @@ drogon::Task<> YoutubeExtractor::init(drogon::HttpRequestPtr req, const std::str
         title = core::text_processing::get_str_untill_char(title_and_captions, '\n');
 
         auto frequent_words_plugin = app().getPlugin<FrequentWords>();
-        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence(title_and_captions, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
+        auto prioritized_words_sequence = core::text_processing::create_prioritized_words_sequence_as_str(title_and_captions, frequent_words_plugin, src_lang.c_str(), dst_lang.c_str());
 
         if (prioritized_words_sequence.empty()) throw exception::data_extract_fail();
 

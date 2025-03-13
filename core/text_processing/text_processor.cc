@@ -390,7 +390,7 @@ std::vector<icu::UnicodeString> mix_multimaps(const std::multimap<uint32_t, icu:
     return result;
 }
 
-std::string create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
+std::vector<std::string> create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
     UErrorCode status = U_ZERO_ERROR;
     auto locale = icu::Locale(language_src);
     std::unique_ptr<icu::BreakIterator> bi(icu::BreakIterator::createWordInstance(locale, status));
@@ -481,10 +481,24 @@ std::string create_prioritized_words_sequence(const std::string& str, FrequentWo
     rare_words.clear();
     exotic_words.clear();
 
-    std::string result;
+    std::vector<std::string> result;
+
+    result.reserve(mixed_words.size());
 
     for (const auto& word : mixed_words) {
-        result += unicode_to_str(word) + ' ';
+        result.push_back(unicode_to_str(word));
+    }
+
+    return result;
+}
+
+std::string create_prioritized_words_sequence_as_str(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
+    auto words_sequence = create_prioritized_words_sequence(str, frequent_words_plugin, language_src, language_dst);
+
+    std::string result;
+
+    for (const auto& word : words_sequence) {
+        result += word + ' ';
     }
 
     return result;

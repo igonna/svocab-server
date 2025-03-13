@@ -72,7 +72,6 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
         co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
             user_id, device_num, device_refresh_token
         );
-        co_await transaction->execSqlCoro("insert into user_words (user_id, src_lang) values ($1, $2)", user_id, src_lang);
         co_await transaction->execSqlCoro("insert into user_limits (user_id) values ($1)", user_id);
         co_await transaction->execSqlCoro("insert into user_sequence (user_id) values ($1)", user_id);
         co_await transaction->execSqlCoro("insert into user_statistics (user_id) values ($1)", user_id);
@@ -92,40 +91,40 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
                 moved_callback(resp);
             }
         });
+        co_return;
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
-
-    co_return;
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 
 Task<> Account::getAccountInfo(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    auto db = app().getDbClient(local_constants::users_db);
-
     std::string email;
     bool has_subscription;
 
     try {
+        auto users_db = app().getDbClient(local_constants::users_db);
+
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto result = co_await db->execSqlCoro("SELECT u.id, u.email, CASE WHEN us.user_id IS NOT NULL THEN TRUE ELSE FALSE END "
+        auto result = co_await users_db->execSqlCoro("SELECT u.id, u.email, CASE WHEN us.user_id IS NOT NULL THEN TRUE ELSE FALSE END "
             "AS has_subscription FROM users u LEFT JOIN user_google_play_subscription us ON u.id = us.user_id WHERE u.id = $1",
             user_id
         );
 
         email = result[0]["email"].as<std::string>();
         has_subscription = result[0]["has_subscription"].as<bool>();
+
+        Json::Value json_resp;
+        json_resp["email"] = email;
+        json_resp["email_type"] = app().getPlugin<EmailSender>()->get_email_type(email);
+        json_resp["has_subscription"] = has_subscription;
+
+        co_return local_utils::Response::JSON_OK(callback, json_resp);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
-
-    Json::Value response;
-    response["email"] = email;
-    response["email_type"] = app().getPlugin<EmailSender>()->get_email_type(email);
-    response["has_subscription"] = has_subscription;
-    co_return callback(HttpResponse::newHttpJsonResponse(response));
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 
 Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -163,12 +162,12 @@ Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpR
         }
 
         // delete account
-        auto deleteResult = co_await users_db->execSqlCoro("delete from users where id = $1", user_id);
+        co_await users_db->execSqlCoro("delete from users where id = $1", user_id);
+        co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
-    co_return callback(HttpResponse::newHttpResponse());
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 }

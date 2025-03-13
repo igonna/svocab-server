@@ -36,7 +36,8 @@ namespace core::text_processing
         const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m3
     );
 
-    std::string create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
+    std::vector<std::string> create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
+    std::string create_prioritized_words_sequence_as_str(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
 
     std::string text_to_processed_source(icu::UnicodeString&& text, const char* language);
 
