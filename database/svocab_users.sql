@@ -11,9 +11,12 @@ CREATE TABLE users (
     UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
-CREATE TABLE user_checkpoints (
-    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    rate_us_passed BOOLEAN NOT NULL DEFAULT FALSE
+CREATE TABLE user_offers (
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    offer_type SMALLINT NOT NULL,
+    is_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at INT NOT NULL,
+    PRIMARY KEY (user_id, offer_type)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE last_user_special_offer_time (
@@ -232,10 +235,10 @@ CREATE TABLE user_limits_p1 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4,
 CREATE TABLE user_limits_p2 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_limits_p3 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_checkpoints_p0 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_checkpoints_p1 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_checkpoints_p2 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_checkpoints_p3 PARTITION OF user_checkpoints FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_offers_p0 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_offers_p1 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_offers_p2 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_offers_p3 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE last_user_special_offer_time_p0 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE last_user_special_offer_time_p1 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 1);

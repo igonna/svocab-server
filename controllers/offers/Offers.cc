@@ -4,31 +4,42 @@
 
 namespace v1
 {
-Task<> Offers::setCheckpoint(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback)
-{
-    auto checkpoint_name = req->getHeader("checkpointName");
-    auto value = req->getHeader("value");
+Task<> Offers::setOfferPassed(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    auto offer_type_str = req->getHeader("offerType");
 
-    if (checkpoint_name.empty() || value.empty()) {
+    if (offer_type_str.empty()) {
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
+    auto offer_type = static_cast<uint16_t>(std::stoi(offer_type_str));
+
+    static const std::unordered_map<uint16_t, std::string> offer_types = {
+        {0, "rate_us"}
+    };
+
+    if (!offer_types.contains(offer_type)) {
+        co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_offer_type");
     }
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto query = "update user_checkpoints set " + checkpoint_name + " = $1 where user_id = $2";
+        auto cur_time = local_utils::time::get_unix_timestamp();
 
-        auto result = co_await users_db->execSqlCoro(query, value == "true" ? true : false, user_id);
+        auto result = co_await users_db->execSqlCoro(
+            " insert into user_offers (user_id, offer_type, is_passed, created_at)"
+            " values ($1, $2, $3, $4) on conflict do nothing", user_id, offer_type, true, cur_time
+        );
 
         if (!result.affectedRows()) {
-            throw std::runtime_error("not_updated");
+            throw std::runtime_error("offer_not_created");
         }
+
+        co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
-
-    co_return local_utils::Response::OK(callback, "");
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 }

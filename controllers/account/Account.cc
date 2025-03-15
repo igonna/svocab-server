@@ -62,7 +62,6 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
         user_id = result[0]["id"].as<uint64_t>();
         device_num = result[0]["last_device_num"].as<uint32_t>();
 
-        co_await transaction->execSqlCoro("insert into user_checkpoints (user_id) values ($1)", user_id);
         co_await transaction->execSqlCoro("insert into last_user_special_offer_time (user_id) values ($1)", user_id);
         co_await transaction->execSqlCoro(
             "insert into user_language_pairs (user_id, src_lang, dst_lang, is_enabled, last_enable_time)"

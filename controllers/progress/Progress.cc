@@ -8,42 +8,64 @@ namespace v1
 {
 
 Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-    std::string result_body;
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        std::multimap<uint32_t, std::string, std::greater<uint32_t>> result_words;
+        auto hidden_words_result = co_await users_db->execSqlCoro(
+            " SELECT DISTINCT ulp.src_lang, ulp.last_enable_time, uw.word, uw.last_update_time"
+            " FROM user_language_pairs AS ulp"
+            " LEFT JOIN user_words AS uw"
+            " ON ulp.user_id = uw.user_id "
+            " AND ulp.src_lang = uw.src_lang"
+            " WHERE ulp.user_id = $1"
+            " AND ulp.is_enabled = true"
+            " AND uw.is_hidden = true"
+            " ORDER BY ulp.last_enable_time DESC, uw.last_update_time DESC", user_id
+        );
 
-        {
-            auto result = co_await core::sql::get_user_words(users_db, user_id);
+        std::string current_lang;
+        Json::Value result_body;
 
-            for (auto& row : result) {
-                auto src_lang = row["src_lang"].as<std::string>();
-                auto words = row["words"].as<std::string>();
-                auto [d, user_words] = core::progress_words::get_user_words_from_str(words);
-                words.clear();
+        auto& lang_hidden_words_arr = result_body["languages"] = Json::arrayValue;
 
-                for (auto& user_word : user_words) {
-                    if (!user_word.second.is_hidden) {
-                        continue;
-                    }
-                    auto src_country = local_utils::supported_languages::get_country_code_or_empty(src_lang);
-                    result_words.insert({user_word.second.last_update_time, src_lang + ';'+ user_word.first + ';' + src_country});
+        Json::Value current_words = Json::arrayValue;
+
+        for (const auto& hidden_word : hidden_words_result) {
+            const auto& src_lang = hidden_word["src_lang"].as<std::string>();
+            const auto& word = hidden_word["word"].as<std::string>();
+
+            if (current_lang != src_lang) {
+                if (current_words.size()) {
+
+                    Json::Value new_lang_hidden_words;
+                    new_lang_hidden_words["src_lang"] = std::move(current_lang);
+                    new_lang_hidden_words["words"] = std::move(current_words);
+                    lang_hidden_words_arr.append(std::move(new_lang_hidden_words));
+
+                    current_words.clear();
                 }
+
+                current_lang = src_lang;
             }
+
+            current_words.append(std::move(word));
         }
 
-        for (auto& i : result_words) {
-            result_body += i.second + '\n';
+        if (current_words.size()) {
+            Json::Value new_lang_hidden_words;
+            new_lang_hidden_words["src_lang"] = std::move(current_lang);
+            new_lang_hidden_words["words"] = std::move(current_words);
+            lang_hidden_words_arr.append(std::move(new_lang_hidden_words));
+
+            current_words.clear();
         }
 
+        co_return local_utils::Response::JSON_OK(callback, result_body);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
-
-    co_return local_utils::Response::OK(callback, result_body);
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 
 Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
@@ -62,18 +84,16 @@ Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const H
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto time = local_utils::time::get_unix_timestamp();
-        auto hidden_word = core::progress_words::create_hidden_word_str(word, false, time);
-
-        co_await users_db->execSqlCoro("update user_words set words = words || $1 where src_lang = $2 and user_id = $3",
-            hidden_word, src_lang, user_id
+        co_await users_db->execSqlCoro(
+            "update user_words set is_hidden = false where user_id = $1 and src_lang = $2 and word = $3",
+            user_id, src_lang, word
         );
+
+        co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
 
-    co_return local_utils::Response::OK(callback, "");
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
-
 }
