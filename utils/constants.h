@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 namespace local_constants {
     static constexpr char users_db[] = "svocab_users";
@@ -53,7 +54,15 @@ namespace word_frequency {
 namespace languages {
     static constexpr uint32_t lang_tag_size = 2;
 
-    static const std::unordered_set<std::string> ai_supported_languages_sorted_by_learning_popularity = {
+    static const std::vector<std::string> ai_supported_languages_sorted_by_learning_popularity = {
+        "en", "es", "fr", "de", "zh", "ja", "it", "pt", "ru", "ko", "ar", "nl", "sv", 
+        "tr", "hi", "no", "el", "pl", "vi", "id", "da", "th", "uk", "fa", "cs", "fi", 
+        "ro", "sw", "hu", "ca", "bn", "is", "ms", "sr", "hr", "hy", "ka", "sq", "bs", 
+        "sk", "sl", "lt", "lv", "et", "mk", "ta", "te", "ur", "mr", "gu", "ml", "kk", 
+        "mn", "my", "tl", "am", "kn", "so", "bg", "pa"
+    };
+
+    static const std::unordered_set<std::string> ai_supported_languages = {
         "en", "es", "fr", "de", "zh", "ja", "it", "pt", "ru", "ko", "ar", "nl", "sv", 
         "tr", "hi", "no", "el", "pl", "vi", "id", "da", "th", "uk", "fa", "cs", "fi", 
         "ro", "sw", "hu", "ca", "bn", "is", "ms", "sr", "hr", "hy", "ka", "sq", "bs", 
@@ -62,7 +71,7 @@ namespace languages {
     };
 
     // ISO 639-1 to ISO 3166-1 alpha-2
-    static const std::unordered_map<std::string, const char*> language_to_country = {
+    static const std::unordered_map<std::string, std::string> language_to_country = {
         {"en", "US"},  // English -> United States
         {"es", "ES"},  // Spanish -> Spain
         {"fr", "FR"},  // French -> France

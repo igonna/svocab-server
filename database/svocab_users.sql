@@ -1,4 +1,3 @@
--- CREATE TYPE SpecialUserType AS ENUM ('admin', 'tester');
 CREATE TYPE SpecialUserType AS ENUM ('tester');
 
 CREATE TABLE users (
@@ -77,21 +76,6 @@ CREATE TABLE user_limits (
     last_processed_file_start_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
--- CREATE TABLE user_sequence (
---     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
---     to_learn_words TEXT NOT NULL DEFAULT '', -- en;ru;word;1;0; -- src_lang;dst_lang;word;confirmation_level;is_passed
-
---     last_gen_id INT NOT NULL DEFAULT 0,
---     last_update_id INT NOT NULL DEFAULT 0,
---     last_gen_time INT NOT NULL DEFAULT 0,
-
---     focus_group_size INT NOT NULL DEFAULT 3,
---     focus_group JSONB NOT NULL DEFAULT '{}',
---     focus_group_id INT NOT NULL DEFAULT 0,
---     focus_group_last_update_time INT NOT NULL DEFAULT 0,
---     previous_focus_group_result JSONB NOT NULL DEFAULT '{}'
--- ) PARTITION BY HASH (user_id);
-
 CREATE TABLE user_sequence (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     to_learn_words TEXT NOT NULL DEFAULT '', -- en;ru;word;1;0; -- src_lang;dst_lang;word;confirmation_level;is_passed
@@ -105,36 +89,6 @@ CREATE TABLE user_sequence (
     focus_group_id INT NOT NULL DEFAULT 0,
     focus_group_last_update_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
-
--- CREATE TABLE user_topics (
---     topic_id BIGSERIAL,
---     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-
---     src_lang CHAR(2) NOT NULL,
---     dst_lang CHAR(2) NOT NULL,
-
---     topic_title TEXT NOT NULL DEFAULT '',
---     mix_value REAL NOT NULL DEFAULT 1.0,
---     skip_value REAL NOT NULL DEFAULT 0.0,
---     position INT NOT NULL,
---     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-
---     order_words_by SMALLINT NOT NULL DEFAULT 1, -- 0 first_appearance, 1 relative_popularity, 2 total_popularity
---     exclude_word_if_not_present_in_all_sources BOOLEAN NOT NULL DEFAULT FALSE,
---     exclude_word_if_very_rare BOOLEAN NOT NULL DEFAULT TRUE,
-
---     sources_metadata JSONB NOT NULL DEFAULT '{}',
---     sources_unprocessed JSONB NOT NULL DEFAULT '{}',
---     sources_processed JSONB NOT NULL DEFAULT '{}',
-
---     topic_words_sequence TEXT NOT NULL DEFAULT '',
-
---     last_source_id INT NOT NULL DEFAULT 0,
-
---     last_gen_id INT NOT NULL DEFAULT 0,
---     last_update_id INT NOT NULL DEFAULT 0,
---     PRIMARY KEY (topic_id, user_id)
--- ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_topics (
     topic_id BIGSERIAL,
@@ -153,33 +107,6 @@ CREATE TABLE user_topics (
     words_sequence TEXT NOT NULL,
     PRIMARY KEY (topic_id, user_id)
 ) PARTITION BY HASH (user_id);
-
--- CREATE TABLE global_topics (
---     topic_id SERIAL PRIMARY KEY,
---     src_lang CHAR(2),
---     src_title_en TEXT NOT NULL,
---     default_position INT NOT NULL,
---     words TEXT NOT NULL,
---     UNIQUE(topic_id, src_lang)
--- );
-
--- CREATE TABLE user_global_topics (
---     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
---     topic_id INT REFERENCES global_topics(topic_id) ON DELETE CASCADE,
---     src_lang CHAR(2) NOT NULL,
---     dst_lang CHAR(2) NOT NULL,
---     dst_title TEXT,
---     mix_value REAL NOT NULL,
---     skip_value REAL NOT NULL,
---     position INT NOT NULL,
---     is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
---     PRIMARY KEY (user_id, topic_id, dst_lang)
--- ) PARTITION BY HASH (user_id);
-
--- CREATE TABLE ranks (
---     rank_pos SMALLINT PRIMARY KEY,
---     rank_min_score BIGINT
--- );
 
 -- CREATE TABLE user_statistics (
 --     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

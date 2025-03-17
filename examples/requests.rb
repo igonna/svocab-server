@@ -36,10 +36,11 @@
     device_os_version
     device_model
 
-(-)11.log_out_of_all_devices -> ok
+(+)11.log_out_of_all_devices -> ok
 
 #OFFERS
-(+)11.set_offer_passed
+(+)11.set_offer_passed -> ok
+    offer_type
 
 #LANGAUGES
 (+)12.get_supported_languages -> list
@@ -50,7 +51,7 @@
     boolean
 
 #USER TOPICS
-(-)14.create_topic() -> ok
+(+)14.create_topic() -> ok
     src_lang
     dst_lang
     origin: https:// (optional for links)
@@ -90,14 +91,14 @@ file:
 
 (+)15.get_topics -> json
 
-(-)16.get_topic_progress -> json
+(+)16.get_topic_progress -> json
     topic_id
 
 (+)17.rename_topic -> ok
     topic_id
     body: new_name
 
-(-)18.edit_topic -> ok
+(+)18.edit_topic -> ok
     topic_id
     body: new_content
 
@@ -114,7 +115,18 @@ file:
         value (arr for answers_sum, true || false for rate_us, empty for hide)
     }
 
-(+)23.is_updated -> ok
+(+)21.is_updated -> ok
+
+(-)22.get_item -> json
+    body_json:
+
+request_types: [item_passed, hide]
+item_types: []
+
+body_json:
+    request_type:
+    item_type:
+
 
 #HIDDEN WORDS
 (+)24.get_hidden_words -> json

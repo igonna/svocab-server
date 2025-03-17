@@ -89,6 +89,7 @@ Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const H
             user_id, src_lang, word
         );
 
+        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();

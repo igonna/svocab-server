@@ -5,35 +5,17 @@
 #include <plugins/OpenaiGeneration/OpenaiGeneration.h>
 #include "core/phrases_generation/phrases_generator.h"
 
-// using namespace drogon;
-
-// namespace focus_group_generation_exceptions {
-// 	struct systems_are_busy_exception : public std::exception {
-// 		const char* what() const noexcept override {
-// 			return "systems_are_busy";
-// 		}
-// 	};
-
-// 	struct user_blocked_from_generation : public std::exception {
-// 		const char* what() const noexcept override {
-// 			return "user_blocked_from_generation";
-// 		}
-// 	};
-// }
+using namespace drogon;
 
 namespace v1
 {
 class Sequence : public drogon::HttpController<Sequence> {
 public:
-	// Task<> isUpdated(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
-	// Task<> getCurrentItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
-	// Task<> getNextItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
+	Task<> getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback);
 
-	// METHOD_LIST_BEGIN
-	// METHOD_ADD(Sequence::isUpdated, "/is_updated", Get, "JwtFilter");
-	// METHOD_ADD(Sequence::getCurrentItem, "/get_current_item", Get, "JwtFilter");
-	// METHOD_ADD(Sequence::getNextItem, "/get_next_item", Get, "JwtFilter");
-	// METHOD_LIST_END
+	METHOD_LIST_BEGIN
+	METHOD_ADD(Sequence::getItem, "/get_item", Post, "JwtFilter");
+	METHOD_LIST_END
 
 private:
 	// Task<> increase_generated_phrases_count(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint16_t count);

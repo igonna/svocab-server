@@ -395,6 +395,7 @@ Json::Value Topics::createTopicsList(const drogon::orm::Result& lang_pairs_rows,
 
         Json::Value new_lang_pair;
         new_lang_pair["src_lang"] = src_lang;
+        new_lang_pair["dst_lang"] = dst_lang;
         new_lang_pair["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
 
         auto& ref_to_topics = new_lang_pair["topics"] = Json::arrayValue;

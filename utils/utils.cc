@@ -39,10 +39,9 @@ namespace supported_languages {
     }
 
     std::string get_supported_languages_as_string(const std::string& to_translate_lang_tag) {
-
         static std::unordered_set<std::string> supported_locales = {};
 
-        if (!supported_locales.size()) {
+        if (supported_locales.empty()) {
             int32_t count;
             const icu::Locale* locales = icu::Locale::getAvailableLocales(count);
 
@@ -52,22 +51,15 @@ namespace supported_languages {
         }
 
         std::string result;
-        for (auto i : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
-            if (supported_locales.contains(i)) {
-                result += std::string(i) + ';' + local_utils::supported_languages::get_language_title_localized(i, to_translate_lang_tag);
+        for (const auto& lang_tag : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
+            if (!supported_locales.contains(lang_tag)) continue;
 
-                try {
-                    std::string country_code = local_constants::languages::language_to_country.at(i);
+            auto country_code_it = local_constants::languages::language_to_country.find(lang_tag);
+            if (country_code_it == local_constants::languages::language_to_country.end()) continue;
+            auto country_code = country_code_it->second;
+            for(auto& c : country_code) c = tolower(c);
 
-                    std::transform(country_code.begin(), country_code.end(), country_code.begin(), 
-                        [](unsigned char c) { return std::tolower(c); }
-                    );
-
-                    result += std::string(";") + country_code;
-                } catch (...) {}
-
-                result += '\n';
-            }
+            result += lang_tag + ';' + get_language_title_localized(lang_tag, to_translate_lang_tag) + ';' + country_code + '\n';
         }
         return result;
     }
@@ -79,7 +71,7 @@ namespace supported_languages {
     }
 
     bool is_language_supported(const std::string& language) {
-        return local_constants::languages::ai_supported_languages_sorted_by_learning_popularity.contains(language);
+        return local_constants::languages::ai_supported_languages.contains(language);
     }
 }
 

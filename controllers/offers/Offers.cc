@@ -11,15 +11,15 @@ Task<> Offers::setOfferPassed(HttpRequestPtr req, std::function<void(const HttpR
         co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
     }
 
-    auto offer_type = static_cast<uint16_t>(std::stoi(offer_type_str));
-
-    static const std::unordered_map<uint16_t, std::string> offer_types = {
-        {0, "rate_us"}
+    static const std::unordered_map<std::string, uint16_t> offer_types = {
+        {"rate_us", 0}
     };
 
-    if (!offer_types.contains(offer_type)) {
+    if (!offer_types.contains(offer_type_str)) {
         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_offer_type");
     }
+
+    auto offer_type = offer_types.at(offer_type_str);
 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);

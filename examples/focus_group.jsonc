@@ -1,80 +1,273 @@
-// request: FocusGroup/get_focus_group
+CREATE TABLE user_sequence (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    to_learn_words TEXT NOT NULL DEFAULT '', -- en;ru;word -- src_lang;dst_lang;word
+
+    last_gen_id INT NOT NULL DEFAULT 0,
+    last_update_id INT NOT NULL DEFAULT 0,
+    last_gen_time INT NOT NULL DEFAULT 0,
+
+    focus_group_size INT NOT NULL DEFAULT 3,
+    focus_group JSONB NOT NULL DEFAULT '{}',
+    focus_group_id INT NOT NULL DEFAULT 0,
+    focus_group_last_update_time INT NOT NULL DEFAULT 0
+) PARTITION BY HASH (user_id);
+
+ci: current_item
+d: data
+    t: type [l: learn, ru: rate_us]
+    sl: src_lang
+    s: src_placeholder
+    sa: src_array
+    d: dst_placeholder
+    da: dst_array
+    v2: variants_second
+    v3: variants_third
+    p: progress
+        m: mistakes
+        sa: seconds_spent_on_answer
+        sn: seconds_spent_till_next
+
 {
-    "group_id": 1,
-    // not for client
-    "versions": {
-        "1": 19203491823401,
-        "2": 0
-    },
-    "words": [
+    "ci": 0,
+    "d": [
         {
-            // phase: 1
-            "word_id": "1.1",
-            "confirmation_level": 0,
-            "src_lang": "en",
-            "word": "perforator",
-            "word_translation": "сверильный станок",
-            "phrase": "The perforator is behind the perforator!",
-            "->word_translation": "Сверильный станок",
-            "->phrase_translation_parts": [null, " стоит за cверильным станком!"],
-            "phrase_translation": "Cверильный станок стоит за cверильным станком!",
-            "current_phase": 0,
-            "phases_mistakes": [false, false, false],
-            // phase: 2 (additions)
-            "guess_phrase": ["The ", null, " is behind the ", null, "!"],
-            "guess_words": ["world", "perforator", "how"],
-            // phase: 3 (additions)
-            "guess_letters": ["e", "p", "a", "o", "f", "r", "r", "t", "o", "e", "r"]
-        }
-    ],
-    "special_offer_type": "rate_us", // could be null; types: [rate_us, link_account]
-    "learned_this_time": 0
-}
-
-// item (types: first, second, third, result, rate_us)
-// type: second
-{
-    "item_id": "2.2",
-    "item_type": "second",
-    "src_placeholder": "perforator",
-    "src_phrase": ["The", null, "is", "behind", "the", null, "!"],
-    "dst_placeholder": "сверильный станок",
-    "dst_phrase": [null, "стоит", "за", "cверильным", "станком!"],
-
-    "answers": ["perforatro", "perforator", "perforotar"]
-}
-
-// type: result
-{
-    "item_id": "2.3",
-    "item_type": "result",
-    "rows": [
-        {
-            "type": "new",
-            "value_1": 4,
+            "t": "l",
+            "sl": "en",
+            "s": "perforator",
+            "sa": ["The", null, "is", "behind", "the", null, "!"],
+            "d": "сверильный станок",
+            "da": [null, "стоит", "за", "cверильным", "станком!"],
+            "v2": ["perforatro", "perforator", "perforotar"],
+            "v3": ["f", "p", "e", "a", "r", "f", "o", "r", "a", "t", "e", "o", "r", "b"],
+            "p": [
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+            ]
         },
         {
-            "type": "in_learning",
-            "value_1": 2,
-            "value_2": 1024
+            "t": "l",
+            "sl": "en",
+            "s": "world",
+            "sa": ["Hello, ", null, "!"],
+            "d": "мир",
+            "da": ["Привет, ", null, "!"],
+            "v2": ["world", "wrold", "dworl"],
+            "v3": ["w", "o", "r", "l", "d", "a", "i"],
+            "p": [
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                }
+            ]
         },
         {
-            "type": "mastered",
-            "value_1": 2,
-            "value_2": 512
+            "t": "l",
+            "sl": "en",
+            "s": "who",
+            "sa": [null, "are", "you?"],
+            "d": "кто",
+            "da": [null, "ты?"],
+            "v2": ["who", "hwo", "how"],
+            "v3": ["w", "o", "h", "a", "e"],
+            "p": [
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                },
+                {
+                    "m": 0,
+                    "sa": 30,
+                    "sn": 10
+                }
+            ]
+        },
+        {
+            "t": "ru",
+            "p": [
+                {
+                    "sn": 10
+                }
+            ]
         }
     ]
 }
 
-//
+types:
+    first
+    second
+    third
+    result
+    rate_us
 
-// request: FocusGroup/complete_focus_group
+actions:
+    passed
+    hide
+
+// sequence requests example if focus_group_size = 1
+1.get_item (requesT from_client):
+body: empty
+
+(responsE from_server 200): // type: first
+body:
 {
-    // learned || failed || repeated could not exist
-    "learned": 3,
-    "mistaken": 2,
-    "repeated": 1,
-    "current_focus_size": 2,
-    "new_focus_size": 2,
-    "max_focus_size": 6
+    "type": "first",
+    "id": "1.xxa",
+    "content": {
+        "src_placeholder": "perforator",
+        "src_phrase": ["The", null, "is", "behind", "the", null, "!"],
+        "dst_placeholder": "сверильный станок",
+        "dst_phrase": [null, "стоит", "за", "cверильным", "станком!"]
+    }
 }
+
+2.get_item (requesT from_client):
+body:
+{
+    "action": "passed",
+    "id": "1.xxa",
+    "stats": {
+        "mistakes": 0,
+        "seconds_spent_on_answer": 30,
+        "seconds_spent_till_next": 10
+    }
+}
+
+(responsE from_server 200): // type: second
+body:
+{
+    "type": "second",
+    "id": "1.xxb",
+    "content": {
+        "src_placeholder": "perforator",
+        "src_phrase": ["The", null, "is", "behind", "the", null, "!"],
+        "dst_placeholder": "сверильный станок",
+        "dst_phrase": [null, "стоит", "за", "cверильным", "станком!"],
+        "variants": ["perforatro", "perforator", "perforotar"]
+    }
+}
+
+3.get_item (requesT from_client):
+body:
+{
+    "action": "passed",
+    "id": "1.xxb",
+    "stats": {
+        "mistakes": 0,
+        "seconds_spent_on_answer": 30,
+        "seconds_spent_till_next": 10
+    }
+}
+
+(responsE from_server 200): // type: third
+body:
+{
+    "type": "third",
+    "id": "1.xxf",
+    "content": {
+        "src_placeholder": "perforator",
+        "src_phrase": ["The", null, "is", "behind", "the", null, "!"],
+        "dst_placeholder": "сверильный станок",
+        "dst_phrase": [null, "стоит", "за", "cверильным", "станком!"],
+        "variants": ["f", "p", "e", "a", "r", "f", "o", "r", "a", "t", "e", "o", "r", "b"], 
+    }
+}
+
+4.get_item (requesT from_client):
+body:
+{
+    "action": "passed",
+    "id": "1.xxf",
+    "stats": {
+        "mistakes": 0,
+        "seconds_spent_on_answer": 30,
+        "seconds_spent_till_next": 10
+    }
+}
+
+(responsE from_server 200): // type: result
+body:
+{
+    "type": "result",
+    "id": "1.xxt",
+    "content": [
+        {
+            "type": "new",
+            "values": [4],
+        },
+        {
+            "type": "in_learning",
+            "values": [2, 1024]
+        },
+        {
+            "type": "mastered",
+            "values": [2, 512]
+        }
+    ]
+}
+
+5.get_item (requesT from_client):
+body:
+{
+    "action": "passed",
+    "id": "1.xxt",
+    "stats": {
+        "seconds_spent_till_next": 10
+    }
+}
+
+(responsE from_server 200): // type: rate_us
+body:
+{
+    "type": "rate_us",
+    "id": "1.xxc"
+}
+
+5.get_item (requesT from_client):
+body:
+{
+    "action": "passed",
+    "id": "1.xxc",
+    "stats": {
+        "seconds_spent_till_next": 60,
+        "skipped": false
+    }
+}
+
+(responsE from_server 429):
+body: "1932019230"
+
+6.get_item (requesT from_client):
+body: empty
+
+(responsE from_server 503): // type: busy
+body: empty
