@@ -18,9 +18,9 @@ enum class WordRarityCategory {
 };
 
 struct WordsFrequencies {
-    WordsFrequencies(std::unordered_map<icu::UnicodeString, uint32_t, UnicodeStringHash, UnicodeStringEqual>&& frequencies) : frequencies(frequencies) {}
+    WordsFrequencies(std::unordered_map<std::string, uint32_t>&& frequencies) : frequencies(frequencies) {}
 
-    inline std::tuple<uint32_t, WordRarityCategory> get_frequency(const icu::UnicodeString& word) const {
+    inline std::tuple<uint32_t, WordRarityCategory> get_frequency(const std::string& word) const {
         const auto& it = frequencies.find(word);
 
         if (it != frequencies.end()) {
@@ -42,7 +42,7 @@ private:
 
 private:
     WordsFrequencies() = delete;
-    std::unordered_map<icu::UnicodeString, uint32_t, UnicodeStringHash, UnicodeStringEqual> frequencies;
+    std::unordered_map<std::string, uint32_t> frequencies;
 };
 
 class FrequentWords : public drogon::Plugin<FrequentWords>

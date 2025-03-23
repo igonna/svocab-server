@@ -1,4 +1,5 @@
 #include "sequence_generator.h"
+#include "core/text_processing/text_processor.h"
 
 namespace core::sequence_generation
 {
@@ -52,7 +53,7 @@ drogon::Task<> SequenceGenerator::add_topic_words(std::string&& src_lang, std::s
     }
     auto& current_banned_words = current_banned_words_by_src_lang.at(src_lang);
 
-    std::vector<WordMixUnit> topic_words;
+    std::vector<WordMixUnit> topic_mix_units;
 
     auto lang_pair_key = get_lang_pair_key(src_lang, dst_lang);
 
@@ -87,37 +88,23 @@ drogon::Task<> SequenceGenerator::add_topic_words(std::string&& src_lang, std::s
             }
         }
         added_words.insert(word);
-        topic_words.push_back(WordMixUnit(lang_pair_id, 0, 0, std::move(word)));
+        topic_mix_units.push_back(WordMixUnit(lang_pair_id, 0, 0, std::move(word)));
         return true;
     };
 
+    auto topic_words = core::text_processing::get_words_from_str_splited_by(topic_words_sequence, ' ');
+
     uint32_t added_words_count = 0;
-    std::string word;
-    for (auto c : topic_words_sequence) {
-        if (c == ';') {
-            if (current_banned_words.is_banned(word)) {
-                word.clear();
-                continue;
-            }
-
-            if (add_word(std::move(word)) && ++added_words_count >= local_constants::max_user_sequence_words) {
-                break;
-            }
-            word.clear();
-            continue;
-        }
-        word += c;
+    for (auto& word : topic_words) {
+        if (current_banned_words.is_banned(word)) continue;
+        if (add_word(std::move(word)) && ++added_words_count >= local_constants::max_user_sequence_words) break;
     }
 
-    if (word.size()) {
-        add_word(std::move(word));
-    }
-
-    if (topic_words.empty()) co_return;
+    if (topic_mix_units.empty()) co_return;
 
     auto new_words_pack = WordsPack(
         topic_mix_value * local_constants::topics::topic_mix_value_multiplier,
-        std::move(topic_words)
+        std::move(topic_mix_units)
     );
 
     words_packs_by_lang_pairs_ids[lang_pair_id].push_back(std::move(new_words_pack));
@@ -266,19 +253,20 @@ std::vector<core::user_sequence_words::SequenceUserWord> SequenceGenerator::mixe
     return result;
 }
 
-std::string SequenceGenerator::get_learning_sequence_str() {
+std::string SequenceGenerator::get_learning_sequence_str(const std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence) {
+    auto result = core::user_sequence_words::sequence_user_words_to_str(user_words_sequence);
+    return result;
+}
+
+std::vector<core::user_sequence_words::SequenceUserWord> SequenceGenerator::generate() {
     auto to_mix_lang_packs = get_mixed_language_packs();
 
     auto mixed_words = get_mixed_words(to_mix_lang_packs);
 
     to_mix_lang_packs.clear();
 
-    auto user_sequence_words = mixed_words_to_user_sequence_words(mixed_words);
-    auto result = core::user_sequence_words::sequence_user_words_to_str(user_sequence_words);
-
-    // user_sequence_words.clear();
-    
-    return result;
+    auto generated_user_sequence_words = mixed_words_to_user_sequence_words(mixed_words);
+    return generated_user_sequence_words;
 }
 
 std::vector<LangPairMixData> SequenceGenerator::get_words_sequences_by_lang_pair() {

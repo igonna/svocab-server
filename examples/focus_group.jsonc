@@ -155,10 +155,9 @@ body:
 {
     "action": "passed",
     "id": "1.xxa",
-    "stats": {
+    "content": {
         "mistakes": 0,
-        "seconds_spent_on_answer": 30,
-        "seconds_spent_till_next": 10
+        "seconds_spent_on_answer": 30
     }
 }
 
@@ -181,10 +180,9 @@ body:
 {
     "action": "passed",
     "id": "1.xxb",
-    "stats": {
+    "content": {
         "mistakes": 0,
-        "seconds_spent_on_answer": 30,
-        "seconds_spent_till_next": 10
+        "seconds_spent_on_answer": 30
     }
 }
 
@@ -207,10 +205,9 @@ body:
 {
     "action": "passed",
     "id": "1.xxf",
-    "stats": {
+    "content": {
         "mistakes": 0,
-        "seconds_spent_on_answer": 30,
-        "seconds_spent_till_next": 10
+        "seconds_spent_on_answer": 30
     }
 }
 
@@ -240,7 +237,7 @@ body:
 {
     "action": "passed",
     "id": "1.xxt",
-    "stats": {
+    "content": {
         "seconds_spent_till_next": 10
     }
 }
@@ -257,7 +254,7 @@ body:
 {
     "action": "passed",
     "id": "1.xxc",
-    "stats": {
+    "content": {
         "seconds_spent_till_next": 60,
         "skipped": false
     }

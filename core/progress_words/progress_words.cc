@@ -4,6 +4,27 @@
 
 namespace core::progress_words {
 
+std::unordered_map<std::string, UserWordData> get_user_words_from_orm_sql(const drogon::orm::Result& user_words_result) {
+    std::unordered_map<std::string, UserWordData> result;
+
+    for (const auto& row : user_words_result) {
+        const auto& word = row["word"].as<std::string>();
+        auto is_learned = row["is_learned"].as<bool>();
+        auto is_hidden = row["is_hidden"].as<bool>();
+        auto confirmation_level = row["learn_confirmation_level"].as<uint32_t>();
+        auto last_update_time = row["last_update_time"].as<uint32_t>();
+
+        result[word] = UserWordData(
+            confirmation_level,
+            is_hidden || is_learned,
+            last_update_time
+        );
+    }
+
+    return result;
+}
+
+
 std::tuple<uint32_t, std::unordered_map<std::string, UserWordData>> get_user_words_from_str(const std::string& words_str) {
     std::unordered_map<std::string, UserWordData> result;
 

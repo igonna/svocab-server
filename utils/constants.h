@@ -160,6 +160,8 @@ namespace topics {
     static constexpr float min_skip_value = 0.0f;
     static constexpr float skip_value = 0.0f;
     static constexpr float max_skip_value = 1.0f;
+
+    static constexpr uint32_t seconds_first_topic_prioritized = 60*60;
 }
 
 namespace user_generation_limit {

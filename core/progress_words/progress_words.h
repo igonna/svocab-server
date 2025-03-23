@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <cstdint>
 #include "utils/constants.h"
+#include <drogon/drogon.h>
 
 namespace core::progress_words {
 
@@ -39,6 +40,8 @@ struct UserWordData {
         }
     }
 };
+
+std::unordered_map<std::string, UserWordData> get_user_words_from_orm_sql(const drogon::orm::Result& user_words_result);
 
 std::tuple<uint32_t, std::unordered_map<std::string, UserWordData>> get_user_words_from_str(const std::string& words_str);
 

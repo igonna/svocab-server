@@ -339,6 +339,24 @@ std::vector<icu::UnicodeString> get_unicode_words_from_text_as_vector(const icu:
     return unicode_words;
 }
 
+std::vector<std::string> get_words_from_str_splited_by(const std::string& str, char separator) {
+    std::vector<std::string> result;
+
+    std::string current_word;
+    for (char c : str) {
+        if (c == separator && current_word.size()) {
+            result.push_back(std::move(current_word));
+            current_word.clear();
+        } else {
+            current_word += c;
+        }
+    }
+
+    if (current_word.size()) result.push_back(std::move(current_word));
+
+    return result;
+}
+
 bool update_word_and_check_if_valid(
     icu::UnicodeString& word,
     const icu::Locale& locale,
@@ -368,28 +386,6 @@ bool update_word_and_check_if_valid(
     return true;
 }
 
-
-std::vector<icu::UnicodeString> mix_multimaps(const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m1,
-    const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m2,
-    const std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>>& m3) {
-
-    auto it1 = m1.begin(), it2 = m2.begin(), it3 = m3.begin();
-    std::vector<icu::UnicodeString> result;
-
-    while (it1 != m1.end() || it2 != m2.end() || it3 != m3.end()) {
-        for (int i = 0; i < 3 && it1 != m1.end(); ++i, ++it1)
-            result.push_back(it1->second);
-
-        for (int i = 0; i < 2 && it2 != m2.end(); ++i, ++it2)
-            result.push_back(it2->second);
-
-        for (int i = 0; i < 1 && it3 != m3.end(); ++i, ++it3)
-            result.push_back(it3->second);
-    }
-
-    return result;
-}
-
 std::vector<std::string> create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
     UErrorCode status = U_ZERO_ERROR;
     auto locale = icu::Locale(language_src);
@@ -416,9 +412,9 @@ std::vector<std::string> create_prioritized_words_sequence(const std::string& st
 
     std::unordered_set<icu::UnicodeString, predicates::UnicodeStringHash, predicates::UnicodeStringEqual> already_processed_words;
 
-    std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>> common_words;
-    std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>> rare_words;
-    std::multimap<uint32_t, icu::UnicodeString, std::greater<uint32_t>> exotic_words;
+    std::multimap<uint32_t, std::string, std::greater<uint32_t>> common_words;
+    std::multimap<uint32_t, std::string, std::greater<uint32_t>> rare_words;
+    std::multimap<uint32_t, std::string, std::greater<uint32_t>> exotic_words;
 
     int32_t start = bi->first();
     for (int32_t end = bi->next(); end != icu::BreakIterator::DONE; start = end, end = bi->next()) {
@@ -446,17 +442,19 @@ std::vector<std::string> create_prioritized_words_sequence(const std::string& st
         uint32_t word_frequency;
         WordRarityCategory word_rarity_category;
 
+        auto utf8_word = unicode_to_str(word);
+
         if (is_valid_word_src && is_valid_word_dst) {
-            auto [frequency_src, category_src] = words_frequencies_src->get_frequency(word);
-            auto [frequency_dst, category_dst] = words_frequencies_dst->get_frequency(word);
+            auto [frequency_src, category_src] = words_frequencies_src->get_frequency(utf8_word);
+            auto [frequency_dst, category_dst] = words_frequencies_dst->get_frequency(utf8_word);
     
             bool is_src = frequency_src > frequency_dst;
             word_frequency = is_src ? frequency_src : frequency_dst;
             word_rarity_category = is_src ? category_src : category_dst;
         } else if (is_valid_word_src) {
-            std::tie(word_frequency, word_rarity_category) = words_frequencies_src->get_frequency(word);
+            std::tie(word_frequency, word_rarity_category) = words_frequencies_src->get_frequency(utf8_word);
         } else if (is_valid_word_dst) {
-            std::tie(word_frequency, word_rarity_category) = words_frequencies_dst->get_frequency(word);
+            std::tie(word_frequency, word_rarity_category) = words_frequencies_dst->get_frequency(utf8_word);
         }
 
         // mark word processed
@@ -464,44 +462,68 @@ std::vector<std::string> create_prioritized_words_sequence(const std::string& st
 
         // insert word into a category
         if (word_rarity_category == WordRarityCategory::common) {
-            common_words.insert({word_frequency, std::move(word)});
+            common_words.insert({word_frequency, std::move(utf8_word)});
         } else if (word_rarity_category == WordRarityCategory::rare) {
-            rare_words.insert({word_frequency, std::move(word)});
+            rare_words.insert({word_frequency, std::move(utf8_word)});
         } else {
-            exotic_words.insert({word_frequency, std::move(word)});
+            exotic_words.insert({word_frequency, std::move(utf8_word)});
         }
     }
 
     text.remove();
 
-    auto mixed_words = mix_multimaps(common_words, rare_words, exotic_words);
+    std::vector<std::pair<uint32_t, std::multimap<uint32_t, std::string, std::greater<uint32_t>>>> sequences = {
+        {3, std::move(common_words)},
+        {2, std::move(rare_words)},
+        {1, std::move(exotic_words)}
+    };
+
+    auto mixed_words = mix_sequences<std::multimap<uint32_t, std::string, std::greater<uint32_t>>, std::string>(sequences);
 
     already_processed_words.clear();
-    common_words.clear();
-    rare_words.clear();
-    exotic_words.clear();
+    sequences.clear();
 
     std::vector<std::string> result;
 
     result.reserve(mixed_words.size());
 
-    for (const auto& word : mixed_words) {
-        result.push_back(unicode_to_str(word));
+    for (auto& word : mixed_words) {
+        result.push_back(std::move(word));
     }
+
+    return result;
+}
+
+std::string unicode_vec_to_string(const std::vector<icu::UnicodeString>& vec) {
+    std::string result;
+
+    std::string utf8_str;
+    for (const auto& i : vec) {
+        i.toUTF8String(utf8_str);
+        result += utf8_str + ' ';
+        utf8_str.clear();
+    }
+
+    if(result.size()) result.pop_back();
+
+    return result;
+}
+
+std::string string_vec_to_string(const std::vector<std::string>& vec) {
+    std::string result;
+
+    for (const auto& i : vec) {
+        result += i + ' ';
+    }
+
+    if(result.size()) result.pop_back();
 
     return result;
 }
 
 std::string create_prioritized_words_sequence_as_str(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
     auto words_sequence = create_prioritized_words_sequence(str, frequent_words_plugin, language_src, language_dst);
-
-    std::string result;
-
-    for (const auto& word : words_sequence) {
-        result += word + ' ';
-    }
-
-    return result;
+    return string_vec_to_string(words_sequence);
 }
 
 std::string text_to_processed_source(icu::UnicodeString&& text, const char* language) {

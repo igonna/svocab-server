@@ -7,8 +7,10 @@ namespace core::user_sequence_words {
         std::string result;
 
         for (auto& user_word : sequence_user_words) {
-            result += user_word.src_lang + ';' + user_word.dst_lang + ';' + user_word.word + ';' + std::to_string(user_word.confirmation_level) + ';' + std::to_string(user_word.is_passed) + ';';
+            result += user_word.src_lang + ' ' + user_word.dst_lang + ' ' + user_word.word + '\n';
         }
+
+        if (result.size()) result.pop_back();
 
         return result;
     }
