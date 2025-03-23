@@ -25,6 +25,7 @@ drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, 
             " (last_gen_id != last_update_id OR $1 - last_gen_time > $2) AS gen_required,"
             " focus_group_id,"
             " last_update_id,"
+            " focus_group_size,"
                 " CASE"
                     " WHEN (last_gen_id != last_update_id OR $1 - last_gen_time > $2) THEN ''"
                     " ELSE to_learn_words"
@@ -43,6 +44,7 @@ drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, 
         std::move(user_sequence_result[0]["to_learn_words"].as<std::string>()),
         user_sequence_result[0]["focus_group"].isNull(),
         user_sequence_result[0]["focus_group_id"].as<uint32_t>(),
+        user_sequence_result[0]["focus_group_size"].as<uint32_t>(),
         std::move(user_sequence_result[0]["focus_group"].as<Json::Value>())
     );
 }
@@ -55,7 +57,12 @@ uint32_t get_topic_mix_value(uint32_t topic_index, uint32_t created_at, uint32_t
     else return 1;
 }
 
-drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> generate_user_sequence_and_update(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t sequence_last_update_id) {
+drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool is_sequence_generation_required, uint32_t sequence_last_update_id, const std::string& user_words_str) {
+    if (!is_sequence_generation_required) {
+        auto user_words_sequence = core::user_sequence_words::sequence_user_words_to_vector(user_words_str);
+        co_return user_words_sequence;
+    }
+
     auto language_pair_topics = co_await users_db->execSqlCoro(
         " WITH max_lang_pair AS ("
             " SELECT DISTINCT ON (user_id) user_id, src_lang, dst_lang"
@@ -129,6 +136,10 @@ drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> generate_
     );
 
     co_return generated_sequence;
+}
+
+drogon::Task<Json::Value> get_updated_focus_group(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool is_focus_group_generation_required, std::vector<core::user_sequence_words::SequenceUserWord>& sequence_words) {
+    co_return Json::nullValue;
 }
 
 }

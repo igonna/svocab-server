@@ -93,7 +93,7 @@ public:
 
     drogon::Task<> add_user_words(std::string&& src_lang, std::unordered_map<std::string, core::progress_words::UserWordData> &&user_words);
     drogon::Task<> add_topic_words(std::string&& src_lang, std::string&& dst_lang, float lang_mix_value, float topic_mix_value, std::string&& topic_words_sequence);
-    std::string get_learning_sequence_str(const std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence);
+    static std::string get_learning_sequence_str(const std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence);
     std::vector<LangPairMixData> get_words_sequences_by_lang_pair();
     std::vector<core::user_sequence_words::SequenceUserWord> generate();
 

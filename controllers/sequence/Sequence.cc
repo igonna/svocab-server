@@ -13,6 +13,16 @@
 
 namespace v1
 {
+
+// Task<uint32_t> get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+//     auto new_focus_group_id_result = co_await users_db->execSqlCoro(
+//         "update user_sequence set focus_group_id = focus_group_id + 1 where user_id = $1 returning focus_group_id",
+//         user_id
+//     );
+//     auto new_focus_group_id = new_focus_group_id_result[0]["focus_group_id"].as<uint32_t>();
+//     co_return new_focus_group_id;
+// }
+
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     if (req->bodyLength()) {
         auto json = req->getJsonObject();
@@ -21,30 +31,42 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 
     }
 
+    // if body not empty, update progress
 
-
-    // 1. just check if generation required, if yes, generate sequence
-    // 2. then you allowed to generate focus group
-
-    // get 
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
+        // user sequence info
         auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id);
 
-        if (sequence_info.is_sequence_generation_required) {
-            auto generated_sequence = co_await core::user_sequence::generate_user_sequence_and_update(
-                users_db, user_id, sequence_info.is_sequence_generation_required
-            );
+        // get user sequence
+        auto generated_sequence = co_await core::user_sequence::get_updated_user_sequence(
+            users_db, user_id, sequence_info.is_sequence_generation_required, sequence_info.sequence_last_update_id, sequence_info.to_learn_words
+        );
 
-            co_return local_utils::Response::OK(callback, "new sequence generated");
-        } else {
-            co_return local_utils::Response::OK(callback, "sequence already generated");
-        }
+        co_return local_utils::Response::OK(
+            callback,
+            core::sequence_generation::SequenceGenerator::get_learning_sequence_str(generated_sequence)
+        );
 
-        // if body not empty, update progress
+        // 2.get_item (requesT from_client):
+        // body:
+        // {
+        //     "action": "passed",
+        //     "id": "1.xxa",
+        //     "content": {
+        //         "mistakes": 0,
+        //         "seconds_spent_on_answer": 30
+        //     }
+        // }
 
+        // auto focus_group = co_await core::user_sequence::get_updated_focus_group(
+        //     users_db, user_id, sequence_info.is_focus_group_generation_required, generated_sequence
+        // );
+
+        // 1. generate focus group
+        // 2. return current item or status_code
 
 
         // is_user_temporarily_blocked_from_phrase_generation
@@ -153,7 +175,7 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 //             );
 
 //             auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
-//             user_words_sequence = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
+//             user_words_sequence = core::user_sequence_words::sequence_user_words_to_vector(to_learn_words_str);
 //         }
 
 //         // generate focus_group_size phrases 
@@ -179,17 +201,13 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 //         auto new_focus_group_id = co_await get_new_focus_group_id(users_db, user_id);
 
 //         // create json focus group
-//         auto is_multiple_languages = co_await get_is_multiple_languages(users_db, user_id);
 //         auto user_special_offer_type_opt = co_await get_user_special_offer_type(users_db, user_id);
 //         auto user_special_offer_type = user_special_offer_type_opt.has_value() ? user_special_offer_type_opt.value() : "";
-//         auto learned_this_time = co_await get_learned_this_time(users_db, user_id);
 
 //         result_focus_group = create_focus_group_json(current_time, focus_group_phrases, new_focus_group_id, learned_this_time, is_multiple_languages, device_num, user_special_offer_type);
 
 //         // update db focus group
 //         auto focus_group_json_str = local_utils::json::json_to_string(result_focus_group);
-
-//         clear_focus_group_from_technical_data(result_focus_group);
 
 //         auto update_focus_group_result = co_await users_db->execSqlCoro("update user_sequence set focus_group = $1, "
 //             "focus_group_last_update_time = $2 where user_id = $3", focus_group_json_str, current_time, user_id
@@ -548,41 +566,6 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 //     return result;
 // }
 
-// void Sequence::clear_focus_group_from_technical_data(Json::Value& focus_group) {
-//     focus_group.removeMember("versions");
-
-//     if (focus_group.isMember("words")) {
-//         auto& words = focus_group["words"];
-
-//         for (auto& word : words) {
-//             word.removeMember("confirmation_level");
-//         }
-//     }
-// }
-
-// Task<> Sequence::getPreviousFocusGroupResult(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
-//     Json::Value previous_focus_group_json;
-//     try {
-//         auto users_db = app().getDbClient(local_constants::users_db);
-//         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
-
-//         auto previous_focus_group_result = co_await users_db->execSqlCoro(
-//             "select previous_focus_group_result from user_sequence where user_id = $1",
-//             user_id
-//         );
-
-//         previous_focus_group_json = previous_focus_group_result[0]["previous_focus_group_result"].as<Json::Value>();
-
-//         if (previous_focus_group_json.isObject() && previous_focus_group_json.empty()) {
-//             co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
-//         }
-//     } catch (const std::exception& e) {
-//         LOG_ERROR << e.what();
-//         co_return local_utils::Response::Error::SERVER_ERROR(callback);
-//     }
-//     co_return local_utils::Response::JSON_OK(callback, previous_focus_group_json);
-// }
-
 // Task<> Sequence::getFocusGroupWithHiddenWord(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
 //     auto word_id_str = req->getHeader("wordId");
 
@@ -669,7 +652,7 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 //             );
 
 //             auto to_learn_words_str = user_sequence_result[0]["to_learn_words"].as<std::string>();
-//             user_words_sequence = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
+//             user_words_sequence = core::user_sequence_words::sequence_user_words_to_vector(to_learn_words_str);
 //         }
 
 //         // set hidden word as passed in user words sequence and update user words sequence
@@ -998,7 +981,7 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 
 //         // update user words sequence && create user words to append
 //         auto to_learn_words_str = focus_group_and_sequence_result[0]["to_learn_words"].as<std::string>();
-//         auto to_learn_words_vec = core::user_sequence_words::sequence_user_words_str_to_vector(to_learn_words_str);
+//         auto to_learn_words_vec = core::user_sequence_words::sequence_user_words_to_vector(to_learn_words_str);
 
 //         std::unordered_map<std::string, std::string> user_words_to_attach_by_src_lang;
 //         std::unordered_map<std::string, std::unordered_map<std::string, uint8_t>> user_words_info_by_src_lang;
@@ -1170,25 +1153,5 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 //         co_return local_utils::Response::Error::SERVER_ERROR(callback);
 //     }
 //     co_return local_utils::Response::JSON_OK(callback, focus_group_summary);
-// }
-
-// Task<uint32_t> Sequence::get_learned_this_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
-//     auto statistics_info_result = co_await users_db->execSqlCoro(
-//         "select learned_this_time, last_learn_time from user_statistics where user_id = $1", user_id
-//     );
-//     auto learned_this_time = statistics_info_result[0]["learned_this_time"].as<uint32_t>();
-// 	auto last_learn_time = statistics_info_result[0]["last_learn_time"].as<uint32_t>();
-
-//     auto current_time = local_utils::time::get_unix_timestamp();
-
-//     co_return (current_time - last_learn_time > local_constants::statistics::learned_this_time_expire_seconds) ? 0 : learned_this_time;
-// }
-
-// Task<bool> Sequence::get_is_multiple_languages(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
-//     auto languages_count_result = co_await users_db->execSqlCoro(
-//         "select user_id, COUNT(DISTINCT src_lang) AS unique_src_lang_count"
-//         " from user_language_pairs where is_enabled = true and user_id = $1 GROUP BY user_id", user_id
-//     );
-//     co_return languages_count_result[0]["unique_src_lang_count"].as<uint32_t>() > 1;
 // }
 }

@@ -24,5 +24,5 @@ namespace core::user_sequence_words {
     };
 
     std::string sequence_user_words_to_str(const std::vector<SequenceUserWord>& sequence_user_words);
-    std::vector<SequenceUserWord> sequence_user_words_str_to_vector(const std::string& words_str);
+    std::vector<SequenceUserWord> sequence_user_words_to_vector(const std::string& words_str);
 }

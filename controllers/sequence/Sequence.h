@@ -61,8 +61,5 @@ private:
 	// 	std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
 	// 	uint32_t focus_group_size
 	// );
-
-	// Task<uint32_t> get_learned_this_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
-	// Task<bool> get_is_multiple_languages(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 };
 }
