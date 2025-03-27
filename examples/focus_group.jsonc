@@ -13,7 +13,8 @@ CREATE TABLE user_sequence (
 ) PARTITION BY HASH (user_id);
 
 ci: current_item
-d: data
+li: last_item
+d: data items
     t: type [l: learn, ru: rate_us]
     sl: src_lang
     s: src_placeholder
@@ -22,14 +23,12 @@ d: data
     da: dst_array
     v2: variants_second
     v3: variants_third
-    p: progress
+    r: results
         m: mistakes
         sa: seconds_spent_on_answer
         sn: seconds_spent_till_next
 
 {
-    "ci": 0,
-    "li": 9,
     "d": [
         {
             "t": "l",
@@ -43,19 +42,16 @@ d: data
             "p": [
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 },
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 },
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
-                },
+                    "sa": 30
+                }
             ]
         },
         {
@@ -70,18 +66,15 @@ d: data
             "p": [
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 },
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 },
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 }
             ]
         },
@@ -97,31 +90,24 @@ d: data
             "p": [
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 },
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
+                    "sa": 30
                 },
                 {
                     "m": 0,
-                    "sa": 30,
-                    "sn": 10
-                }
-            ]
-        },
-        {
-            "t": "ru",
-            "p": [
-                {
-                    "sn": 10
+                    "sa": 30
                 }
             ]
         }
     ]
 }
+
+SELECT focus_group->'d'->(CAST(focus_group->>'ci' AS INTEGER) % focus_group_size)
+FROM user_sequence 
+WHERE user_id = 2;
 
 types:
     first

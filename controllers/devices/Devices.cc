@@ -85,15 +85,25 @@ Task<> Devices::logOutOfAllDevices(HttpRequestPtr req, std::function<void(const 
 
         auto users_db = app().getDbClient(local_constants::users_db);
 
+        auto devices_result = co_await users_db->execSqlCoro(
+            "select device_num from user_devices where user_id = $1 and device_num != $2", user_id, current_device_num
+        );
+
+        auto rc = app().getRedisClient();
+        for (const auto &row : devices_result) {
+            auto cur_device_num = row["device_num"].as<uint32_t>();
+            co_await core::device::revoke_device(rc, user_id, cur_device_num);
+        }
+
         // revoke all user_devices
         auto resultDevices = co_await users_db->execSqlCoro(
             "delete from user_devices where user_id = $1 and device_num != $2", user_id, current_device_num
         );
+
+        co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
-        co_return local_utils::Response::Error::SERVER_ERROR(callback);
     }
-
-    co_return local_utils::Response::OK(callback, "");
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 };

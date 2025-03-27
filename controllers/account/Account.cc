@@ -152,10 +152,10 @@ Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpR
         }
 
         // revoke all user_devices
-        auto resultDevices = co_await users_db->execSqlCoro("select device_num from user_devices where user_id = $1", user_id);
+        auto devices_result = co_await users_db->execSqlCoro("select device_num from user_devices where user_id = $1", user_id);
 
         auto rc = app().getRedisClient();
-        for (const auto &row : resultDevices) {
+        for (const auto &row : devices_result) {
             auto cur_device_num = row["device_num"].as<uint32_t>();
             co_await core::device::revoke_device(rc, user_id, cur_device_num);
         }

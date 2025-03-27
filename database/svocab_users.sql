@@ -88,6 +88,8 @@ CREATE TABLE user_sequence (
 
     focus_group_size INT NOT NULL DEFAULT 3,
     focus_group JSONB NOT NULL DEFAULT '{}',
+    focus_group_current_item SMALLINT NOT NULL DEFAULT 0,
+    focus_group_last_item SMALLINT NOT NULL DEFAULT 0,
     focus_group_id INT NOT NULL DEFAULT 0,
     focus_group_last_update_time INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
