@@ -67,9 +67,11 @@ namespace core::user_sequence {
         bool is_focus_group_finished;
     };
 
-    drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+    drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool force_fetch_to_learn_words = false, bool force_fetch_focus_group = false);
     uint32_t get_topic_mix_value(uint32_t topic_index, uint32_t created_at, uint32_t current_time);
-    drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool is_sequence_generation_required, uint32_t sequence_last_update_id, const std::string& user_words_str);
+    drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t sequence_last_update_id);
     drogon::Task<uint32_t> get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id);
+    // drogon::Task<> core::user_sequence::process_item_request(drogon::orm::DbClientPtr users_db, uint64_t user_id, const Json::Value& item_request);
+
     // drogon::Task<Json::Value> get_updated_focus_group(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool is_focus_group_generation_required, std::vector<core::user_sequence_words::SequenceUserWord>& sequence_words, const uint32_t focus_group_id, Json::Value& focus_group);
 }

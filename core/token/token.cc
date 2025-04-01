@@ -62,19 +62,20 @@ namespace core::token {
         return {user_id, device_num, device_token};
     }
 
-    std::string create_device_bare_token(uint64_t user_id, uint32_t device_num, const std::string& secret) {
+    std::string create_device_bare_token(uint64_t user_id, uint32_t device_num, uint64_t session_id, const std::string& secret) {
         auto token = jwt::create()
             .set_type("JWS")
             .set_payload_claim("user_id", jwt::claim(std::to_string(user_id)))
             .set_payload_claim("device_num", jwt::claim(std::to_string(device_num)))
+            .set_payload_claim("session_id", jwt::claim(std::to_string(session_id)))
             .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds{local_constants::secret_key_expire_seconds})
             .sign(jwt::algorithm::hs256{secret});
 
         return token;
     }
 
-    // user_id, device_id
-    std::tuple<uint64_t, uint32_t> decode_device_bare_token(const std::string& token, const std::string& secret) {
+    // user_id, device_id, session_id
+    std::tuple<uint64_t, uint32_t, uint64_t> decode_device_bare_token(const std::string& token, const std::string& secret) {
         auto decoded = jwt::decode(token);
         auto verifier = jwt::verify().allow_algorithm(jwt::algorithm::hs256{secret});
         verifier.verify(decoded);
@@ -88,9 +89,10 @@ namespace core::token {
             throw std::runtime_error("token_expired");
         }
 
-        auto user_id = std::stoi(decoded.get_payload_claim("user_id").as_string());
+        auto user_id = std::stoull(decoded.get_payload_claim("user_id").as_string());
         auto device_num = std::stoi(decoded.get_payload_claim("device_num").as_string());
+        auto session_id = std::stoull(decoded.get_payload_claim("session_id").as_string());
 
-        return {user_id, device_num};
+        return {user_id, device_num, session_id};
     }
 }

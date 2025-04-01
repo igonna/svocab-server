@@ -65,19 +65,105 @@ namespace v1
 //     }
 // }
 
+enum class ItemType : uint16_t {first, second, third, result, rate_us};
+
+// Json::Value phrase_to_json_item(std::string client_item_id, ItemType item_type, core::phrases_generator::FocusGroupPhrase focus_group_phrase) {
+//     Json::Value result;
+
+//     return result;
+// }
+
+// Json::Value group_result_to_json_item(std::string client_item_id) {
+//     Json::Value result;
+
+//     return result;
+// }
+
+// Json::Value rate_item_us_to_json_item(std::string client_item_id) {
+//     Json::Value result;
+
+//     return result;
+// }
+
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        // user sequence info
-        auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id);
+        // if (req->bodyLength()) {
+        //     auto item_request = *(req->getJsonObject());
 
-        // get user sequence
-        auto generated_sequence = co_await core::user_sequence::get_updated_user_sequence(
-            users_db, user_id, sequence_info.is_sequence_generation_required, sequence_info.sequence_last_update_id, sequence_info.to_learn_words
+        //     // co_await core::user_sequence::process_item_request(users_db, user_id, item_request);
+
+        //     const auto& item_action = item_request["action"].as<std::string>();
+
+        //     // get focus group and sequence 
+        //     // get src_lang, dst_last, word
+        //     // 
+
+        //     if (item_action == "passed") {
+        //         // update progress
+
+        //     } else if (item_action == "hide") {
+        //         is_user_hiding_item = true;
+        //         // add word as hidden
+        //         // update sequence
+        //     } else {
+        //         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not valid item action");
+        //     }
+        // }
+
+        auto group_result = co_await users_db->execSqlCoro(
+            " SELECT "
+                " ug.group_id,"
+                " ug.group_size,"
+                " ug.current_item,"
+                " ug.last_item,"
+                " ug.last_interaction_time,"
+                " ug.last_update_id,"
+                " ug.last_gen_id,"
+                " ui.item_id,"
+                " ui.item_type,"
+                " ui.src_lang,"
+                " ui.dst_lang,"
+                " ui.word_phrase_id"
+            " FROM user_group ug"
+            " LEFT JOIN user_items ui"
+                " ON ug.user_id = ui.user_id"
+                " AND ug.group_id = ui.group_id"
+                " AND ui.item_id = ug.current_item"
+            " WHERE ug.user_id = $1", user_id
         );
 
+        auto group_id = group_result[0]["group_id"].as<uint32_t>();
+        auto group_size = group_result[0]["group_size"].as<uint32_t>();
+        auto current_item = group_result[0]["current_item"].as<uint16_t>();
+        auto last_item = group_result[0]["last_item"].as<uint16_t>();
+        auto last_interaction_time = group_result[0]["last_interaction_time"].as<uint32_t>();
+        auto last_update_id = group_result[0]["last_update_id"].as<uint32_t>();
+        auto last_gen_id = group_result[0]["last_gen_id"].as<uint32_t>();
+        
+        bool item_found = !group_result[0]["item_id"].isNull();
+
+        if (item_found) {
+            auto item_id = group_result[0]["item_id"].as<uint16_t>();
+            auto item_type = group_result[0]["item_type"].as<uint16_t>();
+            auto src_lang = group_result[0]["src_lang"].as<std::string>();
+            auto dst_lang = group_result[0]["dst_lang"].as<std::string>();
+            auto word_phrase_id = group_result[0]["word_phrase_id"].as<uint32_t>();
+        } else {
+            auto generated_sequence = co_await core::user_sequence::get_updated_user_sequence(
+                users_db, user_id, last_update_id
+            );
+        }
+
+        // client_item_id: (group_id, item_id)
+
+        // user sequence info
+        auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id, is_user_hiding_item, is_user_hiding_item);
+
+        // get user sequence
+ 
 
         std::cout << "is_sequence_generation_required: " << sequence_info.is_sequence_generation_required 
             << std::endl << "sequence_last_update_id: " << sequence_info.sequence_last_update_id 
@@ -88,6 +174,15 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
             << std::endl << "to_learn_words (len): " << sequence_info.to_learn_words.size() 
             << std::endl << "focus_group (is_null): " << sequence_info.focus_group.isNull() 
             << std::endl << "is_focus_group_finished: " << sequence_info.is_focus_group_finished << std::endl;
+
+        // calculate FocusGroupState in C++, just by comparing focus_group_current_item with focus_group_last_item
+        // enum class FocusGroupState {in_progress, passed, reviewed}; // instead of sequence_info.is_focus_group_finished
+
+        // replace is_focus_group_finished with FocusGroupState
+        if (sequence_info.is_focus_group_finished) {
+            // complete_focus_group = [add_to/update_user_words_from_focus_group, focus_group_current_item += 1, add_words_statistics, create_focus_group_result]
+            // return focus_group_result
+        }
 
         // sequence_info
 

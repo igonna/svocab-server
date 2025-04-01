@@ -38,6 +38,16 @@ CREATE TABLE user_devices (
     PRIMARY KEY (user_id, device_num)
 ) PARTITION BY HASH (user_id);
 
+CREATE TABLE user_sessions (
+    session_id BIGSERIAL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    started_at INT NOT NULL,
+    finished_at INT NOT NULL,
+    ip_address INT NOT NULL,
+    interactions INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (session_id, user_id)
+) PARTITION BY HASH (user_id);
+
 CREATE TABLE user_limits (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
 
@@ -78,20 +88,35 @@ CREATE TABLE user_topics (
     PRIMARY KEY (topic_id, user_id)
 ) PARTITION BY HASH (user_id);
 
-CREATE TABLE user_sequence (
+CREATE TABLE user_group (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    to_learn_words TEXT NOT NULL DEFAULT '', -- en;ru;word;1;0; -- src_lang;dst_lang;word;confirmation_level;is_passed
+    group_id INT NOT NULL DEFAULT 0,
+    group_size INT NOT NULL DEFAULT 3,
 
-    last_gen_id INT NOT NULL DEFAULT 0,
+    current_item SMALLINT NOT NULL DEFAULT 0,
+    last_item SMALLINT NOT NULL DEFAULT 0,
+    last_interaction_time INT NOT NULL DEFAULT 0,
+
     last_update_id INT NOT NULL DEFAULT 0,
-    last_gen_time INT NOT NULL DEFAULT 0,
+    last_gen_id INT NOT NULL DEFAULT 0
+) PARTITION BY HASH (user_id);
 
-    focus_group_size INT NOT NULL DEFAULT 3,
-    focus_group JSONB NOT NULL DEFAULT '{}',
-    focus_group_current_item SMALLINT NOT NULL DEFAULT 0,
-    focus_group_last_item SMALLINT NOT NULL DEFAULT 0,
-    focus_group_id INT NOT NULL DEFAULT 0,
-    focus_group_last_update_time INT NOT NULL DEFAULT 0
+CREATE TABLE user_items (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    item_id SMALLINT NOT NULL,
+    group_id INT NOT NULL,
+    is_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at INT NOT NULL,
+    passed_at INT,
+
+    item_type SMALLINT NOT NULL,
+
+    src_lang CHAR(2),
+    dst_lang CHAR(2),
+    word_phrase_id INT,
+
+    mistakes_count SMALLINT NOT NULL DEFAULT 0,
+    seconds_spent SMALLINT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_words (
@@ -103,36 +128,12 @@ CREATE TABLE user_words (
     is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
 
     learn_confirmation_level SMALLINT NOT NULL DEFAULT 0,
-    right_guess_count SMALLINT NOT NULL DEFAULT 0,
-    wrong_guess_count SMALLINT NOT NULL DEFAULT 0,
 
     last_update_time INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, src_lang, word)
 ) PARTITION BY HASH (user_id);
 
--- CREATE TABLE user_statistics (
---     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
---     learned_this_time INT NOT NULL DEFAULT 0,
---     last_learn_time INT NOT NULL DEFAULT 0,
---     learned_today INT NOT NULL DEFAULT 0,
---     learned_words_total INT NOT NULL DEFAULT 0,
---     learn_streak INT NOT NULL DEFAULT 0,
---     total_learn_days INT NOT NULL DEFAULT 0,
---     last_repeat_time INT NOT NULL DEFAULT 0,
---     repeated_today INT NOT NULL DEFAULT 0,
---     focus_size_total_sum BIGINT NOT NULL DEFAULT 0,
---     focus_size_changes_total_count INT NOT NULL DEFAULT 0,
---     user_rank SMALLINT NOT NULL DEFAULT 100, -- from 0 to 100
---     last_rank_update_time INT NOT NULL DEFAULT 0
--- ) PARTITION BY HASH (user_id);
-
-CREATE TABLE user_statistics (
-    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    in_learning_count INT NOT NULL DEFAULT 0,
-    mastered_count INT NOT NULL DEFAULT 0
-) PARTITION BY HASH (user_id);
-
-CREATE TABLE user_google_play_subscription ( -- to do this, after more details known
+CREATE TABLE user_google_play_subscription (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     subscription_id VARCHAR(255) NOT NULL,
     purchase_token VARCHAR(255) NOT NULL,
@@ -154,16 +155,6 @@ CREATE UNIQUE INDEX idx_unique_email_p1 ON users_p1 (id, email);
 CREATE UNIQUE INDEX idx_unique_email_p2 ON users_p2 (id, email);
 CREATE UNIQUE INDEX idx_unique_email_p3 ON users_p3 (id, email);
 
-CREATE TABLE user_sequence_p0 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_sequence_p1 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_sequence_p2 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_sequence_p3 PARTITION OF user_sequence FOR VALUES WITH (MODULUS 4, REMAINDER 3);
-
-CREATE TABLE user_limits_p0 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_limits_p1 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_limits_p2 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_limits_p3 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 3);
-
 CREATE TABLE user_offers_p0 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_offers_p1 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_offers_p2 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 2);
@@ -174,30 +165,45 @@ CREATE TABLE last_user_special_offer_time_p1 PARTITION OF last_user_special_offe
 CREATE TABLE last_user_special_offer_time_p2 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE last_user_special_offer_time_p3 PARTITION OF last_user_special_offer_time FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_language_pairs_p0 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_language_pairs_p1 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_language_pairs_p2 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_language_pairs_p3 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 3);
-
 CREATE TABLE user_devices_p0 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_devices_p1 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_devices_p2 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_devices_p3 PARTITION OF user_devices FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_words_p0 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_sessions_p0 PARTITION OF user_sessions FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_sessions_p1 PARTITION OF user_sessions FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_sessions_p2 PARTITION OF user_sessions FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_sessions_p3 PARTITION OF user_sessions FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE TABLE user_limits_p0 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_limits_p1 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_limits_p2 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_limits_p3 PARTITION OF user_limits FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE TABLE user_language_pairs_p0 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_language_pairs_p1 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_language_pairs_p2 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_language_pairs_p3 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_topics_p0 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_topics_p1 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_topics_p2 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_topics_p3 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_statistics_p0 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_statistics_p1 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_statistics_p2 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_statistics_p3 PARTITION OF user_statistics FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_group_p0 PARTITION OF user_group FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_group_p1 PARTITION OF user_group FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_group_p2 PARTITION OF user_group FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_group_p3 PARTITION OF user_group FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE TABLE user_items_p0 PARTITION OF user_items FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_items_p1 PARTITION OF user_items FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_items_p2 PARTITION OF user_items FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_items_p3 PARTITION OF user_items FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE TABLE user_words_p0 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
 CREATE TABLE user_google_play_subscription_p0 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_google_play_subscription_p1 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 1);

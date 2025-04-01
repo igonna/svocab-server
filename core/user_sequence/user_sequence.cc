@@ -14,7 +14,7 @@
 
 namespace core::user_sequence {
 
-drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool force_fetch_to_learn_words, bool force_fetch_focus_group) {
     const uint32_t seconds_duration_to_repeat = local_constants::confirmation_level_1_repeat_timeout_seconds;
     auto current_time = local_utils::time::get_unix_timestamp();
 
@@ -37,15 +37,16 @@ drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, 
             " fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AS fg_gen_required,"
             " focus_group->'d'->(focus_group_current_item % focus_group_size) AS fg_item,"
             " CASE"
-                " WHEN fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AND NOT seq_gen_required THEN to_learn_words"
+                " WHEN fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AND NOT seq_gen_required OR $5 THEN to_learn_words"
                 " ELSE ''"
             " END AS to_learn_words,"
+            " (focus_group_current_item >= focus_group_last_item) AS fg_finished,"
             " CASE"
-                " WHEN focus_group_current_item >= focus_group_last_item THEN focus_group"
+                " WHEN focus_group_current_item >= focus_group_last_item OR $6 THEN focus_group"
                 " ELSE NULL"
             " END AS focus_group"
         " FROM conditions"
-        , current_time, seconds_duration_to_repeat, seconds_duration_focus_group_expire, user_id
+        , current_time, seconds_duration_to_repeat, seconds_duration_focus_group_expire, user_id, force_fetch_to_learn_words, force_fetch_focus_group
     );
 
     auto focus_group = std::move(user_sequence_result[0]["focus_group"].as<Json::Value>());
@@ -58,11 +59,11 @@ drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, 
         user_sequence_result[0]["seq_last_update_id"].as<uint32_t>(),
         user_sequence_result[0]["fg_id"].as<uint32_t>(),
         user_sequence_result[0]["fg_size"].as<uint32_t>(),
-        is_focus_group_null || user_sequence_result[0]["fg_gen_required"].as<bool>(),
+        user_sequence_result[0]["fg_gen_required"].as<bool>(),
         std::move(focus_group_item),
         std::move(to_learn_words),
         std::move(focus_group),
-        !is_focus_group_null
+        user_sequence_result[0]["fg_finished"].as<bool>()
     );
 }
 
@@ -74,12 +75,7 @@ uint32_t get_topic_mix_value(uint32_t topic_index, uint32_t created_at, uint32_t
     else return 1;
 }
 
-drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool is_sequence_generation_required, uint32_t sequence_last_update_id, const std::string& user_words_str) {
-    if (!is_sequence_generation_required) {
-        auto user_words_sequence = core::user_sequence_words::sequence_user_words_to_vector(user_words_str);
-        co_return user_words_sequence;
-    }
-
+drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updated_user_sequence(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t sequence_last_update_id) {
     auto language_pair_topics = co_await users_db->execSqlCoro(
         " WITH max_lang_pair AS ("
             " SELECT DISTINCT ON (user_id) user_id, src_lang, dst_lang"
@@ -161,6 +157,10 @@ drogon::Task<uint32_t> get_new_focus_group_id(drogon::orm::DbClientPtr users_db,
     );
     co_return new_focus_group_id_result[0]["focus_group_id"].as<uint32_t>();
 }
+
+// drogon::Task<> process_item_request(drogon::orm::DbClientPtr users_db, uint64_t user_id, const Json::Value& item_request) {
+//     co_return;
+// }
 
 // std::tuple<uint32_t, uint32_t> Sequence::decode_word_id(const std::string& word_id_str) {
 //     auto dot_pos = word_id_str.find('.');

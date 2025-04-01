@@ -17,6 +17,7 @@ li: last_item
 d: data items
     t: type [l: learn, ru: rate_us]
     sl: src_lang
+    dl: dst_lang
     s: src_placeholder
     sa: src_array
     d: dst_placeholder
@@ -33,6 +34,7 @@ d: data items
         {
             "t": "l",
             "sl": "en",
+            "dl": "ru",
             "s": "perforator",
             "sa": ["The", null, "is", "behind", "the", null, "!"],
             "d": "сверильный станок",
@@ -57,6 +59,7 @@ d: data items
         {
             "t": "l",
             "sl": "en",
+            "dl": "ru",
             "s": "world",
             "sa": ["Hello, ", null, "!"],
             "d": "мир",
@@ -81,6 +84,7 @@ d: data items
         {
             "t": "l",
             "sl": "en",
+            "dl": "ru",
             "s": "who",
             "sa": [null, "are", "you?"],
             "d": "кто",

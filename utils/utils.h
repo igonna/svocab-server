@@ -257,4 +257,13 @@ static inline std::string create_banned_word_table_name(const std::string& src_l
 namespace file {
     std::string get_string_from_file(std::string path);
 }
+
+namespace bytes {
+    inline uint32_t swap_endian(uint32_t num) {
+        return ((num >> 24) & 0x000000FF) |
+                ((num >> 8)  & 0x0000FF00) |
+                ((num << 8)  & 0x00FF0000) |
+                ((num << 24) & 0xFF000000);
+    }
+}
 }

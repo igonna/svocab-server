@@ -41,7 +41,7 @@ namespace local_constants {
 
     static constexpr float compress_user_words_on_percent = 0.2f;
 
-    static constexpr uint32_t max_user_sequence_words = 200;
+    static constexpr uint32_t max_user_sequence_words = 32;
 
     static constexpr uint16_t openai_free_users_limit_key_expire_seconds = 60;
 
@@ -146,6 +146,7 @@ namespace redis {
 namespace attributes {
     static const std::string user_id = "user_id";
     static const std::string device_num = "device_num";
+    static const std::string session_id = "session_id";
 }
 
 namespace topics {

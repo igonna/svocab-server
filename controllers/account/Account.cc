@@ -72,8 +72,7 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
             user_id, device_num, device_refresh_token
         );
         co_await transaction->execSqlCoro("insert into user_limits (user_id) values ($1)", user_id);
-        co_await transaction->execSqlCoro("insert into user_sequence (user_id) values ($1)", user_id);
-        co_await transaction->execSqlCoro("insert into user_statistics (user_id) values ($1)", user_id);
+        co_await transaction->execSqlCoro("insert into user_group (user_id) values ($1)", user_id);
 
         transaction->setCommitCallback([user_id, device_num, device_refresh_token, moved_callback = std::move(callback)](bool success) -> void {
             if (success) {

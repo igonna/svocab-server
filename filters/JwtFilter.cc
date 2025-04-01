@@ -29,16 +29,25 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
                 throw std::runtime_error(redis_error);
             }
 
-            auto [user_id, device_num] = core::token::decode_device_bare_token(token, secret_key);
-            
+            auto [user_id, device_num, session_id] = core::token::decode_device_bare_token(token, secret_key);
+
             req->attributes()->insert(local_constants::attributes::user_id, user_id);
             req->attributes()->insert(local_constants::attributes::device_num, device_num);
+            req->attributes()->insert(local_constants::attributes::session_id, session_id);
 
             is_device_revoked = co_await core::device::is_device_revoked(rc, user_id, device_num);
 
             if (is_device_revoked) {
                 throw std::runtime_error("revoked");
             }
+
+            auto users_db = app().getDbClient(local_constants::users_db);
+            auto time_now = local_utils::time::get_unix_timestamp();
+
+            std::ignore = users_db->execSqlCoro(
+                "update user_sessions set finished_at = $1, interactions = interactions + 1 where user_id = $2 and session_id = $3",
+                time_now, user_id, session_id
+            );
 
             fccb();
         } catch (const std::exception& e) {

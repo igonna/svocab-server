@@ -15,8 +15,8 @@ namespace core::token {
     // user_id, device_num, device_refresh_token
     std::tuple<uint32_t, uint32_t, std::string> decode_device_refresh_token(const std::string& refresh_token);
 
-    std::string create_device_bare_token(uint64_t user_id, uint32_t device_num, const std::string& secret);
+    std::string create_device_bare_token(uint64_t user_id, uint32_t device_num, uint64_t session_id, const std::string& secret);
 
     // user_id, device_id
-    std::tuple<uint64_t, uint32_t> decode_device_bare_token(const std::string& token, const std::string& secret);
+    std::tuple<uint64_t, uint32_t, uint64_t> decode_device_bare_token(const std::string& token, const std::string& secret);
 }
