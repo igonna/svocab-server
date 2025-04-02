@@ -27,7 +27,7 @@ d: data items
     r: results
         m: mistakes
         sa: seconds_spent_on_answer
-        sn: seconds_spent_till_next
+        sn: seconds_spent
 
 {
     "d": [
@@ -144,12 +144,11 @@ body:
 2.get_item (requesT from_client):
 body:
 {
-    "action": "passed",
     "id": "1.xxa",
-    "content": {
-        "mistakes": 0,
-        "seconds_spent_on_answer": 30
-    }
+    "action": "passed",
+    "seconds_spent": 30,
+    "seconds_spent_on_answer": 15,
+    "mistakes": 0
 }
 
 (responsE from_server 200): // type: second
@@ -169,12 +168,11 @@ body:
 3.get_item (requesT from_client):
 body:
 {
-    "action": "passed",
     "id": "1.xxb",
-    "content": {
-        "mistakes": 0,
-        "seconds_spent_on_answer": 30
-    }
+    "action": "passed",
+    "seconds_spent": 30,
+    "seconds_spent_on_answer": 15,
+    "mistakes": 0
 }
 
 (responsE from_server 200): // type: third
@@ -194,12 +192,11 @@ body:
 4.get_item (requesT from_client):
 body:
 {
-    "action": "passed",
     "id": "1.xxf",
-    "content": {
-        "mistakes": 0,
-        "seconds_spent_on_answer": 30
-    }
+    "action": "passed",
+    "seconds_spent": 30,
+    "seconds_spent_on_answer": 15,
+    "mistakes": 0
 }
 
 (responsE from_server 200): // type: result
@@ -226,11 +223,9 @@ body:
 5.get_item (requesT from_client):
 body:
 {
-    "action": "passed",
     "id": "1.xxt",
-    "content": {
-        "seconds_spent_till_next": 10
-    }
+    "action": "passed",
+    "seconds_spent": 30
 }
 
 (responsE from_server 200): // type: rate_us
@@ -243,12 +238,10 @@ body:
 5.get_item (requesT from_client):
 body:
 {
-    "action": "passed",
     "id": "1.xxc",
-    "content": {
-        "seconds_spent_till_next": 60,
-        "skipped": false
-    }
+    "action": "passed",
+    "seconds_spent": 60,
+    "rated": true
 }
 
 (responsE from_server 429):

@@ -7,6 +7,9 @@ CREATE TABLE users (
     register_date TIMESTAMP NOT NULL DEFAULT NOW(),
     token_last_request_time INT NOT NULL DEFAULT 0, -- dead user detection
     last_device_num INT NOT NULL DEFAULT 0,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    delete_date TIMESTAMP,
+    email_before_delete TEXT,
     UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
@@ -32,7 +35,7 @@ CREATE TABLE user_devices (
     device_model TEXT NOT NULL DEFAULT '',
     device_os_version TEXT NOT NULL DEFAULT '',
 
-    device_refresh_token CHAR(16) NOT NULL,
+    device_refresh_token CHAR(16),
     token_last_request_time INT NOT NULL DEFAULT 0,
     last_ip_address INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, device_num)
@@ -93,19 +96,16 @@ CREATE TABLE user_group (
     group_id INT NOT NULL DEFAULT 0,
     group_size INT NOT NULL DEFAULT 3,
 
-    current_item SMALLINT NOT NULL DEFAULT 0,
-    last_item SMALLINT NOT NULL DEFAULT 0,
-    last_interaction_time INT NOT NULL DEFAULT 0,
-
     last_update_id INT NOT NULL DEFAULT 0,
     last_gen_id INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_items (
-    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    item_id SMALLINT NOT NULL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     group_id INT NOT NULL,
+    item_id SMALLINT NOT NULL,
     is_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
     created_at INT NOT NULL,
     passed_at INT,
 
@@ -116,7 +116,9 @@ CREATE TABLE user_items (
     word_phrase_id INT,
 
     mistakes_count SMALLINT NOT NULL DEFAULT 0,
-    seconds_spent SMALLINT NOT NULL DEFAULT 0
+    seconds_spent SMALLINT NOT NULL DEFAULT 0,
+    seconds_spent_on_answer SMALLINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, group_id, item_id)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_words (

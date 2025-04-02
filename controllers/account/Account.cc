@@ -150,18 +150,34 @@ Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpR
             co_return local_utils::Response::Error::FORBIDDEN(callback, "not_valid_device_token");
         }
 
-        // revoke all user_devices
+        // get all user_devices
         auto devices_result = co_await users_db->execSqlCoro("select device_num from user_devices where user_id = $1", user_id);
 
+        // delete account
+        auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
+        co_await transaction->execSqlCoro("update users set email_before_delete = email, email = NULL, is_deleted = TRUE, delete_date = NOW() where user_id = $1", user_id);
+        co_await transaction->execSqlCoro("update user_devices set device_refresh_token = NULL where user_id = $1", user_id);
+
+        transaction->setCommitCallback([moved_callback = std::move(callback)](bool success) -> void {
+            if (success) {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::k200OK);
+                moved_callback(resp);
+            } else {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::k500InternalServerError);
+                resp->setBody("something_wrong");
+                moved_callback(resp);
+            }
+        });
+
+        // revoke all user devices
         auto rc = app().getRedisClient();
         for (const auto &row : devices_result) {
             auto cur_device_num = row["device_num"].as<uint32_t>();
             co_await core::device::revoke_device(rc, user_id, cur_device_num);
         }
-
-        // delete account
-        co_await users_db->execSqlCoro("delete from users where id = $1", user_id);
-        co_return local_utils::Response::OK(callback, "");
+        co_return;
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
     }

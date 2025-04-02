@@ -65,7 +65,6 @@ namespace v1
 //     }
 // }
 
-enum class ItemType : uint16_t {first, second, third, result, rate_us};
 
 // Json::Value phrase_to_json_item(std::string client_item_id, ItemType item_type, core::phrases_generator::FocusGroupPhrase focus_group_phrase) {
 //     Json::Value result;
@@ -85,33 +84,90 @@ enum class ItemType : uint16_t {first, second, third, result, rate_us};
 //     return result;
 // }
 
+enum class ItemType : uint16_t {first, second, third, result, rate_us};
+
+std::string encode_item_id(uint32_t group_id, uint16_t item_id, ItemType item_type) {
+    return std::to_string(group_id) + '.' + std::to_string(item_id) + '.' + std::to_string(static_cast<uint16_t>(item_type));
+}
+
+std::tuple<uint32_t, uint16_t, ItemType> decode_item_id(const std::string& item_id_str) {
+    std::stringstream ss(item_id_str);
+    uint32_t group_id;
+    uint16_t item_id, item_type;
+    char dot1, dot2;
+
+    ss >> group_id >> dot1 >> item_id >> dot2 >> item_type;
+
+    if (dot1 != '.' || dot2 != '.') {
+        throw std::invalid_argument("can not decode item id");
+    }
+
+    return {group_id, item_id, static_cast<ItemType>(item_type)};
+}
+
+drogon::Task<> set_learn_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id, uint16_t item_id, 
+    uint16_t mistakes, uint16_t seconds_spent, uint16_t seconds_spent_on_answer
+) {
+    auto time_now = local_utils::time::get_unix_timestamp();
+
+    co_await users_db->execSqlCoro(
+        " update user_items set is_passed = TRUE, passed_at = $1, mistakes_count = $2, seconds_spent = $3, seconds_spent_on_answer = $4"
+        " where user_id = $5 and group_id = $6 and item_id = $7",
+        time_now, mistakes, seconds_spent, seconds_spent_on_answer, user_id, group_id, item_id
+    );
+}
+
+drogon::Task<> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
+    uint16_t item_id, uint16_t seconds_spent
+) {
+    auto time_now = local_utils::time::get_unix_timestamp();
+
+    co_await users_db->execSqlCoro(
+        " update user_items set is_hidden = TRUE, passed_at = $1, seconds_spent = $2"
+        " where user_id = $3 and group_id = $4 and item_id = $5",
+        time_now, seconds_spent, user_id, group_id, item_id
+    );
+}
+
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        // if (req->bodyLength()) {
-        //     auto item_request = *(req->getJsonObject());
+        bool group_generation_required = false;
 
-        //     // co_await core::user_sequence::process_item_request(users_db, user_id, item_request);
+        if (req->bodyLength()) {
+            const auto& item_request = *(req->getJsonObject());
 
-        //     const auto& item_action = item_request["action"].as<std::string>();
+            const auto& item_action = item_request["action"].as<std::string>();
+            const auto& item_id_str = item_request["id"].as<std::string>();
+            uint16_t seconds_spent = item_request["seconds_spent"].as<uint32_t>();
+            uint16_t seconds_spent_on_answer = item_request["seconds_spent_on_answer"].as<uint32_t>();
 
-        //     // get focus group and sequence 
-        //     // get src_lang, dst_last, word
-        //     // 
+            auto [group_id, item_id, item_type] = decode_item_id(item_id_str);
 
-        //     if (item_action == "passed") {
-        //         // update progress
+            if (item_type == ItemType::first || item_type == ItemType::second || item_type == ItemType::third) {
+                if (item_action == "passed") {
+                    uint16_t mistakes = item_request["mistakes"].as<uint32_t>();
+                    co_await set_learn_item_passed(users_db, user_id, group_id, item_id, mistakes, seconds_spent, seconds_spent_on_answer);
+                } else if (item_action == "hide") {
+                    group_generation_required = true;
+                    co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
+                } else {
+                    co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not valid item action");
+                }
+            } else if (item_type == ItemType::result) {
 
-        //     } else if (item_action == "hide") {
-        //         is_user_hiding_item = true;
-        //         // add word as hidden
-        //         // update sequence
-        //     } else {
-        //         co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not valid item action");
-        //     }
-        // }
+            } else if (item_type == ItemType::rate_us) {
+                auto rated = item_request["rated"].as<bool>();
+
+            }
+
+
+            // get focus group and sequence 
+            // get src_lang, dst_last, word
+            // 
+        }
 
         auto group_result = co_await users_db->execSqlCoro(
             " SELECT "
@@ -157,32 +213,30 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
             );
         }
 
-        // client_item_id: (group_id, item_id)
-
         // user sequence info
-        auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id, is_user_hiding_item, is_user_hiding_item);
+        // auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id, is_user_hiding_item, is_user_hiding_item);
 
         // get user sequence
  
 
-        std::cout << "is_sequence_generation_required: " << sequence_info.is_sequence_generation_required 
-            << std::endl << "sequence_last_update_id: " << sequence_info.sequence_last_update_id 
-            << std::endl << "focus_group_id: " << sequence_info.focus_group_id 
-            << std::endl << "focus_group_size: " << sequence_info.focus_group_size 
-            << std::endl << "is_focus_group_generation_required: " << sequence_info.is_focus_group_generation_required 
-            << std::endl << "focus_group_item (is_null): " << sequence_info.focus_group_item.isNull() 
-            << std::endl << "to_learn_words (len): " << sequence_info.to_learn_words.size() 
-            << std::endl << "focus_group (is_null): " << sequence_info.focus_group.isNull() 
-            << std::endl << "is_focus_group_finished: " << sequence_info.is_focus_group_finished << std::endl;
+        // std::cout << "is_sequence_generation_required: " << sequence_info.is_sequence_generation_required 
+        //     << std::endl << "sequence_last_update_id: " << sequence_info.sequence_last_update_id 
+        //     << std::endl << "focus_group_id: " << sequence_info.focus_group_id 
+        //     << std::endl << "focus_group_size: " << sequence_info.focus_group_size 
+        //     << std::endl << "is_focus_group_generation_required: " << sequence_info.is_focus_group_generation_required 
+        //     << std::endl << "focus_group_item (is_null): " << sequence_info.focus_group_item.isNull() 
+        //     << std::endl << "to_learn_words (len): " << sequence_info.to_learn_words.size() 
+        //     << std::endl << "focus_group (is_null): " << sequence_info.focus_group.isNull() 
+        //     << std::endl << "is_focus_group_finished: " << sequence_info.is_focus_group_finished << std::endl;
 
         // calculate FocusGroupState in C++, just by comparing focus_group_current_item with focus_group_last_item
         // enum class FocusGroupState {in_progress, passed, reviewed}; // instead of sequence_info.is_focus_group_finished
 
         // replace is_focus_group_finished with FocusGroupState
-        if (sequence_info.is_focus_group_finished) {
+        // if (sequence_info.is_focus_group_finished) {
             // complete_focus_group = [add_to/update_user_words_from_focus_group, focus_group_current_item += 1, add_words_statistics, create_focus_group_result]
             // return focus_group_result
-        }
+        // }
 
         // sequence_info
 
@@ -206,10 +260,10 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
         }
 
 
-        co_return local_utils::Response::OK(
-            callback,
-            core::sequence_generation::SequenceGenerator::get_learning_sequence_str(generated_sequence)
-        );
+        // co_return local_utils::Response::OK(
+        //     callback,
+        //     core::sequence_generation::SequenceGenerator::get_learning_sequence_str(generated_sequence)
+        // );
 
         // 2.get_item (requesT from_client):
         // body:
