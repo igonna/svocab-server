@@ -51,7 +51,7 @@ Task<> Languages::setLanguagePairEnabled(HttpRequestPtr req, std::function<void(
             throw std::runtime_error("lang_pair_not_created");
         }
 
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        co_await core::sql::update_user_group_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();

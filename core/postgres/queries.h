@@ -10,10 +10,10 @@
 
 namespace core::sql {
 
-static drogon::Task<> update_user_sequence_last_update_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
-    auto result = co_await users_db->execSqlCoro("update user_sequence set last_update_id = last_update_id + 1 where user_id = $1", user_id);
+static drogon::Task<> update_user_group_last_update_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto result = co_await users_db->execSqlCoro("update user_group set last_update_id = last_update_id + 1 where user_id = $1", user_id);
     if (!result.affectedRows()) {
-        throw std::runtime_error("user_sequence_not_updated");
+        throw std::runtime_error("user_group_not_updated");
     }
     co_return;
 }

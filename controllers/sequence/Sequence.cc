@@ -10,6 +10,9 @@
 #include <vector>
 #include <utility>
 #include "core/user_sequence/user_sequence.h"
+#include "core/user_sequence/user_group.h"
+#include "core/user_sequence/user_item.h"
+#include "utils/exceptions.h"
 
 namespace v1
 {
@@ -84,27 +87,6 @@ namespace v1
 //     return result;
 // }
 
-enum class ItemType : uint16_t {first, second, third, result, rate_us};
-
-std::string encode_item_id(uint32_t group_id, uint16_t item_id, ItemType item_type) {
-    return std::to_string(group_id) + '.' + std::to_string(item_id) + '.' + std::to_string(static_cast<uint16_t>(item_type));
-}
-
-std::tuple<uint32_t, uint16_t, ItemType> decode_item_id(const std::string& item_id_str) {
-    std::stringstream ss(item_id_str);
-    uint32_t group_id;
-    uint16_t item_id, item_type;
-    char dot1, dot2;
-
-    ss >> group_id >> dot1 >> item_id >> dot2 >> item_type;
-
-    if (dot1 != '.' || dot2 != '.') {
-        throw std::invalid_argument("can not decode item id");
-    }
-
-    return {group_id, item_id, static_cast<ItemType>(item_type)};
-}
-
 drogon::Task<> set_learn_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id, uint16_t item_id, 
     uint16_t mistakes, uint16_t seconds_spent, uint16_t seconds_spent_on_answer
 ) {
@@ -134,84 +116,108 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        bool group_generation_required = false;
+        // bool group_generation_required = false;
 
-        if (req->bodyLength()) {
-            const auto& item_request = *(req->getJsonObject());
+        // if (req->bodyLength()) {
+        //     const auto& item_request = *(req->getJsonObject());
 
-            const auto& item_action = item_request["action"].as<std::string>();
-            const auto& item_id_str = item_request["id"].as<std::string>();
-            uint16_t seconds_spent = item_request["seconds_spent"].as<uint32_t>();
-            uint16_t seconds_spent_on_answer = item_request["seconds_spent_on_answer"].as<uint32_t>();
+        //     const auto& item_action = item_request["action"].as<std::string>();
+        //     const auto& item_id_str = item_request["id"].as<std::string>();
+        //     uint16_t seconds_spent = item_request["seconds_spent"].as<uint32_t>();
+        //     uint16_t seconds_spent_on_answer = item_request["seconds_spent_on_answer"].as<uint32_t>();
 
-            auto [group_id, item_id, item_type] = decode_item_id(item_id_str);
+        //     auto [group_id, item_id, item_type] = decode_item_id(item_id_str);
 
-            if (item_type == ItemType::first || item_type == ItemType::second || item_type == ItemType::third) {
-                if (item_action == "passed") {
-                    uint16_t mistakes = item_request["mistakes"].as<uint32_t>();
-                    co_await set_learn_item_passed(users_db, user_id, group_id, item_id, mistakes, seconds_spent, seconds_spent_on_answer);
-                } else if (item_action == "hide") {
-                    group_generation_required = true;
-                    co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
-                } else {
-                    co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not valid item action");
-                }
-            } else if (item_type == ItemType::result) {
+        //     if (item_type == ItemType::first || item_type == ItemType::second || item_type == ItemType::third) {
+        //         if (item_action == "passed") {
+        //             uint16_t mistakes = item_request["mistakes"].as<uint32_t>();
+        //             co_await set_learn_item_passed(users_db, user_id, group_id, item_id, mistakes, seconds_spent, seconds_spent_on_answer);
+        //         } else if (item_action == "hide") {
+        //             group_generation_required = true;
+        //             co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
+        //         } else {
+        //             co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not valid item action");
+        //         }
+        //     } else if (item_type == ItemType::result) {
 
-            } else if (item_type == ItemType::rate_us) {
-                auto rated = item_request["rated"].as<bool>();
+        //     } else if (item_type == ItemType::rate_us) {
+        //         auto rated = item_request["rated"].as<bool>();
+        //     }
 
+
+        //     // get focus group and sequence 
+        //     // get src_lang, dst_last, word
+        //     // 
+        // }
+
+        // goal: select current item
+        // if item request not empty select current item + 
+
+        // select current item, and group info
+
+        auto group_info = co_await core::user_sequence::UserGroup::get_group_info(users_db, user_id);
+        auto current_user_item = co_await core::user_sequence::UserItem::get_current_user_item(users_db, user_id);
+
+        if (current_user_item.has_value()) {
+            co_return local_utils::Response::OK(callback, "user item exists");
+        }
+
+        // bool is_result_generation_required = current_user_item.has_value() == false && group_info.items_count > 0;
+
+        bool is_result_generation_required = false;
+
+        // generate result if current item is ItemType::result
+
+        if (is_result_generation_required) {
+            co_return local_utils::Response::Error::ERROR(callback, k501NotImplemented, "is_result_generation_required");
+        }
+
+        bool is_user_completed_group = true;
+        bool is_group_generation_required = group_info.last_update_id != group_info.last_gen_id || is_user_completed_group;
+
+        bool user_has_subscription = true;
+
+        if (is_group_generation_required) {
+            auto generated_sequence = co_await core::user_sequence::get_updated_user_sequence(
+                users_db, user_id, group_info.last_update_id
+            );
+
+            // drogon::Task<std::vector<core::phrases_generator::FocusGroupPhrase>> generate_focus_group_phrases(
+            //     drogon::orm::DbClientPtr users_db,
+            //     uint32_t user_id,
+            //     bool user_has_subscription,
+            //     std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
+            //     uint32_t group_size
+            // );
+
+            // generate focus_group_size phrases
+            std::vector<core::phrases_generator::FocusGroupPhrase> group_phrases;
+            try {
+                group_phrases = co_await core::user_sequence::generate_group_phrases(
+                    users_db, user_id, user_has_subscription, generated_sequence, group_info.group_size
+                );
+            } catch (const exception::user_max_phrase_generation_attempts_reached& e) {
+                // TODO: co_await block_user_from_generation(user_id);
+                co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "max_gen_attempts_reached");
+            } catch (const exception::systems_are_busy& e) {
+                co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
+            } catch (const exception::not_enough_words_for_group_generation& e) {
+                co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_enough_words_for_generation");
             }
 
-
-            // get focus group and sequence 
-            // get src_lang, dst_last, word
-            // 
+            bool add_rate_us = true;
+            co_await core::user_sequence::insert_user_items(users_db, user_id, group_phrases, add_rate_us);
         }
 
-        auto group_result = co_await users_db->execSqlCoro(
-            " SELECT "
-                " ug.group_id,"
-                " ug.group_size,"
-                " ug.current_item,"
-                " ug.last_item,"
-                " ug.last_interaction_time,"
-                " ug.last_update_id,"
-                " ug.last_gen_id,"
-                " ui.item_id,"
-                " ui.item_type,"
-                " ui.src_lang,"
-                " ui.dst_lang,"
-                " ui.word_phrase_id"
-            " FROM user_group ug"
-            " LEFT JOIN user_items ui"
-                " ON ug.user_id = ui.user_id"
-                " AND ug.group_id = ui.group_id"
-                " AND ui.item_id = ug.current_item"
-            " WHERE ug.user_id = $1", user_id
-        );
+        current_user_item = co_await core::user_sequence::UserItem::get_current_user_item(users_db, user_id);
 
-        auto group_id = group_result[0]["group_id"].as<uint32_t>();
-        auto group_size = group_result[0]["group_size"].as<uint32_t>();
-        auto current_item = group_result[0]["current_item"].as<uint16_t>();
-        auto last_item = group_result[0]["last_item"].as<uint16_t>();
-        auto last_interaction_time = group_result[0]["last_interaction_time"].as<uint32_t>();
-        auto last_update_id = group_result[0]["last_update_id"].as<uint32_t>();
-        auto last_gen_id = group_result[0]["last_gen_id"].as<uint32_t>();
-        
-        bool item_found = !group_result[0]["item_id"].isNull();
-
-        if (item_found) {
-            auto item_id = group_result[0]["item_id"].as<uint16_t>();
-            auto item_type = group_result[0]["item_type"].as<uint16_t>();
-            auto src_lang = group_result[0]["src_lang"].as<std::string>();
-            auto dst_lang = group_result[0]["dst_lang"].as<std::string>();
-            auto word_phrase_id = group_result[0]["word_phrase_id"].as<uint32_t>();
+        if (current_user_item.has_value()) {
+            co_return local_utils::Response::OK(callback, "user item created");
         } else {
-            auto generated_sequence = co_await core::user_sequence::get_updated_user_sequence(
-                users_db, user_id, last_update_id
-            );
+            co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
         }
+
+        
 
         // user sequence info
         // auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id, is_user_hiding_item, is_user_hiding_item);
@@ -286,7 +292,6 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 
         // is_user_phrase_generation_limit_reached
         // is_sequence_generation_required
-        co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
     }

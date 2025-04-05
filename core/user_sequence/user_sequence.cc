@@ -11,61 +11,62 @@
 #include <core/user_sequence_words/user_sequence_words.h>
 #include <plugins/OpenaiGeneration/OpenaiGeneration.h>
 #include "core/phrases_generation/phrases_generator.h"
+#include "utils/exceptions.h"
 
 namespace core::user_sequence {
 
-drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool force_fetch_to_learn_words, bool force_fetch_focus_group) {
-    const uint32_t seconds_duration_to_repeat = local_constants::confirmation_level_1_repeat_timeout_seconds;
-    auto current_time = local_utils::time::get_unix_timestamp();
+// drogon::Task<SequenceInfo> get_sequence_info(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool force_fetch_to_learn_words, bool force_fetch_focus_group) {
+//     const uint32_t seconds_duration_to_repeat = local_constants::confirmation_level_1_repeat_timeout_seconds;
+//     auto current_time = local_utils::time::get_unix_timestamp();
 
-    const uint32_t seconds_duration_focus_group_expire = local_constants::focus_group::focus_group_expire_seconds;
+//     const uint32_t seconds_duration_focus_group_expire = local_constants::focus_group::focus_group_expire_seconds;
 
-    auto user_sequence_result = co_await users_db->execSqlCoro(
-        " WITH conditions AS ("
-            " SELECT"
-                " (last_gen_id != last_update_id OR $1 - last_gen_time > $2) AND (focus_group_current_item < focus_group_size) AS seq_gen_required,"
-                " ($1 - focus_group_last_update_time > $3) AS fg_expired,"
-                " *"
-            " FROM user_sequence"
-            " WHERE user_id = $4"
-        " )"
-        " SELECT"
-            " seq_gen_required,"
-            " last_update_id AS seq_last_update_id,"
-            " focus_group_id AS fg_id,"
-            " focus_group_size AS fg_size,"
-            " fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AS fg_gen_required,"
-            " focus_group->'d'->(focus_group_current_item % focus_group_size) AS fg_item,"
-            " CASE"
-                " WHEN fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AND NOT seq_gen_required OR $5 THEN to_learn_words"
-                " ELSE ''"
-            " END AS to_learn_words,"
-            " (focus_group_current_item >= focus_group_last_item) AS fg_finished,"
-            " CASE"
-                " WHEN focus_group_current_item >= focus_group_last_item OR $6 THEN focus_group"
-                " ELSE NULL"
-            " END AS focus_group"
-        " FROM conditions"
-        , current_time, seconds_duration_to_repeat, seconds_duration_focus_group_expire, user_id, force_fetch_to_learn_words, force_fetch_focus_group
-    );
+//     auto user_sequence_result = co_await users_db->execSqlCoro(
+//         " WITH conditions AS ("
+//             " SELECT"
+//                 " (last_gen_id != last_update_id OR $1 - last_gen_time > $2) AND (focus_group_current_item < focus_group_size) AS seq_gen_required,"
+//                 " ($1 - focus_group_last_update_time > $3) AS fg_expired,"
+//                 " *"
+//             " FROM user_sequence"
+//             " WHERE user_id = $4"
+//         " )"
+//         " SELECT"
+//             " seq_gen_required,"
+//             " last_update_id AS seq_last_update_id,"
+//             " focus_group_id AS fg_id,"
+//             " focus_group_size AS fg_size,"
+//             " fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AS fg_gen_required,"
+//             " focus_group->'d'->(focus_group_current_item % focus_group_size) AS fg_item,"
+//             " CASE"
+//                 " WHEN fg_expired OR (focus_group_last_item = 0 AND seq_gen_required) AND NOT seq_gen_required OR $5 THEN to_learn_words"
+//                 " ELSE ''"
+//             " END AS to_learn_words,"
+//             " (focus_group_current_item >= focus_group_last_item) AS fg_finished,"
+//             " CASE"
+//                 " WHEN focus_group_current_item >= focus_group_last_item OR $6 THEN focus_group"
+//                 " ELSE NULL"
+//             " END AS focus_group"
+//         " FROM conditions"
+//         , current_time, seconds_duration_to_repeat, seconds_duration_focus_group_expire, user_id, force_fetch_to_learn_words, force_fetch_focus_group
+//     );
 
-    auto focus_group = std::move(user_sequence_result[0]["focus_group"].as<Json::Value>());
-    auto is_focus_group_null = focus_group.isNull();
-    auto focus_group_item = std::move(user_sequence_result[0]["fg_item"].as<Json::Value>());
-    auto to_learn_words = std::move(user_sequence_result[0]["to_learn_words"].as<std::string>());
+//     auto focus_group = std::move(user_sequence_result[0]["focus_group"].as<Json::Value>());
+//     auto is_focus_group_null = focus_group.isNull();
+//     auto focus_group_item = std::move(user_sequence_result[0]["fg_item"].as<Json::Value>());
+//     auto to_learn_words = std::move(user_sequence_result[0]["to_learn_words"].as<std::string>());
 
-    co_return SequenceInfo(
-        user_sequence_result[0]["seq_gen_required"].as<bool>(),
-        user_sequence_result[0]["seq_last_update_id"].as<uint32_t>(),
-        user_sequence_result[0]["fg_id"].as<uint32_t>(),
-        user_sequence_result[0]["fg_size"].as<uint32_t>(),
-        user_sequence_result[0]["fg_gen_required"].as<bool>(),
-        std::move(focus_group_item),
-        std::move(to_learn_words),
-        std::move(focus_group),
-        user_sequence_result[0]["fg_finished"].as<bool>()
-    );
-}
+//     co_return SequenceInfo(
+//         user_sequence_result[0]["seq_gen_required"].as<bool>(),
+//         user_sequence_result[0]["seq_last_update_id"].as<uint32_t>(),
+//         user_sequence_result[0]["fg_id"].as<uint32_t>(),
+//         user_sequence_result[0]["fg_size"].as<uint32_t>(),
+//         user_sequence_result[0]["fg_gen_required"].as<bool>(),
+//         std::move(focus_group_item),
+//         std::move(to_learn_words),
+//         std::move(focus_group),
+//         user_sequence_result[0]["fg_finished"].as<bool>()
+//     );
+// }
 
 uint32_t get_topic_mix_value(uint32_t topic_index, uint32_t created_at, uint32_t current_time) {
     if (topic_index == 0) return (current_time - created_at > local_constants::topics::seconds_first_topic_prioritized ? 20 : 6);
@@ -138,24 +139,12 @@ drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updat
         );
     }
 
-    auto generated_sequence = sequence_generator.generate();
-    auto learning_sequence_str = sequence_generator.get_learning_sequence_str(generated_sequence);
-    current_time = local_utils::time::get_unix_timestamp();
-
-    co_await users_db->execSqlCoro(
-        " update user_sequence set last_gen_id = last_update_id, last_gen_time = $1, to_learn_words = $2, focus_group = '{}'"
-        " where last_update_id = $3 and user_id = $4",
-        current_time, learning_sequence_str, sequence_last_update_id, user_id
+    std::ignore = users_db->execSqlCoro(
+        " update user_group set last_gen_id = last_update_id where user_id = $1 and last_update_id = $2",
+        user_id, sequence_last_update_id
     );
 
-    co_return generated_sequence;
-}
-
-drogon::Task<uint32_t> get_new_focus_group_id(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
-    auto new_focus_group_id_result = co_await users_db->execSqlCoro(
-        "update user_sequence set focus_group_id = focus_group_id + 1 where user_id = $1 returning focus_group_id", user_id
-    );
-    co_return new_focus_group_id_result[0]["focus_group_id"].as<uint32_t>();
+    co_return sequence_generator.generate();
 }
 
 // drogon::Task<> process_item_request(drogon::orm::DbClientPtr users_db, uint64_t user_id, const Json::Value& item_request) {
@@ -272,79 +261,53 @@ drogon::Task<uint32_t> get_new_focus_group_id(drogon::orm::DbClientPtr users_db,
 //     co_return Json::nullValue;
 // }
 
-// drogon::Task<std::vector<core::phrases_generator::FocusGroupPhrase>> generate_focus_group_phrases(
-//     drogon::orm::DbClientPtr users_db,
-//     uint32_t user_id,
-//     bool user_has_subscription,
-//     uint32_t sequence_last_update_id,
-//     std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
-//     uint32_t focus_group_size
-// ) {
-//     // generate focus_group_size phrases 
-//     std::vector<core::phrases_generator::FocusGroupPhrase> focus_group_phrases;
-    
-//     uint8_t gen_attempts_count = 0;
-//     constexpr uint8_t max_gen_attempts_limit = 30;
+drogon::Task<std::vector<core::phrases_generator::FocusGroupPhrase>> generate_group_phrases(
+    drogon::orm::DbClientPtr users_db,
+    uint32_t user_id,
+    bool user_has_subscription,
+    std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
+    uint32_t group_size
+) {
+    auto openai_phrase_generation = drogon::app().getPlugin<OpenaiGeneration>();
+    auto translations_db = drogon::app().getDbClient(local_constants::translations_db);
+    core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
 
-//     auto openai_phrase_generation = app().getPlugin<OpenaiGeneration>();
-//     auto translations_db = app().getDbClient(local_constants::translations_db);
-//     core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, translations_db);
+    uint8_t gen_attempts_count = 0;
+    constexpr uint8_t max_gen_attempts_limit = 30;
 
-//     bool sequence_regenerated = false;
-//     std::vector<core::user_sequence_words::SequenceUserWord> old_user_words_sequence;
+    std::vector<core::phrases_generator::FocusGroupPhrase> group_phrases;
 
-//     std::unordered_set<std::string> src_words_already_added;
+    for (auto& user_word : user_words_sequence) {
+        auto to_generate_count = group_size - group_phrases.size();
 
-//     // while user_words_sequence not empty OR focus group not ready
-//     while (user_words_sequence.size() && focus_group_phrases.size() != focus_group_size) {
+        if (to_generate_count == 0) break;
 
-//         // generate phrases from current sequence
-//         for (auto& user_word : user_words_sequence) {
-//             auto to_generate_count = focus_group_size - focus_group_phrases.size();
+        if (++gen_attempts_count >= max_gen_attempts_limit) {
+            throw exception::user_max_phrase_generation_attempts_reached();
+        }
 
-//             if (!to_generate_count) break;
+        phrases_generator.add_phrase(user_word, user_has_subscription);
 
-//             if (user_word.is_passed) continue;
+        if (phrases_generator.count() == to_generate_count) {
+            try {
+                auto generated_phrases = co_await phrases_generator.get_generated_phrases();
 
-//             if (++gen_attempts_count >= max_gen_attempts_limit) {
-//                 // block user for N seconds
-//                 co_await block_user_from_generation(user_id);
-//                 throw focus_group_generation_exceptions::user_blocked_from_generation();
-//             }
+                for (auto& phrase : generated_phrases) {
+                    group_phrases.push_back(std::move(phrase));
+                }
 
-//             phrases_generator.add_phrase(user_word, user_has_subscription);
+            } catch (const OpenaiGeneration::systems_are_busy_exception& e) {
+                throw exception::systems_are_busy();
+            }
+        }
+    }
 
-//             if (phrases_generator.count() == to_generate_count) {
-//                 try {
-//                     auto generated_phrases = co_await phrases_generator.get_generated_phrases();
+    if (group_phrases.size() < group_size) {
+        throw exception::not_enough_words_for_group_generation();
+    }
 
-//                     for (auto& phrase : generated_phrases) {
-//                         std::string src_word_key = phrase.generated_phrase.src_lang + phrase.generated_phrase.src_word;
-
-//                         if (src_words_already_added.contains(src_word_key)) continue;
-
-//                         focus_group_phrases.push_back(std::move(phrase));
-//                         src_words_already_added.insert(src_word_key);
-//                     }
-
-//                 } catch (const OpenaiGeneration::systems_are_busy_exception& e) {
-//                     throw focus_group_generation_exceptions::systems_are_busy_exception();
-//                 }
-//             }
-//         }
-
-//         // at this point focus group must be ready OR user words sequence exhausted that means sequence regeneration required
-//         if (focus_group_phrases.size() != focus_group_size && !sequence_regenerated) {
-//             old_user_words_sequence = std::move(user_words_sequence);
-//             user_words_sequence = co_await get_updated_user_words_sequence(users_db, user_id, sequence_last_update_id);
-//             sequence_regenerated = true;
-//         } else {
-//             break;
-//         }
-//     }
-
-//     co_return focus_group_phrases;
-// }
+    co_return group_phrases;
+}
 
 
 // Json::Value Sequence::create_focus_group_json(

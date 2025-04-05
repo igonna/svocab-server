@@ -7,52 +7,52 @@
 #include <vector>
 
 namespace local_constants {
-    static constexpr char users_db[] = "svocab_users";
-    static constexpr char devices_info_db[] = "devices_info";
-    static constexpr char translations_db[] = "svocab_translations";
+    static const constexpr char users_db[] = "svocab_users";
+    static const constexpr char devices_info_db[] = "devices_info";
+    static const constexpr char translations_db[] = "svocab_translations";
 
-    static constexpr char redis_db[] = "svocab";
+    static const constexpr char redis_db[] = "svocab";
 
-    static constexpr uint8_t device_token_length = 16;
+    static const constexpr uint8_t device_token_length = 16;
 
-    static constexpr uint8_t register_max_requests = 100;
-    static constexpr uint8_t code_max_requests = 3;
-    static constexpr uint8_t verify_code_max_attempts = 3;
-    static constexpr uint16_t block_register_request_seconds = 10;
-    static constexpr uint16_t block_code_request_seconds = 16*60;
-    static constexpr uint16_t block_code_verify_attempts_seconds = 10*60;
-    static constexpr uint16_t code_expire_seconds = 16*60;
+    static const constexpr uint8_t register_max_requests = 100;
+    static const constexpr uint8_t code_max_requests = 3;
+    static const constexpr uint8_t verify_code_max_attempts = 3;
+    static const constexpr uint16_t block_register_request_seconds = 10;
+    static const constexpr uint16_t block_code_request_seconds = 16*60;
+    static const constexpr uint16_t block_code_verify_attempts_seconds = 10*60;
+    static const constexpr uint16_t code_expire_seconds = 16*60;
 
-    static constexpr uint32_t secret_key_expire_seconds = 60*60*2;
-    static constexpr uint32_t devices_info_update_key_expire_seconds = 60*60*24;
-    static constexpr uint32_t global_rank_update_key_expire_seconds = 5*60;
+    static const constexpr uint32_t secret_key_expire_seconds = 60*60*2;
+    static const constexpr uint32_t devices_info_update_key_expire_seconds = 60*60*24;
+    static const constexpr uint32_t global_rank_update_key_expire_seconds = 5*60;
 
-    static constexpr uint32_t focus_group_update_lock_key_expire_seconds = 8;
+    static const constexpr uint32_t focus_group_update_lock_key_expire_seconds = 8;
 
-    static constexpr uint32_t title_max_length = 30;
+    static const constexpr uint32_t title_max_length = 30;
 
-    static constexpr uint32_t first_phase_repeat_time_interval_in_seconds = 6*60*60;
+    static const constexpr uint32_t first_phase_repeat_time_interval_in_seconds = 6*60*60;
 
-    static constexpr uint16_t languages_str_expire_sconds = 3*60;
+    static const constexpr uint16_t languages_str_expire_sconds = 3*60;
 
-    static constexpr uint32_t confirmation_level_1_repeat_timeout_seconds = 60*60*3;
-    static constexpr uint32_t confirmation_level_2_repeat_timeout_seconds = 60*60*24;
-    static constexpr uint32_t confirmation_level_3_repeat_timeout_seconds = 60*60*72;
+    static const constexpr uint32_t confirmation_level_1_repeat_timeout_seconds = 60*60*3;
+    static const constexpr uint32_t confirmation_level_2_repeat_timeout_seconds = 60*60*24;
+    static const constexpr uint32_t confirmation_level_3_repeat_timeout_seconds = 60*60*72;
 
-    static constexpr float compress_user_words_on_percent = 0.2f;
+    static const constexpr float compress_user_words_on_percent = 0.2f;
 
-    static constexpr uint32_t max_user_sequence_words = 32;
+    static const constexpr uint32_t max_user_sequence_words = 32;
 
-    static constexpr uint16_t openai_free_users_limit_key_expire_seconds = 60;
+    static const constexpr uint16_t openai_free_users_limit_key_expire_seconds = 60;
 
-    static constexpr uint32_t user_blocked_focus_group_generation_seconds = 60*3;
+    static const constexpr uint32_t user_blocked_focus_group_generation_seconds = 60*3;
 
 namespace word_frequency {
     const uint32_t first_word_frequency = 10000000;
 }
 
 namespace languages {
-    static constexpr uint32_t lang_tag_size = 2;
+    static const constexpr uint32_t lang_tag_size = 2;
 
     static const std::vector<std::string> ai_supported_languages_sorted_by_learning_popularity = {
         "en", "es", "fr", "de", "zh", "ja", "it", "pt", "ru", "ko", "ar", "nl", "sv", 
@@ -137,7 +137,7 @@ namespace languages {
 
 namespace redis {
     static const std::string secret_key_name = "secret";
-    static constexpr uint8_t secret_key_length = 16;
+    static const constexpr uint8_t secret_key_length = 16;
     static const std::string devices_info_update_key_name = "devices_info_update";
     static const std::string global_rank_update_key_name = "global_rank_update";
     static const std::string openai_free_users_limit_key_name = "openai_free_users_limit";
@@ -150,51 +150,53 @@ namespace attributes {
 }
 
 namespace topics {
-    static constexpr float to_repeat_pack_size = 3.0f;
+    static const constexpr float to_repeat_pack_size = 3.0f;
 
-    static constexpr float lang_mix_value_multiplier = 2.0f;
-    static constexpr float topic_mix_value_multiplier = 1.0f;
-    static constexpr float min_mix_value = 0.5f;
-    static constexpr float mix_value = 1.0f;
-    static constexpr float max_mix_value = 2.0f;
+    static const constexpr float lang_mix_value_multiplier = 2.0f;
+    static const constexpr float topic_mix_value_multiplier = 1.0f;
+    static const constexpr float min_mix_value = 0.5f;
+    static const constexpr float mix_value = 1.0f;
+    static const constexpr float max_mix_value = 2.0f;
 
-    static constexpr float min_skip_value = 0.0f;
-    static constexpr float skip_value = 0.0f;
-    static constexpr float max_skip_value = 1.0f;
+    static const constexpr float min_skip_value = 0.0f;
+    static const constexpr float skip_value = 0.0f;
+    static const constexpr float max_skip_value = 1.0f;
 
-    static constexpr uint32_t seconds_first_topic_prioritized = 60*60;
+    static const constexpr uint32_t seconds_first_topic_prioritized = 60*60;
 }
 
 namespace user_generation_limit {
-    static constexpr uint32_t generation_limit_reset_seconds = 60*60*3;
-    static constexpr uint32_t generation_limit_free_user = 16;
-    static constexpr uint32_t generation_limit_subscriber_user = 320;
+    static const constexpr uint32_t generation_limit_reset_seconds = 60*60*3;
+    static const constexpr uint32_t generation_limit_free_user = 16;
+    static const constexpr uint32_t generation_limit_subscriber_user = 320;
 }
 
 namespace user_file_processing_limit {
-    static constexpr uint32_t file_processing_limit_reset_seconds = 60*60*3;
-    static constexpr uint32_t file_processing_limit_free_user = 2;
-    static constexpr uint32_t file_processing_limit_subscriber_user = 20;
+    static const constexpr uint32_t file_processing_limit_reset_seconds = 60*60*3;
+    static const constexpr uint32_t file_processing_limit_free_user = 2;
+    static const constexpr uint32_t file_processing_limit_subscriber_user = 20;
 };
 
 namespace user_topic_generation_limit {
-    static constexpr uint32_t topic_generation_limit_reset_seconds = 60*60*3;
-    static constexpr uint32_t topic_generation_limit_free_user = 3;
-    static constexpr uint32_t topic_generation_limit_subscriber_user = 20;
+    static const constexpr uint32_t topic_generation_limit_reset_seconds = 60*60*3;
+    static const constexpr uint32_t topic_generation_limit_free_user = 3;
+    static const constexpr uint32_t topic_generation_limit_subscriber_user = 20;
 };
 
 namespace focus_group {
-    static constexpr uint8_t min_focus_group_size = 2;
-    static constexpr uint8_t max_focus_group_size = 6;
+    static const constexpr uint8_t min_focus_group_size = 2;
+    static const constexpr uint8_t max_focus_group_size = 6;
 
-    static constexpr uint32_t focus_group_expire_seconds = 60*5;
+    static const constexpr uint8_t phases_per_item = 3;
+
+    static const constexpr uint32_t focus_group_expire_seconds = 60*5;
 }
 
 namespace statistics {
-    static constexpr uint32_t learned_this_time_expire_seconds = 60*10;
+    static const constexpr uint32_t learned_this_time_expire_seconds = 60*10;
 }
 
 namespace learn_progress {
-    static constexpr uint8_t mastered_confirmation_level = 5;
+    static const constexpr uint8_t mastered_confirmation_level = 5;
 }
 }

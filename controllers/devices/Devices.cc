@@ -41,7 +41,7 @@ Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpRe
         auto users_db = app().getDbClient(local_constants::users_db);
 
         auto result = co_await users_db->execSqlCoro("update user_devices set device_os_version = $1, device_model = $2, device_name = $3, "
-            "token_last_request_time = $4, last_ip_address = $5 where user_id = $6 and device_refresh_token != NULL and device_num = $7 and device_refresh_token = $8", 
+            "token_last_request_time = $4, last_ip_address = $5 where user_id = $6 and device_refresh_token is not NULL and device_num = $7 and device_refresh_token = $8", 
             device_os_version,
             device_model,
             device_name,

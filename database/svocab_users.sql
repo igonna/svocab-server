@@ -113,11 +113,11 @@ CREATE TABLE user_items (
 
     src_lang CHAR(2),
     dst_lang CHAR(2),
-    word_phrase_id INT,
+    word TEXT,
 
-    mistakes_count SMALLINT NOT NULL DEFAULT 0,
-    seconds_spent SMALLINT NOT NULL DEFAULT 0,
-    seconds_spent_on_answer SMALLINT NOT NULL DEFAULT 0,
+    mistakes_count SMALLINT,
+    seconds_spent SMALLINT,
+    seconds_spent_on_answer SMALLINT,
     PRIMARY KEY (user_id, group_id, item_id)
 ) PARTITION BY HASH (user_id);
 

@@ -59,4 +59,16 @@ namespace exception {
             return message.c_str();
         }
     };
+
+    struct user_max_phrase_generation_attempts_reached : public custom_exception {
+        const char* what() const noexcept override {
+            return "user_max_phrase_generation_attempts_reached";
+        }
+    };
+
+    struct not_enough_words_for_group_generation : public custom_exception {
+        const char* what() const noexcept override {
+            return "not_enough_words_for_group_generation";
+        }
+    };
 }

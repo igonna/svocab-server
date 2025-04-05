@@ -53,7 +53,7 @@ Task<> Topics::createTopic(HttpRequestPtr req, std::function<void(const HttpResp
             throw std::runtime_error("topic_not_created");
         }
 
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        co_await core::sql::update_user_group_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
     } catch (const exception::unknown_type& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
     } catch (const exception::not_valid_body& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
@@ -121,7 +121,7 @@ Task<> Topics::appendContent(HttpRequestPtr req, std::function<void(const HttpRe
             throw std::runtime_error("topic_not_updated");
         }
 
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        co_await core::sql::update_user_group_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
     } catch (const exception::unknown_type& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
     } catch (const exception::not_valid_body& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
@@ -335,7 +335,7 @@ Task<> Topics::updateTopicContent(HttpRequestPtr req, std::function<void(const H
             throw std::runtime_error("topic_not_updated");
         }
 
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        co_await core::sql::update_user_group_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
     } catch (const exception::unknown_type& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
     } catch (const exception::not_valid_body& e) { co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, e.what());
@@ -363,7 +363,7 @@ Task<> Topics::deleteTopic(HttpRequestPtr req, std::function<void(const HttpResp
         auto topic_id = std::stoul(topic_id_str);
 
         co_await users_db->execSqlCoro("delete from user_topics where user_id = $1 and topic_id = $2", user_id, topic_id);
-        co_await core::sql::update_user_sequence_last_update_id(users_db, user_id);
+        co_await core::sql::update_user_group_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
