@@ -19,4 +19,32 @@ namespace core::user_sequence {
         std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
         uint32_t group_size
     );
+
+
+    enum class OfferType : uint16_t {rate_us};
+
+    drogon::Task<bool> is_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id, OfferType offer_type);
+    drogon::Task<> set_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id, OfferType offer_type, uint16_t user_choice);
+    drogon::Task<bool> should_user_get_rate_us_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id);
+
+
+    drogon::Task<> set_learn_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
+        uint16_t item_id, uint16_t mistakes, uint16_t seconds_spent, uint16_t seconds_spent_on_answer
+    );
+
+    drogon::Task<> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
+        uint16_t item_id, uint16_t seconds_spent
+    );
+
+    drogon::Task<> set_user_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t 
+        group_id, uint16_t item_id, uint16_t seconds_spent
+    );
+
+    // status_code, message, did_user_hide_item
+    drogon::Task<std::optional<std::tuple<drogon::HttpStatusCode, std::string, bool>>> update_item_progress(
+        drogon::orm::DbClientPtr users_db, uint64_t user_id, const Json::Value &item_request
+    );
+
+    drogon::Task<bool> is_user_blocked_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id);
+    drogon::Task<> block_user_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id);
 }

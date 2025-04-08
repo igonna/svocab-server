@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugins/OpenaiGeneration/OpenaiGeneration.h"
+#include "plugins/FrequentWords/FrequentWords.h"
 #include "core/user_sequence_words/user_sequence_words.h"
 #include <drogon/utils/coroutine.h>
 #include <cstdint>
@@ -42,8 +43,8 @@ struct FocusGroupPhrase {
 
 class PhrasesGenerator {
 public:
-    PhrasesGenerator (OpenaiGeneration *openai_phrase_generation, drogon::orm::DbClientPtr translations_db) 
-        : openai_phrase_generation(openai_phrase_generation), translations_db(translations_db) {}
+    PhrasesGenerator (OpenaiGeneration *openai_phrase_generation, FrequentWords *frequent_words_plugin, drogon::orm::DbClientPtr translations_db) 
+        : openai_phrase_generation(openai_phrase_generation), frequent_words_plugin(frequent_words_plugin), translations_db(translations_db) {}
     PhrasesGenerator() = delete;
 
     void add_phrase(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription);
@@ -54,7 +55,6 @@ public:
 
     uint32_t count() const;
 
-private:
     drogon::Task<FocusGroupPhrase> generate_phrase_with_words_and_letters(core::user_sequence_words::SequenceUserWord &user_word, bool user_has_subscription);
 
 private:
@@ -64,6 +64,7 @@ private:
     >> phrases_to_generate;
 
     OpenaiGeneration *openai_phrase_generation;
+    FrequentWords *frequent_words_plugin;
     drogon::orm::DbClientPtr translations_db;
 };
 

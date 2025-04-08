@@ -16,7 +16,7 @@ CREATE TABLE users (
 CREATE TABLE user_offers (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     offer_type SMALLINT NOT NULL,
-    is_passed BOOLEAN NOT NULL DEFAULT FALSE,
+    user_choice SMALLINT,
     created_at INT NOT NULL,
     PRIMARY KEY (user_id, offer_type)
 ) PARTITION BY HASH (user_id);
@@ -131,6 +131,7 @@ CREATE TABLE user_words (
 
     learn_confirmation_level SMALLINT NOT NULL DEFAULT 0,
 
+    update_count SMALLINT NOT NULL DEFAULT 0,
     last_update_time INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, src_lang, word)
 ) PARTITION BY HASH (user_id);

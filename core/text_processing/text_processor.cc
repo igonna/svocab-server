@@ -386,6 +386,16 @@ bool update_word_and_check_if_valid(
     return true;
 }
 
+bool is_word_of_first_lang(const std::string& word, const char* lang_1, const char* lang_2, FrequentWords *frequent_words_plugin) {
+    auto words_frequencies_src = frequent_words_plugin->get_words_frequencies_for_lang(lang_1);
+    auto words_frequencies_dst = frequent_words_plugin->get_words_frequencies_for_lang(lang_2);
+
+    auto [frequency_src, category_src] = words_frequencies_src->get_frequency(word);
+    auto [frequency_dst, category_dst] = words_frequencies_dst->get_frequency(word);
+
+    return frequency_src >= frequency_dst;
+}
+
 std::vector<std::string> create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst) {
     UErrorCode status = U_ZERO_ERROR;
     auto locale = icu::Locale(language_src);
@@ -449,12 +459,16 @@ std::vector<std::string> create_prioritized_words_sequence(const std::string& st
             auto [frequency_dst, category_dst] = words_frequencies_dst->get_frequency(utf8_word);
     
             bool is_src = frequency_src > frequency_dst;
+            // TODO: enable
+            if (is_src == false) continue; // disabled two language detection
             word_frequency = is_src ? frequency_src : frequency_dst;
             word_rarity_category = is_src ? category_src : category_dst;
         } else if (is_valid_word_src) {
             std::tie(word_frequency, word_rarity_category) = words_frequencies_src->get_frequency(utf8_word);
         } else if (is_valid_word_dst) {
-            std::tie(word_frequency, word_rarity_category) = words_frequencies_dst->get_frequency(utf8_word);
+            continue; // disabled two language detection
+            // TODO: enable
+            // std::tie(word_frequency, word_rarity_category) = words_frequencies_dst->get_frequency(utf8_word);
         }
 
         // mark word processed

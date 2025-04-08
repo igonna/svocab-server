@@ -1,5 +1,7 @@
 #include "core/user_sequence/user_item.h"
 #include "utils/utils.h"
+#include "core/user_sequence_words/user_sequence_words.h"
+#include "core/text_processing/text_processor.h"
 
 namespace core::user_sequence {
 
@@ -109,7 +111,7 @@ drogon::Task<uint32_t> insert_user_items(drogon::orm::DbClientPtr users_db, uint
     co_return new_group_id;
 }
 
-drogon::Task<std::optional<UserItem>> UserItem::get_current_user_item(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+drogon::Task<std::optional<UserItem>> get_current_user_item(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto result = co_await users_db->execSqlCoro(
         " SELECT"
             " ui.group_id,"
@@ -177,97 +179,127 @@ drogon::Task<std::optional<UserItem>> UserItem::get_current_user_item(drogon::or
     );
 }
 
-drogon::Task<Json::Value> UserItem::create_user_item_json() const {
+Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
+    Json::Value json_parts = Json::arrayValue;
+    auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
+    auto words_to_replace_vec = core::text_processing::extract_words_from_str(words, lang.c_str());
+    std::unordered_set<std::string> words_to_replace(words_to_replace_vec.begin(), words_to_replace_vec.end());
+    auto words_to_replace_count = words_to_replace.size();
+
+    uint32_t words_to_replace_passed = 0;
+
+    std::string phrase_part_to_add;
+    for (auto& part : phrase_parts) {
+        auto lower_part = core::text_processing::unicode_str_to_lower(part, lang.c_str());
+        if (words_to_replace.contains(lower_part) || words_to_replace.contains(part)) {
+            ++words_to_replace_passed;
+
+            if (words_to_replace_passed < words_to_replace_count) {
+                continue;
+            } else {
+                words_to_replace_passed = 0;
+            }
+
+            if (phrase_part_to_add.size()) {
+                json_parts.append(phrase_part_to_add);
+                phrase_part_to_add.clear();
+            }
+            json_parts.append(Json::nullValue);
+        } else if (!words_to_replace_passed) {
+            phrase_part_to_add += part;
+        }
+    }
+
+    if (phrase_part_to_add.size()) {
+        json_parts.append(phrase_part_to_add);
+    }
+
+    return json_parts;
+}
+
+drogon::Task<core::phrases_generator::FocusGroupPhrase> generate_focus_group_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& word) {
+    auto openai_phrase_generation = drogon::app().getPlugin<OpenaiGeneration>();
+    auto frequent_words_plugin = drogon::app().getPlugin<FrequentWords>();
+    auto translations_db = drogon::app().getDbClient(local_constants::translations_db);
+    core::phrases_generator::PhrasesGenerator phrases_generator(openai_phrase_generation, frequent_words_plugin, translations_db);
+
+    auto user_word = core::user_sequence_words::SequenceUserWord(src_lang, dst_lang, word, 0, false);
+    auto generated_phrase = co_await phrases_generator.generate_phrase_with_words_and_letters(
+        user_word,
+        false
+    );
+
+    co_return generated_phrase;
+}
+
+void add_phrases_and_placeholders_to_content(Json::Value &content, const core::phrases_generator::FocusGroupPhrase& generated_phrase) {
+    content["src_placeholder"] = generated_phrase.generated_phrase.src_word;
+    content["dst_placeholder"] = generated_phrase.generated_phrase.dst_word;
+    content["src_phrase"] = replace_words_with_null(generated_phrase.generated_phrase.src_phrase, generated_phrase.generated_phrase.src_word, generated_phrase.generated_phrase.src_lang);
+    content["dst_phrase"] = replace_words_with_null(generated_phrase.generated_phrase.dst_phrase, generated_phrase.generated_phrase.dst_word, generated_phrase.generated_phrase.dst_lang);
+}
+
+drogon::Task<Json::Value> UserItem::create_json_user_item() const {
     Json::Value result;
 
     result["type"] = to_string(type);
     result["id"] = encode_item_id(group_id, id, type);
 
     if (type == ItemType::first) {
-
+        auto& content = result["content"] = Json::objectValue;
+        auto generated_phrase = co_await generate_focus_group_phrase(src_lang, dst_lang, word);
+        add_phrases_and_placeholders_to_content(content, generated_phrase);
+        co_return result;
     } else if (type == ItemType::second) {
+        auto& content = result["content"] = Json::objectValue;
+        auto generated_phrase = co_await generate_focus_group_phrase(src_lang, dst_lang, word);
+        add_phrases_and_placeholders_to_content(content, generated_phrase);
 
+        auto& variants = content["variants"] = Json::arrayValue;
+        for (const auto& variant : generated_phrase.guess_words) {
+            variants.append(std::move(variant));
+        }
+
+        co_return result;
     } else if (type == ItemType::third) {
+        auto& content = result["content"] = Json::objectValue;
+        auto generated_phrase = co_await generate_focus_group_phrase(src_lang, dst_lang, word);
+        add_phrases_and_placeholders_to_content(content, generated_phrase);
 
+        auto& variants = content["variants"] = Json::arrayValue;
+        for (const auto& variant : generated_phrase.guess_letters) {
+            variants.append(std::move(variant));
+        }
+
+        co_return result;
     } else if (type == ItemType::result) {
+        auto& results = result["results"] = Json::arrayValue;
         // TODO: what if we need to get additional data for result?
+
+        // {
+        //     "type": "result",
+        //     "id": "1.xxt",
+        //     "content": [
+        //         {
+        //             "type": "new",
+        //             "values": [4],
+        //         },
+        //         {
+        //             "type": "in_learning",
+        //             "values": [2, 1024]
+        //         },
+        //         {
+        //             "type": "mastered",
+        //             "values": [2, 512]
+        //         }
+        //     ]
+        // }
+
+        co_return result;
     } else if (type == ItemType::rate_us) {
-
+        co_return result;
+    } else {
+        throw std::runtime_error("unknown user item type");
     }
-    
-
-    co_return result;
 }
-
-
-// Json::Value Sequence::create_focus_group_json(
-//     uint32_t current_time,
-//     const std::vector<core::phrases_generator::FocusGroupPhrase>& focus_group_phrases, 
-//     uint32_t focus_group_id,
-//     uint32_t learned_this_time,
-//     bool is_multiple_languages,
-//     uint32_t device_num,
-//     const std::string& special_offer_type
-// ) {
-//     Json::Value result;
-
-//     result["group_id"] = focus_group_id;
-//     auto& versions = result["versions"] = Json::objectValue;
-//     versions[std::to_string(device_num)] = current_time;
-//     result["is_multiple_languages"] = is_multiple_languages;
-//     result["learned_this_time"] = learned_this_time;
-//     if (special_offer_type.size()) {
-//         result["special_offer_type"] = special_offer_type;
-//     } else {
-//         result["special_offer_type"] = Json::nullValue;
-//     }
-//     auto& words = result["words"] = Json::arrayValue;
-
-//     uint32_t word_num = 0;
-//     for (auto& phrase : focus_group_phrases) {
-//         Json::Value new_word;
-//         new_word["word_id"] = std::to_string(focus_group_id) + '.' + std::to_string(word_num++);
-//         new_word["confirmation_level"] = phrase.confirmation_level;
-//         new_word["src_lang"] = phrase.generated_phrase.src_lang;
-//         new_word["src_country"] = local_utils::supported_languages::get_country_code_or_empty(phrase.generated_phrase.src_lang);
-
-//         new_word["word"] = phrase.generated_phrase.src_word;
-
-//         new_word["word_translation"] = phrase.generated_phrase.dst_word;
-        
-//         auto& guess_phrase = new_word["guess_phrase"] = Json::arrayValue;
-//         auto& guess_phrasee = new_word["guess_phrase"] = replace_words_with_null(phrase.generated_phrase.src_phrase, phrase.generated_phrase.src_word, phrase.generated_phrase.src_lang);
-
-//         new_word["phrase"] = phrase.generated_phrase.src_phrase;
-//         new_word["phrase_translation"] = phrase.generated_phrase.dst_phrase;
-//         new_word["phrase_translation_parts"] = replace_words_with_null(phrase.generated_phrase.dst_phrase, phrase.generated_phrase.dst_word, phrase.generated_phrase.dst_lang);
-
-//         new_word["current_phase"] = 0;
-
-//         auto& phases_mistakes = new_word["phases_mistakes"] = Json::arrayValue;
-//         for (uint32_t i = 0; i < 3; i++) {
-//             phases_mistakes.append(false);
-//         }
-
-//         auto& guess_words = new_word["guess_words"] = Json::arrayValue;
-//         for (auto& guess_word : phrase.guess_words) {
-//             guess_words.append(std::move(guess_word));
-//         }
-
-//         auto& guess_letters = new_word["guess_letters"] = Json::arrayValue;
-//         for (auto& guess_letter : phrase.guess_letters) {
-//             guess_letters.append(std::move(guess_letter));
-//         }
-
-//         auto right_letters = core::text_processing::extract_letters_as_strings(phrase.generated_phrase.src_word, phrase.generated_phrase.src_lang.c_str());
-//         auto& right_letters_field = new_word["right_letters"] = Json::arrayValue;
-//         for (auto& right_letter : right_letters) {
-//             right_letters_field.append(std::move(right_letter));
-//         }
-
-//         words.append(new_word);
-//     }
-
-//     return result;
-// }
 }

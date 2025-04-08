@@ -10,6 +10,9 @@ namespace core::user_sequence_words {
         SequenceUserWord(SequenceUserWord&& other) : src_lang(std::move(other.src_lang)), dst_lang(std::move(other.dst_lang)),
             word(std::move(other.word)), confirmation_level(other.confirmation_level), is_passed(other.is_passed) {}
 
+        SequenceUserWord(const std::string& src_lang, const std::string& dst_lang, const std::string& word, uint8_t confirmation_level, bool is_passed)
+            : src_lang(src_lang), dst_lang(dst_lang), word(word), confirmation_level(confirmation_level), is_passed(is_passed) {}
+
         SequenceUserWord(const std::string& src_lang, const std::string& dst_lang, std::string&& word, uint8_t confirmation_level, bool is_passed)
             : src_lang(src_lang), dst_lang(dst_lang), word(std::move(word)), confirmation_level(confirmation_level), is_passed(is_passed) {}
 

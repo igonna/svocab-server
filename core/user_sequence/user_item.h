@@ -21,10 +21,8 @@ namespace core::user_sequence {
         }
     }
 
-    struct UserItem {
-        static drogon::Task<std::optional<UserItem>> get_current_user_item(drogon::orm::DbClientPtr users_db, uint64_t user_id);
-        
-        drogon::Task<Json::Value> create_user_item_json() const;
+    struct UserItem {        
+        drogon::Task<Json::Value> create_json_user_item() const;
 
         UserItem(
             UserItem&& other
@@ -114,4 +112,6 @@ namespace core::user_sequence {
     drogon::Task<uint32_t> insert_user_items(drogon::orm::DbClientPtr users_db, uint64_t user_id, 
         const std::vector<core::phrases_generator::FocusGroupPhrase>& group_phrases, bool add_rate_us
     );
+
+    drogon::Task<std::optional<UserItem>> get_current_user_item(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 }

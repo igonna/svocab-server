@@ -34,6 +34,8 @@ namespace core::text_processing
     std::string string_vec_to_string(const std::vector<std::string>& vec);
     std::string unicode_vec_to_string(const std::vector<icu::UnicodeString>& vec);
 
+    bool is_word_of_first_lang(const std::string& word, const char* lang_src, const char* lang_dst, FrequentWords *frequent_words_plugin);
+
     std::vector<std::string> create_prioritized_words_sequence(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
     std::string create_prioritized_words_sequence_as_str(const std::string& str, FrequentWords *frequent_words_plugin, const char* language_src, const char* language_dst);
 

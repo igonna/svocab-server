@@ -16,282 +16,114 @@
 
 namespace v1
 {
-
-// Task<bool> Sequence::is_user_blocked_from_generation(uint64_t user_id) {
-//     const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
-//     auto rc = app().getRedisClient();
-//     auto user_generation_blocked_result = co_await rc->execCommandCoro(
-//         "exists %s",
-//         user_blocked_focus_group_generation_key.c_str()
-//     );
-
-//     co_return std::stoi(user_generation_blocked_result.asString()) > 0;
-// }
-
-// Task<> Sequence::block_user_from_generation(uint64_t user_id) {
-//     const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
-//     auto rc = app().getRedisClient();
-//     co_await rc->execCommandCoro("set %s %s ex %d nx",
-//         user_blocked_focus_group_generation_key.c_str(),
-//         "",
-//         local_constants::user_blocked_focus_group_generation_seconds
-//     );
-//     co_return;
-// }
-
-// // is_limit_reached, time_limit_resets
-// Task<std::tuple<bool, uint32_t>> Sequence::is_user_generation_limit_reached(drogon::orm::DbClientPtr users_db, uint64_t user_id, bool user_has_subscription) {
-//     auto user_phrase_generation_limit_result = co_await users_db->execSqlCoro(
-//         "select generated_phrases_count, last_generation_start_time from user_phrase_generation_limit where user_id = $1",
-//         user_id
-//     );
-
-//     auto current_time = local_utils::time::get_unix_timestamp();
-
-//     auto generated_phrases_count = user_phrase_generation_limit_result[0]["generated_phrases_count"].as<uint16_t>(); 
-//     auto last_generation_start_time = user_phrase_generation_limit_result[0]["last_generation_start_time"].as<uint32_t>();
-
-//     if (current_time - last_generation_start_time > local_constants::user_generation_limit::generation_limit_reset_seconds) {
-//         co_return {false, 0};
-//     }
-
-//     auto max_generated_phrases = user_has_subscription 
-//         ? local_constants::user_generation_limit::generation_limit_subscriber_user 
-//         : local_constants::user_generation_limit::generation_limit_free_user;
-
-//     auto time_limit_resets = last_generation_start_time + local_constants::user_generation_limit::generation_limit_reset_seconds;
-
-//     if (generated_phrases_count > max_generated_phrases) {
-//         co_return {true, time_limit_resets};
-//     } else {
-//         co_return {false, 0};
-//     }
-// }
-
-
-// Json::Value phrase_to_json_item(std::string client_item_id, ItemType item_type, core::phrases_generator::FocusGroupPhrase focus_group_phrase) {
-//     Json::Value result;
-
-//     return result;
-// }
-
-// Json::Value group_result_to_json_item(std::string client_item_id) {
-//     Json::Value result;
-
-//     return result;
-// }
-
-// Json::Value rate_item_us_to_json_item(std::string client_item_id) {
-//     Json::Value result;
-
-//     return result;
-// }
-
-drogon::Task<> set_learn_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id, uint16_t item_id, 
-    uint16_t mistakes, uint16_t seconds_spent, uint16_t seconds_spent_on_answer
-) {
-    auto time_now = local_utils::time::get_unix_timestamp();
-
-    co_await users_db->execSqlCoro(
-        " update user_items set is_passed = TRUE, passed_at = $1, mistakes_count = $2, seconds_spent = $3, seconds_spent_on_answer = $4"
-        " where user_id = $5 and group_id = $6 and item_id = $7",
-        time_now, mistakes, seconds_spent, seconds_spent_on_answer, user_id, group_id, item_id
-    );
-}
-
-drogon::Task<> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
-    uint16_t item_id, uint16_t seconds_spent
-) {
-    auto time_now = local_utils::time::get_unix_timestamp();
-
-    co_await users_db->execSqlCoro(
-        " update user_items set is_hidden = TRUE, passed_at = $1, seconds_spent = $2"
-        " where user_id = $3 and group_id = $4 and item_id = $5",
-        time_now, seconds_spent, user_id, group_id, item_id
-    );
-}
-
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
-        auto users_db = app().getDbClient(local_constants::users_db);
+        auto redis_client = app().getRedisClient();
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        // bool group_generation_required = false;
+        auto is_user_blocked_from_generation = co_await core::user_sequence::is_user_blocked_from_generation(redis_client, user_id);
 
-        // if (req->bodyLength()) {
-        //     const auto& item_request = *(req->getJsonObject());
+        if (is_user_blocked_from_generation) {
+            co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "max_gen_attempts_reached");
+        }
 
-        //     const auto& item_action = item_request["action"].as<std::string>();
-        //     const auto& item_id_str = item_request["id"].as<std::string>();
-        //     uint16_t seconds_spent = item_request["seconds_spent"].as<uint32_t>();
-        //     uint16_t seconds_spent_on_answer = item_request["seconds_spent_on_answer"].as<uint32_t>();
+        auto users_db = app().getDbClient(local_constants::users_db);
 
-        //     auto [group_id, item_id, item_type] = decode_item_id(item_id_str);
+        bool did_user_hide_item = false;
 
-        //     if (item_type == ItemType::first || item_type == ItemType::second || item_type == ItemType::third) {
-        //         if (item_action == "passed") {
-        //             uint16_t mistakes = item_request["mistakes"].as<uint32_t>();
-        //             co_await set_learn_item_passed(users_db, user_id, group_id, item_id, mistakes, seconds_spent, seconds_spent_on_answer);
-        //         } else if (item_action == "hide") {
-        //             group_generation_required = true;
-        //             co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
-        //         } else {
-        //             co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not valid item action");
-        //         }
-        //     } else if (item_type == ItemType::result) {
+        if (req->bodyLength()) {
+            auto body_str = std::string(req->getBody());
 
-        //     } else if (item_type == ItemType::rate_us) {
-        //         auto rated = item_request["rated"].as<bool>();
-        //     }
+            Json::Value json_body;
 
+            if (!Json::Reader().parse(body_str, json_body)) {
+                co_return local_utils::Response::Error::NOT_VALID_BODY(callback);
+            }
 
-        //     // get focus group and sequence 
-        //     // get src_lang, dst_last, word
-        //     // 
-        // }
+            auto update_item_progress_result = co_await core::user_sequence::update_item_progress(
+                users_db,
+                user_id,
+                json_body
+            );
 
-        // goal: select current item
-        // if item request not empty select current item + 
+            if (update_item_progress_result.has_value()) {
+                auto [status_code, message, did_user_hide_item_tmp] = update_item_progress_result.value();
+                did_user_hide_item = did_user_hide_item_tmp;
+
+                if (status_code != k200OK) {
+                    co_return local_utils::Response::Error::ERROR(callback, status_code, message.c_str());
+                }
+            }
+        }
 
         // select current item, and group info
-
         auto group_info = co_await core::user_sequence::UserGroup::get_group_info(users_db, user_id);
-        auto current_user_item = co_await core::user_sequence::UserItem::get_current_user_item(users_db, user_id);
+        auto current_user_item = co_await core::user_sequence::get_current_user_item(users_db, user_id);
 
+        // TODO: is_focus_group_exists_and_not_expired
         if (current_user_item.has_value()) {
-            co_return local_utils::Response::OK(callback, "user item exists");
+            if (core::user_sequence::ItemType::result == current_user_item.value().type) {
+                // insert results to user words
+                // and return results to previous scope variable
+            }
+
+            // TODO: pass group results
+            // TODO: fix phrase splited not on words
+            auto current_item_json = co_await current_user_item.value().create_json_user_item();
+            co_return local_utils::Response::JSON_OK(callback, current_item_json);
         }
 
-        // bool is_result_generation_required = current_user_item.has_value() == false && group_info.items_count > 0;
-
-        bool is_result_generation_required = false;
-
-        // generate result if current item is ItemType::result
-
-        if (is_result_generation_required) {
-            co_return local_utils::Response::Error::ERROR(callback, k501NotImplemented, "is_result_generation_required");
-        }
-
-        bool is_user_completed_group = true;
-        bool is_group_generation_required = group_info.last_update_id != group_info.last_gen_id || is_user_completed_group;
-
-        bool user_has_subscription = true;
-
+        bool is_group_generation_required = group_info.last_update_id != group_info.last_gen_id || did_user_hide_item;
         if (is_group_generation_required) {
+            bool user_has_subscription = false;
+    
+            auto [phrase_generation_limit_reached, time_limit_resets]
+                = co_await core::sql::user_limits::is_generated_phrases_limit_reached(users_db, user_id, user_has_subscription);
+
+            if (phrase_generation_limit_reached) {
+                auto time_limit_resets_str = std::to_string(time_limit_resets);
+                co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, time_limit_resets_str.c_str());
+            }
+
             auto generated_sequence = co_await core::user_sequence::get_updated_user_sequence(
                 users_db, user_id, group_info.last_update_id
             );
 
-            // drogon::Task<std::vector<core::phrases_generator::FocusGroupPhrase>> generate_focus_group_phrases(
-            //     drogon::orm::DbClientPtr users_db,
-            //     uint32_t user_id,
-            //     bool user_has_subscription,
-            //     std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
-            //     uint32_t group_size
-            // );
-
             // generate focus_group_size phrases
+            bool should_block_user_from_generation = false;
             std::vector<core::phrases_generator::FocusGroupPhrase> group_phrases;
             try {
                 group_phrases = co_await core::user_sequence::generate_group_phrases(
                     users_db, user_id, user_has_subscription, generated_sequence, group_info.group_size
                 );
             } catch (const exception::user_max_phrase_generation_attempts_reached& e) {
-                // TODO: co_await block_user_from_generation(user_id);
-                co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "max_gen_attempts_reached");
+                should_block_user_from_generation = true;
             } catch (const exception::systems_are_busy& e) {
                 co_return local_utils::Response::Error::ERROR(callback, k503ServiceUnavailable, "systems_are_busy");
             } catch (const exception::not_enough_words_for_group_generation& e) {
                 co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_enough_words_for_generation");
             }
 
-            bool add_rate_us = true;
+            if (should_block_user_from_generation) {
+                co_await core::user_sequence::block_user_from_generation(redis_client, user_id);
+                co_return local_utils::Response::Error::ERROR(callback, k429TooManyRequests, "max_gen_attempts_reached");
+            }
+
+            co_await core::sql::user_limits::increase_generated_phrases_count(users_db, user_id, group_info.group_size);
+
+            bool add_rate_us = co_await core::user_sequence::should_user_get_rate_us_offer(users_db, user_id);
             co_await core::user_sequence::insert_user_items(users_db, user_id, group_phrases, add_rate_us);
         }
 
-        current_user_item = co_await core::user_sequence::UserItem::get_current_user_item(users_db, user_id);
+        // after generation get user item
+        current_user_item = co_await core::user_sequence::get_current_user_item(users_db, user_id);
 
         if (current_user_item.has_value()) {
-            co_return local_utils::Response::OK(callback, "user item created");
+            auto current_item_json = co_await current_user_item.value().create_json_user_item();
+            co_return local_utils::Response::JSON_OK(callback, current_item_json);
         } else {
             co_return local_utils::Response::Error::ERROR(callback, k204NoContent, "");
         }
-
-        
-
-        // user sequence info
-        // auto sequence_info = co_await core::user_sequence::get_sequence_info(users_db, user_id, is_user_hiding_item, is_user_hiding_item);
-
-        // get user sequence
- 
-
-        // std::cout << "is_sequence_generation_required: " << sequence_info.is_sequence_generation_required 
-        //     << std::endl << "sequence_last_update_id: " << sequence_info.sequence_last_update_id 
-        //     << std::endl << "focus_group_id: " << sequence_info.focus_group_id 
-        //     << std::endl << "focus_group_size: " << sequence_info.focus_group_size 
-        //     << std::endl << "is_focus_group_generation_required: " << sequence_info.is_focus_group_generation_required 
-        //     << std::endl << "focus_group_item (is_null): " << sequence_info.focus_group_item.isNull() 
-        //     << std::endl << "to_learn_words (len): " << sequence_info.to_learn_words.size() 
-        //     << std::endl << "focus_group (is_null): " << sequence_info.focus_group.isNull() 
-        //     << std::endl << "is_focus_group_finished: " << sequence_info.is_focus_group_finished << std::endl;
-
-        // calculate FocusGroupState in C++, just by comparing focus_group_current_item with focus_group_last_item
-        // enum class FocusGroupState {in_progress, passed, reviewed}; // instead of sequence_info.is_focus_group_finished
-
-        // replace is_focus_group_finished with FocusGroupState
-        // if (sequence_info.is_focus_group_finished) {
-            // complete_focus_group = [add_to/update_user_words_from_focus_group, focus_group_current_item += 1, add_words_statistics, create_focus_group_result]
-            // return focus_group_result
-        // }
-
-        // sequence_info
-
-        // get focus group
-        // auto focus_group = co_await core::user_sequence::get_updated_focus_group(
-        //     users_db, user_id, sequence_info.is_focus_group_generation_required, generated_sequence, sequence_info.focus_group_id,
-        //     sequence_info.focus_group
-        // );
-
-        // get item
-        // 
-        // 
-
-
-        // if body not empty, update progress
-        if (req->bodyLength()) {
-            auto json = req->getJsonObject();
-            // std::cout << json->toStyledString() << std::endl;
-        } else {
-    
-        }
-
-
-        // co_return local_utils::Response::OK(
-        //     callback,
-        //     core::sequence_generation::SequenceGenerator::get_learning_sequence_str(generated_sequence)
-        // );
-
-        // 2.get_item (requesT from_client):
-        // body:
-        // {
-        //     "action": "passed",
-        //     "id": "1.xxa",
-        //     "content": {
-        //         "mistakes": 0,
-        //         "seconds_spent_on_answer": 30
-        //     }
-        // }
-
-        // 1. generate focus group
-        // 2. return current item or status_code
-
-
-        // is_user_temporarily_blocked_from_phrase_generation
-
-        // is_focus_group_exists_and_not_expired
-
-        // is_user_phrase_generation_limit_reached
-        // is_sequence_generation_required
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
     }

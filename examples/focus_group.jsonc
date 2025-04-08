@@ -204,7 +204,7 @@ body:
 {
     "type": "result",
     "id": "1.xxt",
-    "content": [
+    "results": [
         {
             "type": "new",
             "values": [4],
