@@ -38,7 +38,7 @@ Task<> block_user_from_generation(drogon::nosql::RedisClientPtr redis_client, ui
     co_return;
 }
 
-drogon::Task<bool> is_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id, OfferType offer_type) {
+drogon::Task<bool> is_user_got_offer(drogon::orm::DbClientPtr users_db, uint64_t user_id, OfferType offer_type) {
     auto result = co_await users_db->execSqlCoro(
         "SELECT 1 FROM user_offers WHERE user_id = $1 and offer_type = $2 LIMIT 1",
         user_id,
@@ -48,11 +48,11 @@ drogon::Task<bool> is_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t
     co_return result.size();
 }
 
-drogon::Task<> set_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id, OfferType offer_type, uint16_t user_choice) {
+drogon::Task<> set_user_got_offer(drogon::orm::DbClientPtr users_db, uint64_t user_id, OfferType offer_type, uint16_t user_choice) {
     auto time_now = local_utils::time::get_unix_timestamp();
 
     co_await users_db->execSqlCoro(
-        "insert into user_offers (user_id, offer_type, user_choice, created_at) values ($1, $2, $3, $4)",
+        "insert into user_offers (user_id, offer_type, user_choice, created_at) values ($1, $2, $3, $4) on conflict do nothing",
         user_id,
         static_cast<uint16_t>(offer_type),
         user_choice,
@@ -62,12 +62,14 @@ drogon::Task<> set_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t us
     co_return;
 }
 
-drogon::Task<bool> should_user_get_rate_us_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id) {
+drogon::Task<bool> should_user_get_rate_us_offer(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
     auto did_user_got_offer = co_await is_user_got_offer(users_db, user_id, OfferType::rate_us);
 
     if (!did_user_got_offer) {
         auto time_now = local_utils::time::get_unix_timestamp();
-        auto result = co_await users_db->execSqlCoro("select 1 from users where user_id = $1 and NOW() - register_date >= INTERVAL '3 hours'");
+        auto result = co_await users_db->execSqlCoro(
+            "select 1 from users where id = $1 and NOW() - register_date >= INTERVAL '3 hours'", user_id
+        );
         co_return result.size();
     } else {
         co_return false;
@@ -109,10 +111,20 @@ drogon::Task<> set_user_item_passed(drogon::orm::DbClientPtr users_db, uint64_t 
     );
 }
 
+drogon::Task<> update_group_last_interaction_time(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
+    auto time_now = local_utils::time::get_unix_timestamp();
+
+    co_await users_db->execSqlCoro(
+        "update user_group set last_interaction_time = $1 where user_id = $2", time_now, user_id
+    );
+}
+
 // status_code, message, did_user_hide_item
 drogon::Task<std::optional<std::tuple<drogon::HttpStatusCode, std::string, bool>>> update_item_progress(
     drogon::orm::DbClientPtr users_db, uint64_t user_id, const Json::Value &item_request
 ) {
+    co_await update_group_last_interaction_time(users_db, user_id);
+
     const auto& item_action = item_request["action"].as<std::string>();
     const auto& item_id_str = item_request["id"].as<std::string>();
     uint16_t seconds_spent = item_request["seconds_spent"].as<uint32_t>();
@@ -151,7 +163,6 @@ drogon::Task<std::optional<std::tuple<drogon::HttpStatusCode, std::string, bool>
         }
     }
     else if (item_type == core::user_sequence::ItemType::result) {
-        co_return std::make_tuple(k501NotImplemented, "not implemented", false);
         co_await set_user_item_passed(users_db, user_id, group_id, item_id, seconds_spent);
     }
     else if (item_type == core::user_sequence::ItemType::rate_us) {

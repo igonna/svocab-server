@@ -179,7 +179,7 @@ drogon::Task<std::optional<UserItem>> get_current_user_item(drogon::orm::DbClien
     );
 }
 
-Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
+Json::Value replace_words_with_null/*_using_whitespaces*/(const std::string& phrase, const std::string& words, const std::string& lang) {
     Json::Value json_parts = Json::arrayValue;
     auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
     auto words_to_replace_vec = core::text_processing::extract_words_from_str(words, lang.c_str());
@@ -216,6 +216,74 @@ Json::Value replace_words_with_null(const std::string& phrase, const std::string
 
     return json_parts;
 }
+
+
+// Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
+//     Json::Value json_parts = Json::arrayValue;
+//     auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
+//     auto words_to_replace_vec = core::text_processing::extract_words_from_str(words, lang.c_str());
+//     std::unordered_set<std::string> words_to_replace(words_to_replace_vec.begin(), words_to_replace_vec.end());
+
+//     auto words_to_replace_count = words_to_replace.size();
+//     uint32_t words_to_replace_passed = 0;
+
+//     UChar32 whitespace = ' ';
+
+//     std::string phrase_part_to_add;
+//     for (auto& part : phrase_parts) {
+//         auto lower_part = core::text_processing::unicode_str_to_lower(part, lang.c_str());
+//         auto unicode_part = core::text_processing::string_to_unicode(part);
+//         auto part_first_char = unicode_part.char32At(0);
+
+//         if (words_to_replace_passed && part_first_char == whitespace) continue;
+
+//         if (words_to_replace.contains(lower_part) || words_to_replace.contains(part)
+//             && words_to_replace_passed < words_to_replace_vec.size()
+//             && (words_to_replace_vec[words_to_replace_passed] == lower_part 
+//                 || words_to_replace_vec[words_to_replace_passed] == part)
+//         ) {
+//             ++words_to_replace_passed;
+
+//             if (words_to_replace_passed == 1) {
+//                 phrase_part_to_add += part;
+//             } else {
+//                 phrase_part_to_add += ' ' + part;
+//             }
+
+//             if (words_to_replace_passed < words_to_replace_count) {
+//                 continue;
+//             } else {
+//                 words_to_replace_passed = 0;
+//             }
+//         } else {
+//             words_to_replace_passed = 0;
+//             phrase_part_to_add += part;
+//         }
+        
+//         if (words_to_replace_passed == 0) {
+//             if (u_isalpha(part_first_char)) {
+//                 json_parts.append(phrase_part_to_add);
+//                 phrase_part_to_add.clear();
+//             } else if (part_first_char == whitespace) {
+//                 phrase_part_to_add.clear();
+//             }
+//         } else if (words_to_replace_passed = words_to_replace_count) {
+//             if (phrase_part_to_add.size()) {
+//                 json_parts.append(phrase_part_to_add);
+//                 phrase_part_to_add.clear();
+//             }
+//             json_parts.append(Json::nullValue);
+
+//             words_to_replace_passed = 0;
+//         }
+//     }
+
+//     if (phrase_part_to_add.size()) {
+//         json_parts.append(phrase_part_to_add);
+//     }
+
+//     return json_parts;
+// }
 
 drogon::Task<core::phrases_generator::FocusGroupPhrase> generate_focus_group_phrase(const std::string& src_lang, const std::string& dst_lang, const std::string& word) {
     auto openai_phrase_generation = drogon::app().getPlugin<OpenaiGeneration>();

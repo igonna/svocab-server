@@ -23,9 +23,9 @@ namespace core::user_sequence {
 
     enum class OfferType : uint16_t {rate_us};
 
-    drogon::Task<bool> is_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id, OfferType offer_type);
-    drogon::Task<> set_user_got_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id, OfferType offer_type, uint16_t user_choice);
-    drogon::Task<bool> should_user_get_rate_us_offer(drogon::orm::DbClientPtr users_db, uint32_t user_id);
+    drogon::Task<bool> is_user_got_offer(drogon::orm::DbClientPtr users_db, uint64_t user_id, OfferType offer_type);
+    drogon::Task<> set_user_got_offer(drogon::orm::DbClientPtr users_db, uint64_t user_id, OfferType offer_type, uint16_t user_choice);
+    drogon::Task<bool> should_user_get_rate_us_offer(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
 
     drogon::Task<> set_learn_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
@@ -39,6 +39,8 @@ namespace core::user_sequence {
     drogon::Task<> set_user_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t 
         group_id, uint16_t item_id, uint16_t seconds_spent
     );
+
+    drogon::Task<> update_group_last_interaction_time(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 
     // status_code, message, did_user_hide_item
     drogon::Task<std::optional<std::tuple<drogon::HttpStatusCode, std::string, bool>>> update_item_progress(

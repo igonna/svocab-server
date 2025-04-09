@@ -96,6 +96,7 @@ CREATE TABLE user_group (
     group_id INT NOT NULL DEFAULT 0,
     group_size INT NOT NULL DEFAULT 3,
 
+    last_interaction_time INT NOT NULL DEFAULT 0,
     last_update_id INT NOT NULL DEFAULT 0,
     last_gen_id INT NOT NULL DEFAULT 0
 ) PARTITION BY HASH (user_id);

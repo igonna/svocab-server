@@ -113,5 +113,7 @@ namespace core::user_sequence {
         const std::vector<core::phrases_generator::FocusGroupPhrase>& group_phrases, bool add_rate_us
     );
 
+    Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang);
+
     drogon::Task<std::optional<UserItem>> get_current_user_item(drogon::orm::DbClientPtr users_db, uint64_t user_id);
 }
