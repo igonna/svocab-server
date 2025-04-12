@@ -17,21 +17,13 @@
 namespace v1
 {
 
-// enum class ResultType : uint16_t {new, in_learning, mastered};
-
-// drogon::Task<> update_user_words_with_current_group(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id) {
-//     auto user_items_result = co_await users_db->execSqlCoro(
-//         " select item_type, passted_at, src_lang, dst_lang, word, mistakes_count"
-//         " from user_items where user_id = $1 and group_id = $2 and is_passed = TRUE",
-//         user_id, group_id
-//     );
-// }
-
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
-        auto json_result_body = core::user_sequence::replace_words_with_null("The perforator perforator shit, comes after the perforator shit!", "perforator shit", "en");
-        co_return local_utils::Response::JSON_OK(callback, json_result_body);
-
+        // TODO: fix phrase splited not on words
+        // json_obj->empty();
+        // auto json_result_body = core::user_sequence::replace_words_with_null("The perforator perforator shit, comes after the perforator shit!", "perforator shit", "en");
+        // co_return local_utils::Response::JSON_OK(callback, json_result_body);
+        auto json_obj = req->getJsonObject();
         auto redis_client = app().getRedisClient();
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
@@ -75,24 +67,20 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
         auto current_user_item = co_await core::user_sequence::get_current_user_item(users_db, user_id);
 
         if (current_user_item.has_value() && !group_info.is_group_expired() && !did_user_hide_item) {
+            Json::Value group_result_json = Json::nullValue;
             if (core::user_sequence::ItemType::result == current_user_item.value().type) {
-                co_return local_utils::Response::Error::ERROR(callback, k501NotImplemented, "");
+                bool group_size_updated = false;
+                std::tie(group_result_json, group_size_updated) = co_await core::user_sequence::update_user_words_with_current_group(users_db, user_id, group_info.group_id);
 
-                co_await core::sql::user_limits::increase_generated_phrases_count(users_db, user_id, group_info.group_size);
-                // auto user_words_update_result = co_await update_user_words_with_current_group(
-                //     users_db, user_id, group_info.group_id
-                // );
-                // insert results to user words
-                // and return results to previous scope variable
+                if (group_size_updated) {
+                    co_await core::sql::user_limits::increase_generated_phrases_count(users_db, user_id, group_info.group_size);
+                }
             }
-
-            // TODO: pass group results
-            // TODO: fix phrase splited not on words
-            auto current_item_json = co_await current_user_item.value().create_json_user_item();
+            auto current_item_json = co_await current_user_item.value().create_json_user_item(group_result_json);
             co_return local_utils::Response::JSON_OK(callback, current_item_json);
         }
 
-        bool is_group_generation_required = group_info.is_group_expired() || group_info.is_user_added_new_content() || did_user_hide_item;
+        bool is_group_generation_required = group_info.is_group_expired() || group_info.is_user_added_new_content() || did_user_hide_item || !current_user_item.has_value();
         if (is_group_generation_required) {
             bool user_has_subscription = false;
     

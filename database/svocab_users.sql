@@ -130,9 +130,9 @@ CREATE TABLE user_words (
     is_learned BOOLEAN NOT NULL DEFAULT FALSE,
     is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
 
-    learn_confirmation_level SMALLINT NOT NULL DEFAULT 0,
+    learn_confirmation_level SMALLINT NOT NULL DEFAULT 1,
 
-    update_count SMALLINT NOT NULL DEFAULT 0,
+    update_count SMALLINT NOT NULL DEFAULT 1,
     last_update_time INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, src_lang, word)
 ) PARTITION BY HASH (user_id);

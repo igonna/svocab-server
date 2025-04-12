@@ -18,6 +18,173 @@ using namespace drogon;
 
 namespace core::user_sequence {
 
+Json::Value create_result_values_json(std::string type, const std::vector<uint32_t> values) {
+    Json::Value result = Json::objectValue;
+
+    result["type"] = type;
+    auto& values_json = result["values"] = Json::arrayValue;
+
+    for (const auto& value : values) {
+        values_json.append(value);
+    }
+
+    return result;
+}
+
+drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id) {
+    auto user_word_items_result = co_await users_db->execSqlCoro(
+        " SELECT"
+            " src_lang,"
+            " dst_lang,"
+            " word,"
+            " SUM(mistakes_count) AS mistakes_count_sum,"
+            " COALESCE(MAX(passed_at), EXTRACT(EPOCH FROM NOW())) AS passed_at_latest"
+        " FROM"
+            " user_items"
+        " WHERE"
+            " user_id = $1"
+            " AND group_id = $2"
+            " AND word IS NOT NULL"
+            " AND is_passed = TRUE"
+            " AND is_hidden = FALSE"
+        " GROUP BY"
+            " src_lang,"
+            " dst_lang,"
+            " word"
+        " ORDER BY"
+            " word", user_id, group_id
+    );
+
+    uint32_t new_words_count = 0;
+    uint32_t new_in_learning_count = 0;
+    uint32_t new_mastered_count = 0;
+
+    uint32_t updated_words_count = 0;
+    uint32_t right_answers = 0;
+    uint32_t wrong_answers = 0;
+
+    for (const auto& user_word_item : user_word_items_result) {
+        auto src_lang = user_word_item["src_lang"].as<std::string>();
+        auto word = user_word_item["word"].as<std::string>();
+        auto mistakes_count_sum = user_word_item["mistakes_count_sum"].as<uint32_t>();
+        int32_t passed_at_latest = user_word_item["passed_at_latest"].isNull() ? 0 : user_word_item["passed_at_latest"].as<int32_t>();
+
+        auto insert_user_word_result = co_await users_db->execSqlCoro(
+            "WITH upsert AS ("
+                " INSERT INTO user_words (user_id, src_lang, word, last_update_time)"
+                " VALUES ($1, $2, $3, $4)"
+                " ON CONFLICT (user_id, src_lang, word)"
+                " DO UPDATE SET"
+                " last_update_time = $4,"
+                " update_count = user_words.update_count + 1,"
+                " learn_confirmation_level = CASE"
+                    " WHEN $5 = 0 THEN user_words.learn_confirmation_level + 1"
+                    " ELSE 0"
+                " END,"
+                " is_learned = CASE"
+                    " WHEN user_words.learn_confirmation_level >= $6 THEN TRUE"
+                    " ELSE FALSE"
+                " END"
+                " WHERE user_words.last_update_time != $4"
+                " RETURNING user_words.is_learned, user_words.learn_confirmation_level, user_words.update_count, TRUE AS is_updated"
+            ")"
+            " SELECT * FROM upsert"
+            " UNION ALL"
+            " SELECT is_learned, learn_confirmation_level, update_count, FALSE AS is_updated"
+            " FROM user_words"
+            " WHERE user_id = $1 AND src_lang = $2 AND word = $3 AND last_update_time = $4"
+            " AND NOT EXISTS (SELECT 1 FROM upsert)",
+            user_id, src_lang, word, passed_at_latest, mistakes_count_sum, local_constants::learn_progress::mastered_confirmation_level
+        );
+
+        if (insert_user_word_result.empty()) continue;
+
+        auto is_learned = insert_user_word_result[0]["is_learned"].as<uint16_t>();
+        auto learn_confirmation_level = insert_user_word_result[0]["learn_confirmation_level"].as<uint16_t>();
+        auto update_count = insert_user_word_result[0]["update_count"].as<uint16_t>();
+        auto is_updated = insert_user_word_result[0]["is_updated"].as<bool>();
+
+        if (is_updated) {
+            ++updated_words_count;
+
+            uint32_t right_answers = 0;
+            uint32_t wrong_answers = 0;
+
+            if (mistakes_count_sum) {
+                ++wrong_answers;
+            } else {
+                ++right_answers;
+            }
+        }
+
+        if ((!is_learned && learn_confirmation_level < local_constants::learn_progress::mastered_confirmation_level) && update_count == 1) {
+            ++new_words_count;
+        }
+
+        if ((!is_learned && learn_confirmation_level < local_constants::learn_progress::mastered_confirmation_level) && update_count >= 1) {
+            ++new_in_learning_count;
+        }
+
+        if (is_learned || learn_confirmation_level >= local_constants::learn_progress::mastered_confirmation_level) {
+            ++new_mastered_count;
+        }
+    }
+
+    // update group_size
+    auto group_size_updated = updated_words_count >= local_constants::focus_group::min_focus_group_size;
+    if (group_size_updated) {
+        bool is_increase = right_answers >= wrong_answers;
+
+        co_await users_db->execSqlCoro(
+            " UPDATE user_group"
+            " SET group_size = CASE"
+                    " WHEN $1 THEN LEAST(group_size + 1, $3)"
+                    " ELSE GREATEST(group_size - 1, $2)"
+                " END"
+            " WHERE user_id = $4"
+            " AND group_size BETWEEN $2 AND $3",
+            is_increase,
+            static_cast<int32_t>(local_constants::focus_group::min_focus_group_size),
+            static_cast<int32_t>(local_constants::focus_group::max_focus_group_size),
+            user_id
+        );
+    }
+
+    auto total_words_result = co_await users_db->execSqlCoro(
+        " SELECT"
+            " COUNT(*) FILTER ("
+                " WHERE (is_learned = FALSE OR learn_confirmation_level < $1)"
+                " AND is_hidden = FALSE"
+            " ) AS total_in_learning_count,"
+
+            " COUNT(*) FILTER ("
+                " WHERE (is_learned = TRUE OR learn_confirmation_level >= $1)"
+                " AND is_hidden = FALSE"
+            " ) AS total_mastered_count"
+        " FROM user_words"
+        " WHERE user_id = $2", local_constants::learn_progress::mastered_confirmation_level, user_id
+    );
+
+    auto total_in_learning_count = total_words_result[0]["total_in_learning_count"].as<uint32_t>();
+    auto total_mastered_count = total_words_result[0]["total_mastered_count"].as<uint32_t>();
+
+    Json::Value json_result = Json::arrayValue;
+
+    if (new_words_count) {
+        json_result.append(create_result_values_json("new", {new_words_count}));
+    }
+
+    if (new_in_learning_count || total_in_learning_count) {
+        json_result.append(create_result_values_json("in_learning", {new_in_learning_count, total_in_learning_count}));
+    }
+
+    if (new_mastered_count || total_mastered_count) {
+        json_result.append(create_result_values_json("mastered", {new_mastered_count, total_mastered_count}));
+    }
+
+    co_return std::make_tuple(std::move(json_result), group_size_updated);
+}
+
 Task<bool> is_user_blocked_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id) {
     const auto user_blocked_focus_group_generation_key = local_utils::redis::create_blocked_user_focus_group_generation_key(user_id);
     auto user_generation_blocked_result = co_await redis_client->execCommandCoro(
@@ -88,16 +255,36 @@ drogon::Task<> set_learn_item_passed(drogon::orm::DbClientPtr users_db, uint64_t
     );
 }
 
-drogon::Task<> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
-    uint16_t item_id, uint16_t seconds_spent
+drogon::Task<> set_user_word_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id,
+    const std::string& src_lang, const std::string& word
 ) {
     auto time_now = local_utils::time::get_unix_timestamp();
 
     co_await users_db->execSqlCoro(
+        " insert into user_words (user_id, src_lang, word, is_hidden, last_update_time)"
+        " values ($1, $2, $3, FALSE, $4) on conflict do update last_update_time = $4",
+        user_id, src_lang, word, time_now
+    );
+}
+
+drogon::Task<std::tuple<std::string, std::string>> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
+    uint16_t item_id, uint16_t seconds_spent
+) {
+    auto time_now = local_utils::time::get_unix_timestamp();
+
+    auto result = co_await users_db->execSqlCoro(
         " update user_items set is_hidden = TRUE, passed_at = $1, seconds_spent = $2"
-        " where user_id = $3 and group_id = $4 and item_id = $5 and is_hidden = FALSE",
+        " where user_id = $3 and group_id = $4 and item_id = $5 and is_hidden = FALSE"
+        " returning src_lang, word",
         time_now, seconds_spent, user_id, group_id, item_id
     );
+
+    if (result.empty() || result[0]["src_lang"].isNull()) throw std::runtime_error("no item to hide");
+
+    auto src_lang = result[0]["src_lang"].as<std::string>();
+    auto word = result[0]["word"].as<std::string>();
+
+    co_return std::make_tuple(src_lang, word);
 }
 
 drogon::Task<> set_user_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id, uint16_t item_id, uint16_t seconds_spent
@@ -156,7 +343,8 @@ drogon::Task<std::optional<std::tuple<drogon::HttpStatusCode, std::string, bool>
             co_await set_learn_item_passed(users_db, user_id, group_id, item_id, mistakes, seconds_spent, seconds_spent_on_answer);
         }
         else if (item_action == "hide") {
-            co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
+            auto [src_lang, word] = co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
+            co_await set_user_word_hidden(users_db, user_id, src_lang, word);
         }
         else {
             co_return std::make_tuple(k400BadRequest, "not valid item action", false);
@@ -248,9 +436,11 @@ drogon::Task<std::vector<core::user_sequence_words::SequenceUserWord>> get_updat
         );
     }
 
+    auto time_now = local_utils::time::get_unix_timestamp();
+
     std::ignore = users_db->execSqlCoro(
-        " update user_group set last_gen_id = last_update_id where user_id = $1 and last_update_id = $2",
-        user_id, sequence_last_update_id
+        " update user_group set last_gen_id = last_update_id, last_interaction_time = $1 where user_id = $2 and last_update_id = $3",
+        time_now, user_id, sequence_last_update_id
     );
 
     co_return sequence_generator.generate();

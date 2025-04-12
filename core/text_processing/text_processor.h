@@ -69,6 +69,8 @@ namespace core::text_processing
 
         for (const auto& seq : sequences) {
             iterators.emplace_back(seq.first, seq.second.begin(), seq.second.end());
+
+            if (seq.second.begin() == seq.second.end()) ++sequences_mixed_count;
         }
 
         uint32_t total_added = 0;

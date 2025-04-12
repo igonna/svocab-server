@@ -32,8 +32,13 @@ namespace core::user_sequence {
         uint16_t item_id, uint16_t mistakes, uint16_t seconds_spent, uint16_t seconds_spent_on_answer
     );
 
-    drogon::Task<> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
+    // src_lang, word
+    drogon::Task<std::tuple<std::string, std::string>> set_learn_item_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id,
         uint16_t item_id, uint16_t seconds_spent
+    );
+
+    drogon::Task<> set_user_word_hidden(drogon::orm::DbClientPtr users_db, uint64_t user_id,
+        const std::string& src_lang, const std::string& word
     );
 
     drogon::Task<> set_user_item_passed(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t 
@@ -49,4 +54,8 @@ namespace core::user_sequence {
 
     drogon::Task<bool> is_user_blocked_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id);
     drogon::Task<> block_user_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id);
+
+    Json::Value create_result_values_json(std::string type, const std::vector<uint32_t> values);
+    // group_result, group_size_updated
+    drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id);
 }

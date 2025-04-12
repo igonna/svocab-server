@@ -184,8 +184,8 @@ namespace user_topic_generation_limit {
 };
 
 namespace focus_group {
-    static const constexpr uint8_t min_focus_group_size = 2;
-    static const constexpr uint8_t max_focus_group_size = 6;
+    static const constexpr uint16_t min_focus_group_size = 2;
+    static const constexpr uint16_t max_focus_group_size = 6;
 
     static const constexpr uint8_t phases_per_item = 3;
 
@@ -197,6 +197,6 @@ namespace statistics {
 }
 
 namespace learn_progress {
-    static const constexpr uint8_t mastered_confirmation_level = 5;
+    static const constexpr uint16_t mastered_confirmation_level = 5;
 }
 }

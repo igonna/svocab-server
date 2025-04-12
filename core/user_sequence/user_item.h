@@ -22,7 +22,7 @@ namespace core::user_sequence {
     }
 
     struct UserItem {        
-        drogon::Task<Json::Value> create_json_user_item() const;
+        drogon::Task<Json::Value> create_json_user_item(const Json::Value& group_result_json = Json::nullValue) const;
 
         UserItem(
             UserItem&& other

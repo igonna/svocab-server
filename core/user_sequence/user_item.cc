@@ -307,7 +307,7 @@ void add_phrases_and_placeholders_to_content(Json::Value &content, const core::p
     content["dst_phrase"] = replace_words_with_null(generated_phrase.generated_phrase.dst_phrase, generated_phrase.generated_phrase.dst_word, generated_phrase.generated_phrase.dst_lang);
 }
 
-drogon::Task<Json::Value> UserItem::create_json_user_item() const {
+drogon::Task<Json::Value> UserItem::create_json_user_item(const Json::Value& group_result_json) const {
     Json::Value result;
 
     result["type"] = to_string(type);
@@ -341,28 +341,7 @@ drogon::Task<Json::Value> UserItem::create_json_user_item() const {
 
         co_return result;
     } else if (type == ItemType::result) {
-        auto& results = result["results"] = Json::arrayValue;
-        // TODO: what if we need to get additional data for result?
-
-        // {
-        //     "type": "result",
-        //     "id": "1.xxt",
-        //     "content": [
-        //         {
-        //             "type": "new",
-        //             "values": [4],
-        //         },
-        //         {
-        //             "type": "in_learning",
-        //             "values": [2, 1024]
-        //         },
-        //         {
-        //             "type": "mastered",
-        //             "values": [2, 512]
-        //         }
-        //     ]
-        // }
-
+        auto& results = result["results"] = group_result_json != Json::nullValue ? group_result_json : Json::arrayValue;
         co_return result;
     } else if (type == ItemType::rate_us) {
         co_return result;
