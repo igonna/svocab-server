@@ -24,7 +24,7 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
 
     auto rc = app().getRedisClient();
 
-    auto remote_addr = req->peerAddr().toIp();
+    auto remote_addr = local_utils::ip::ip4_num_to_str(local_utils::ip::get_ip_addr_from_request(req));
 
     // check if not requested too much
     std::string register_requests_key = local_utils::redis::create_register_requests_key(remote_addr);

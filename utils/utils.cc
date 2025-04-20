@@ -9,6 +9,57 @@
 #include <core/text_processing/text_processor.h>
 
 namespace local_utils {
+
+namespace ip {
+    uint32_t ip4_str_to_num(const std::string& ip4_str) {
+        std::istringstream iss(ip4_str);
+        
+        uint32_t ipv4 = 0;
+    
+        for(uint32_t i = 0; i < 4; ++i) {
+            uint32_t part;
+            iss >> part;
+            if (iss.fail() || part > 255) {
+                return 0;
+            }
+    
+            ipv4 |= part << (8 * (3 - i));
+    
+            if (i != 3) {
+                char delimiter;
+                iss >> delimiter;
+                if (iss.fail() || delimiter != '.') {
+                    return 0;
+                }
+            }
+        }
+    
+        return ipv4;
+    }
+
+    std::string ip4_num_to_str(uint32_t ip) {
+        return std::to_string((ip >> 24) & 0xFF) + "." +
+               std::to_string((ip >> 16) & 0xFF) + "." +
+               std::to_string((ip >> 8) & 0xFF) + "." +
+               std::to_string(ip & 0xFF);
+    }
+    
+    uint32_t get_ip_addr_from_request(const drogon::HttpRequestPtr& req) {
+        std::string ip_str;
+        auto xff = req->getHeader("X-Forwarded-For");
+    
+        if (!xff.empty()) {
+            // If multiple proxies added IPs, take the first (the original client)
+            ip_str = xff.substr(0, xff.find(','));
+        } else {
+            // Fallback to what Drogon sees directly
+            ip_str = req->peerAddr().toIp();
+        }
+
+        return ip4_str_to_num(ip_str);
+    }
+}
+
 namespace random {
     uint32_t get_random_number(uint32_t min, uint32_t max) {
         std::random_device rd;

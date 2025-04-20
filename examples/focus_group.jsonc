@@ -208,14 +208,17 @@ body:
         {
             "type": "new",
             "values": [4],
+            "words": ["something", "else"]
         },
         {
             "type": "in_learning",
-            "values": [2, 1024]
+            "values": [2, 1024],
+            "words": ["something", "else"]
         },
         {
             "type": "mastered",
-            "values": [2, 512]
+            "values": [2, 512],
+            "words": ["something", "else"]
         }
     ]
 }

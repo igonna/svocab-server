@@ -18,14 +18,19 @@ using namespace drogon;
 
 namespace core::user_sequence {
 
-Json::Value create_result_values_json(std::string type, const std::vector<uint32_t> values) {
+Json::Value create_result_values_json(std::string type, const std::vector<uint32_t> values, const std::vector<std::string>& words) {
     Json::Value result = Json::objectValue;
 
     result["type"] = type;
-    auto& values_json = result["values"] = Json::arrayValue;
 
+    auto& values_json = result["values"] = Json::arrayValue;
     for (const auto& value : values) {
         values_json.append(value);
+    }
+
+    auto& words_json = result["words"] = Json::arrayValue;
+    for (const auto& word : words) {
+        words_json.append(word);
     }
 
     return result;
@@ -55,9 +60,10 @@ drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group
             " word", user_id, group_id
     );
 
-    uint32_t new_words_count = 0;
-    uint32_t new_in_learning_count = 0;
-    uint32_t new_mastered_count = 0;
+    std::vector<std::string> new_words;
+    std::vector<std::string> improvement_words;
+    std::vector<std::string> in_learning_words;
+    std::vector<std::string> mastered_words;
 
     uint32_t updated_words_count = 0;
     uint32_t right_answers = 0;
@@ -119,15 +125,17 @@ drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group
         }
 
         if ((!is_learned && learn_confirmation_level < local_constants::learn_progress::mastered_confirmation_level) && update_count == 1) {
-            ++new_words_count;
+            new_words.push_back(word);
         }
 
-        if ((!is_learned && learn_confirmation_level < local_constants::learn_progress::mastered_confirmation_level) && update_count >= 1) {
-            ++new_in_learning_count;
+        if ((!is_learned && !learn_confirmation_level) && update_count > 1) {
+            improvement_words.push_back(word);
+        } else if ((!is_learned && learn_confirmation_level < local_constants::learn_progress::mastered_confirmation_level) && update_count > 1) {
+            in_learning_words.push_back(word);
         }
 
         if (is_learned || learn_confirmation_level >= local_constants::learn_progress::mastered_confirmation_level) {
-            ++new_mastered_count;
+            mastered_words.push_back(word);
         }
     }
 
@@ -171,16 +179,24 @@ drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group
 
     Json::Value json_result = Json::arrayValue;
 
+    uint32_t new_words_count = new_words.size();
     if (new_words_count) {
-        json_result.append(create_result_values_json("new", {new_words_count}));
+        json_result.append(create_result_values_json("new", {new_words_count}, new_words));
     }
 
-    if (new_in_learning_count || total_in_learning_count) {
-        json_result.append(create_result_values_json("in_learning", {new_in_learning_count, total_in_learning_count}));
+    uint32_t improvement_words_count = new_words.size();
+    if (improvement_words_count) {
+        json_result.append(create_result_values_json("improvement", {improvement_words_count}, improvement_words));
     }
 
-    if (new_mastered_count || total_mastered_count) {
-        json_result.append(create_result_values_json("mastered", {new_mastered_count, total_mastered_count}));
+    uint32_t in_learning_words_count = in_learning_words.size() + new_words_count + improvement_words_count;
+    if (in_learning_words_count && total_in_learning_count) {
+        json_result.append(create_result_values_json("in_learning", {in_learning_words_count, total_in_learning_count}, in_learning_words));
+    }
+
+    uint32_t mastered_words_count = mastered_words.size();
+    if (mastered_words_count && total_mastered_count) {
+        json_result.append(create_result_values_json("mastered", {mastered_words_count, total_mastered_count}, mastered_words));
     }
 
     co_return std::make_tuple(std::move(json_result), group_size_updated);

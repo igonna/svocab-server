@@ -446,9 +446,16 @@ std::string Topics::createTopicProgressList(const std::vector<std::string>& topi
     for (const auto& word : topic_words) {
         auto word_progress = words_progress.find(word);
         if (word_progress != words_progress.end()) {
-            status = word_progress->second.first 
-                ? 2 
-                : (word_progress->second.second >= local_constants::learn_progress::mastered_confirmation_level ? 1 : 0);
+            const auto is_learned = word_progress->second.first;
+            // no need to check confirmation_level because word is found
+            // const auto learn_confirmation_level = word_progress->second.second;
+
+            if (is_learned) {
+                status = 2;
+            } else {
+                status = 1;
+            }
+
         } else {
             status = 0;
         }

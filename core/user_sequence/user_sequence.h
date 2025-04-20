@@ -55,7 +55,7 @@ namespace core::user_sequence {
     drogon::Task<bool> is_user_blocked_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id);
     drogon::Task<> block_user_from_generation(drogon::nosql::RedisClientPtr redis_client, uint64_t user_id);
 
-    Json::Value create_result_values_json(std::string type, const std::vector<uint32_t> values);
+    Json::Value create_result_values_json(std::string type, const std::vector<uint32_t> values, const std::vector<std::string>& words);
     // group_result, group_size_updated
     drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group(drogon::orm::DbClientPtr users_db, uint64_t user_id, uint32_t group_id);
 }

@@ -7,6 +7,11 @@
 #include <fstream>
 
 namespace local_utils {
+namespace ip {
+    uint32_t ip4_str_to_num(const std::string& ip4_str);
+    std::string ip4_num_to_str(uint32_t ip);
+    uint32_t get_ip_addr_from_request(const drogon::HttpRequestPtr& req);
+}
 
 namespace json {
     static std::string json_to_string(const Json::Value& json) {

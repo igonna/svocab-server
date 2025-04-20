@@ -29,7 +29,7 @@ Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpRe
         co_return local_utils::Response::Error::ERROR(callback, k401Unauthorized, "");
     }
 
-    auto ip_addr = local_utils::bytes::swap_endian(req->peerAddr().ipNetEndian());
+    auto ip_addr = local_utils::ip::get_ip_addr_from_request(req);
 
     auto time_now = local_utils::time::get_unix_timestamp();
     if (device_name.empty()) {
