@@ -18,6 +18,6 @@ public:
 	METHOD_LIST_END
 
 private:
-	Json::Value createHiddenWordsList(const drogon::orm::Result& langs_rows, const drogon::orm::Result& hidden_words_rows);
+	Json::Value createHiddenWordsList(const drogon::orm::Result& langs_rows, const drogon::orm::Result& hidden_words_rows, const std::string& to_translate_lang);
 };
 }

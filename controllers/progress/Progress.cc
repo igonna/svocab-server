@@ -7,6 +7,12 @@
 namespace v1
 {
 Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    auto to_translate_lang = req->getHeader("toTranslateLang");
+
+    if (to_translate_lang.size() != local_constants::languages::lang_tag_size) {
+        co_return local_utils::Response::Error::NOT_VALID_HEADER(callback);
+    }
+
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
@@ -30,7 +36,7 @@ Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const Htt
             " ORDER BY ulp.last_enable_time DESC, uw.last_update_time DESC", user_id
         );
 
-        auto json_hidden_words = createHiddenWordsList(lang_pairs_result, hidden_words_result);
+        auto json_hidden_words = createHiddenWordsList(lang_pairs_result, hidden_words_result, to_translate_lang);
         co_return local_utils::Response::JSON_OK(callback, json_hidden_words);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -68,7 +74,7 @@ Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const H
     co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 
-Json::Value Progress::createHiddenWordsList(const drogon::orm::Result& langs_rows, const drogon::orm::Result& hidden_words_rows) {
+Json::Value Progress::createHiddenWordsList(const drogon::orm::Result& langs_rows, const drogon::orm::Result& hidden_words_rows, const std::string& to_translate_lang) {
     Json::Value result;
     auto& languages = result["languages"] = Json::arrayValue;
 
@@ -79,6 +85,7 @@ Json::Value Progress::createHiddenWordsList(const drogon::orm::Result& langs_row
 
         Json::Value new_lang_pair;
         new_lang_pair["src_lang"] = src_lang;
+        new_lang_pair["src_lang_name"] = local_utils::supported_languages::get_language_title_localized(src_lang, to_translate_lang);
 
         auto& ref_to_hidden_words = new_lang_pair["words"] = Json::arrayValue;
         languages_hidden_words[src_lang] = &ref_to_hidden_words;

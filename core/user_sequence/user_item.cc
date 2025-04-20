@@ -179,76 +179,57 @@ drogon::Task<std::optional<UserItem>> get_current_user_item(drogon::orm::DbClien
     );
 }
 
-// Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
-//     Json::Value json_parts = Json::arrayValue;
-//     auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
-//     auto words_to_replace_vec = core::text_processing::extract_words_from_str(words, lang.c_str());
-//     std::unordered_set<std::string> words_to_replace(words_to_replace_vec.begin(), words_to_replace_vec.end());
-//     auto words_to_replace_count = words_to_replace.size();
-
-//     uint32_t words_to_replace_passed = 0;
-
-//     std::string phrase_part_to_add;
-//     for (auto& part : phrase_parts) {
-//         auto lower_part = core::text_processing::unicode_str_to_lower(part, lang.c_str());
-
-//         if (words_to_replace.contains(lower_part) || words_to_replace.contains(part)) {
-//             ++words_to_replace_passed;
-
-//             if (words_to_replace_passed < words_to_replace_count) {
-//                 continue;
-//             } else {
-//                 words_to_replace_passed = 0;
-//             }
-
-//             if (phrase_part_to_add.size()) {
-//                 json_parts.append(phrase_part_to_add);
-//                 phrase_part_to_add.clear();
-//             }
-//             json_parts.append(Json::nullValue);
-//         } else if (!words_to_replace_passed) {
-//             phrase_part_to_add += part;
-//         }
-//     }
-
-//     if (phrase_part_to_add.size()) {
-//         json_parts.append(phrase_part_to_add);
-//     }
-
-//     return json_parts;
-// }
-
 Json::Value replace_words_with_null(const std::string& phrase, const std::string& words, const std::string& lang) {
-    auto phrase_copy = phrase;
-
-    std::string special_str = "696969";
-    std::string whitespace = " ";
-    std::string comma = ",";
-
-    auto capitalized_words = local_utils::strings::get_capitalized_string(words);
-    local_utils::strings::replace_all(phrase_copy, capitalized_words, special_str);
-    auto lower_words = core::text_processing::unicode_str_to_lower(words, lang.c_str());
-    local_utils::strings::replace_all(phrase_copy, lower_words, special_str);
-
-    auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase_copy, lang.c_str());
-
     Json::Value json_parts = Json::arrayValue;
 
-    std::string comma_part;
-    for (const auto& part : phrase_parts) {
-        if (part == special_str) {
-            json_parts.append(Json::nullValue);
-        } else if (part == whitespace) {
+    auto phrase_parts = core::text_processing::extract_words_and_punctuation_from_str(phrase, lang.c_str());
+    auto words_parts = core::text_processing::extract_words_and_punctuation_from_str(words, lang.c_str());
+    uint32_t phrase_parts_count = phrase_parts.size();
+    uint32_t words_parts_count = words_parts.size();
+
+    std::string whitespace = " ";
+
+    std::string comma = ",";
+    std::string str_to_append;
+
+    for (uint32_t i = 0; i < phrase_parts_count; ++i) {
+        if (i + words_parts_count < phrase_parts_count) {
+            uint32_t matched_count = 0;
+            for (uint32_t j = 0; j < words_parts_count; ++j) {
+                const auto lower_phrase_part = core::text_processing::unicode_str_to_lower(phrase_parts[i + j], lang.c_str());
+
+                if (phrase_parts[i + j] == words_parts[j] || lower_phrase_part == words_parts[j]) {
+                    ++matched_count;
+                } else {
+                    break;
+                }
+
+                if (matched_count == words_parts_count) {
+                    json_parts.append(Json::nullValue);
+                    i += words_parts_count;
+                }
+            }
+        }
+
+        if (phrase_parts[i] == whitespace) continue;
+
+        if (phrase_parts[i] == comma) {
+            str_to_append = comma + " ";
             continue;
+        }
+
+        if (str_to_append.size()) {
+            json_parts.append(str_to_append + phrase_parts[i]);
+            str_to_append.clear();
         } else {
-            if (part == comma) {
-                comma_part += ", ";
-                continue;
-            } else if (comma_part.size()) {
-                json_parts.append(comma_part + part);
-                comma_part.clear();
+            const auto unicode_part = core::text_processing::string_to_unicode(phrase_parts[i]);
+
+            uint32_t last_json_part_id = json_parts.size() - 1;
+            if (!u_isalpha(unicode_part.char32At(0)) && json_parts.size() && !json_parts[last_json_part_id].isNull()) {
+                const auto& last_json_part_str = json_parts[last_json_part_id].as<std::string>();
+                json_parts[last_json_part_id] = last_json_part_str + phrase_parts[i];
             } else {
-                json_parts.append(part);
+                json_parts.append(phrase_parts[i]);
             }
         }
     }

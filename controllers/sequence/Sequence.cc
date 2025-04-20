@@ -18,7 +18,6 @@ namespace v1
 {
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
-        auto json_obj = req->getJsonObject();
         auto redis_client = app().getRedisClient();
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
