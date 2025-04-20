@@ -103,6 +103,28 @@ namespace strings {
 
         return core::text_processing::unicode_to_str(title);
     }
+
+    void replace_all(std::string& str, const std::string& from, const std::string& to) {
+        size_t pos = 0;
+        while ((pos = str.find(from, pos)) != std::string::npos) {
+            str.replace(pos, from.length(), to);
+            pos += to.length();
+        }
+    }
+
+    std::string get_capitalized_string(const std::string& str) {
+        auto unicode_str = icu::UnicodeString::fromUTF8(icu::StringPiece(str.data()));
+
+        if (!unicode_str.isEmpty()) {
+            UChar upper_char = u_toupper(unicode_str.charAt(0));
+            unicode_str.setCharAt(0, upper_char);
+        }
+
+        std::string utf8_str;
+        unicode_str.toUTF8String(utf8_str);
+
+        return utf8_str;
+    }
 }
 
 namespace file {

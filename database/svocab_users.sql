@@ -189,6 +189,11 @@ CREATE TABLE user_language_pairs_p1 PARTITION OF user_language_pairs FOR VALUES 
 CREATE TABLE user_language_pairs_p2 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_language_pairs_p3 PARTITION OF user_language_pairs FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
+CREATE UNIQUE INDEX unique_user_src_lang_p0 ON user_language_pairs_p0 (user_id, src_lang);
+CREATE UNIQUE INDEX unique_user_src_lang_p1 ON user_language_pairs_p1 (user_id, src_lang);
+CREATE UNIQUE INDEX unique_user_src_lang_p2 ON user_language_pairs_p2 (user_id, src_lang);
+CREATE UNIQUE INDEX unique_user_src_lang_p3 ON user_language_pairs_p3 (user_id, src_lang);
+
 CREATE TABLE user_topics_p0 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_topics_p1 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 1);
 CREATE TABLE user_topics_p2 PARTITION OF user_topics FOR VALUES WITH (MODULUS 4, REMAINDER 2);

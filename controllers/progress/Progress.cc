@@ -6,11 +6,17 @@
 
 namespace v1
 {
-
 Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
         auto users_db = app().getDbClient(local_constants::users_db);
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
+
+        auto lang_pairs_result = co_await users_db->execSqlCoro(
+            " SELECT src_lang"
+            " FROM user_language_pairs"
+            " WHERE user_id = $1 AND is_enabled = true"
+            " ORDER BY last_enable_time DESC", user_id
+        );
 
         auto hidden_words_result = co_await users_db->execSqlCoro(
             " SELECT DISTINCT ulp.src_lang, ulp.last_enable_time, uw.word, uw.last_update_time"
@@ -24,44 +30,8 @@ Task<> Progress::getHiddenWords(HttpRequestPtr req, std::function<void(const Htt
             " ORDER BY ulp.last_enable_time DESC, uw.last_update_time DESC", user_id
         );
 
-        std::string current_lang;
-        Json::Value result_body;
-
-        auto& lang_hidden_words_arr = result_body["languages"] = Json::arrayValue;
-
-        Json::Value current_words = Json::arrayValue;
-
-        for (const auto& hidden_word : hidden_words_result) {
-            const auto& src_lang = hidden_word["src_lang"].as<std::string>();
-            const auto& word = hidden_word["word"].as<std::string>();
-
-            if (current_lang != src_lang) {
-                if (current_words.size()) {
-
-                    Json::Value new_lang_hidden_words;
-                    new_lang_hidden_words["src_lang"] = std::move(current_lang);
-                    new_lang_hidden_words["words"] = std::move(current_words);
-                    lang_hidden_words_arr.append(std::move(new_lang_hidden_words));
-
-                    current_words.clear();
-                }
-
-                current_lang = src_lang;
-            }
-
-            current_words.append(std::move(word));
-        }
-
-        if (current_words.size()) {
-            Json::Value new_lang_hidden_words;
-            new_lang_hidden_words["src_lang"] = std::move(current_lang);
-            new_lang_hidden_words["words"] = std::move(current_words);
-            lang_hidden_words_arr.append(std::move(new_lang_hidden_words));
-
-            current_words.clear();
-        }
-
-        co_return local_utils::Response::JSON_OK(callback, result_body);
+        auto json_hidden_words = createHiddenWordsList(lang_pairs_result, hidden_words_result);
+        co_return local_utils::Response::JSON_OK(callback, json_hidden_words);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
     }
@@ -96,5 +66,39 @@ Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const H
     }
 
     co_return local_utils::Response::Error::SERVER_ERROR(callback);
+}
+
+Json::Value Progress::createHiddenWordsList(const drogon::orm::Result& langs_rows, const drogon::orm::Result& hidden_words_rows) {
+    Json::Value result;
+    auto& languages = result["languages"] = Json::arrayValue;
+
+    std::unordered_map<std::string, Json::Value*> languages_hidden_words;
+
+    for (auto& row : langs_rows) {
+        auto src_lang = row["src_lang"].as<std::string>();
+
+        Json::Value new_lang_pair;
+        new_lang_pair["src_lang"] = src_lang;
+
+        auto& ref_to_hidden_words = new_lang_pair["words"] = Json::arrayValue;
+        languages_hidden_words[src_lang] = &ref_to_hidden_words;
+
+        languages.append(std::move(new_lang_pair));
+    }
+
+    for (auto& hidden_word : hidden_words_rows) {
+        const auto& src_lang = hidden_word["src_lang"].as<std::string>();
+        const auto& word = hidden_word["word"].as<std::string>();
+
+        if (languages_hidden_words.contains(src_lang)) {
+            auto& languages_hidden_words_ref = languages_hidden_words[src_lang];
+
+            const auto& src_lang = hidden_word["src_lang"].as<std::string>();
+            const auto& word = hidden_word["word"].as<std::string>();
+            languages_hidden_words_ref->append(std::move(word));
+        }
+    }
+
+    return result;
 }
 }

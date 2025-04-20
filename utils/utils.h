@@ -242,6 +242,10 @@ namespace supported_languages {
 
 namespace strings {
     std::string get_title_from_str(const std::string& str, uint32_t length);
+
+    void replace_all(std::string& str, const std::string& from, const std::string& to);
+
+    std::string get_capitalized_string(const std::string& str);
 }
 
 namespace translations_db {

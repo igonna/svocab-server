@@ -16,5 +16,8 @@ public:
 	METHOD_ADD(Progress::getHiddenWords, "/get_hidden_words", Get, "JwtFilter");
 	METHOD_ADD(Progress::removeHiddenWord, "/remove_hidden_word", Post, "JwtFilter");
 	METHOD_LIST_END
+
+private:
+	Json::Value createHiddenWordsList(const drogon::orm::Result& langs_rows, const drogon::orm::Result& hidden_words_rows);
 };
 }

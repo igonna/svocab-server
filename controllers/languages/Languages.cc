@@ -53,6 +53,14 @@ Task<> Languages::setLanguagePairEnabled(HttpRequestPtr req, std::function<void(
 
         co_await core::sql::update_user_group_last_update_id(users_db, user_id);
         co_return local_utils::Response::OK(callback, "");
+    } catch (const drogon::orm::DrogonDbException &e) {
+        auto error_message = std::string(e.base().what());
+
+        if (error_message.find("duplicate key value violates unique constraint") != std::string::npos &&
+            error_message.find("unique_user_src_lang") != std::string::npos)
+        {
+            co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "src_lang_already_exists");
+        }
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
     }

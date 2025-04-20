@@ -68,21 +68,22 @@ drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group
         auto word = user_word_item["word"].as<std::string>();
         auto mistakes_count_sum = user_word_item["mistakes_count_sum"].as<uint32_t>();
         int32_t passed_at_latest = user_word_item["passed_at_latest"].isNull() ? 0 : user_word_item["passed_at_latest"].as<int32_t>();
+        uint16_t init_confirmation_level = (mistakes_count_sum > 0) ? 0 : 1;
 
         auto insert_user_word_result = co_await users_db->execSqlCoro(
             "WITH upsert AS ("
-                " INSERT INTO user_words (user_id, src_lang, word, last_update_time)"
-                " VALUES ($1, $2, $3, $4)"
+                " INSERT INTO user_words (user_id, src_lang, word, last_update_time, learn_confirmation_level)"
+                " VALUES ($1, $2, $3, $4, $5)"
                 " ON CONFLICT (user_id, src_lang, word)"
                 " DO UPDATE SET"
                 " last_update_time = $4,"
                 " update_count = user_words.update_count + 1,"
                 " learn_confirmation_level = CASE"
-                    " WHEN $5 = 0 THEN user_words.learn_confirmation_level + 1"
+                    " WHEN $6 = 0 THEN user_words.learn_confirmation_level + 1"
                     " ELSE 0"
                 " END,"
                 " is_learned = CASE"
-                    " WHEN user_words.learn_confirmation_level >= $6 THEN TRUE"
+                    " WHEN user_words.learn_confirmation_level >= $7 THEN TRUE"
                     " ELSE FALSE"
                 " END"
                 " WHERE user_words.last_update_time != $4"
@@ -94,7 +95,7 @@ drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group
             " FROM user_words"
             " WHERE user_id = $1 AND src_lang = $2 AND word = $3 AND last_update_time = $4"
             " AND NOT EXISTS (SELECT 1 FROM upsert)",
-            user_id, src_lang, word, passed_at_latest, mistakes_count_sum, local_constants::learn_progress::mastered_confirmation_level
+            user_id, src_lang, word, passed_at_latest, init_confirmation_level, mistakes_count_sum, local_constants::learn_progress::mastered_confirmation_level
         );
 
         if (insert_user_word_result.empty()) continue;
@@ -261,8 +262,9 @@ drogon::Task<> set_user_word_hidden(drogon::orm::DbClientPtr users_db, uint64_t 
     auto time_now = local_utils::time::get_unix_timestamp();
 
     co_await users_db->execSqlCoro(
-        " insert into user_words (user_id, src_lang, word, is_hidden, last_update_time)"
-        " values ($1, $2, $3, FALSE, $4) on conflict do update last_update_time = $4",
+        "insert into user_words (user_id, src_lang, word, is_hidden, last_update_time) "
+        "values ($1, $2, $3, TRUE, $4) "
+        "on conflict (user_id, src_lang, word) do update set last_update_time = EXCLUDED.last_update_time",
         user_id, src_lang, word, time_now
     );
 }
@@ -274,7 +276,7 @@ drogon::Task<std::tuple<std::string, std::string>> set_learn_item_hidden(drogon:
 
     auto result = co_await users_db->execSqlCoro(
         " update user_items set is_hidden = TRUE, passed_at = $1, seconds_spent = $2"
-        " where user_id = $3 and group_id = $4 and item_id = $5 and is_hidden = FALSE"
+        " where user_id = $3 and group_id = $4 and item_id = $5"
         " returning src_lang, word",
         time_now, seconds_spent, user_id, group_id, item_id
     );
@@ -345,6 +347,7 @@ drogon::Task<std::optional<std::tuple<drogon::HttpStatusCode, std::string, bool>
         else if (item_action == "hide") {
             auto [src_lang, word] = co_await set_learn_item_hidden(users_db, user_id, group_id, item_id, seconds_spent);
             co_await set_user_word_hidden(users_db, user_id, src_lang, word);
+            co_return std::make_tuple(k200OK, "", true);
         }
         else {
             co_return std::make_tuple(k400BadRequest, "not valid item action", false);

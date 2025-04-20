@@ -16,13 +16,8 @@
 
 namespace v1
 {
-
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
-        // TODO: fix phrase splited not on words
-        // json_obj->empty();
-        // auto json_result_body = core::user_sequence::replace_words_with_null("The perforator perforator shit, comes after the perforator shit!", "perforator shit", "en");
-        // co_return local_utils::Response::JSON_OK(callback, json_result_body);
         auto json_obj = req->getJsonObject();
         auto redis_client = app().getRedisClient();
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
@@ -82,7 +77,8 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
 
         bool is_group_generation_required = group_info.is_group_expired() || group_info.is_user_added_new_content() || did_user_hide_item || !current_user_item.has_value();
         if (is_group_generation_required) {
-            bool user_has_subscription = false;
+            // bool user_has_subscription = false;
+            bool user_has_subscription = true;
     
             auto [phrase_generation_limit_reached, time_limit_resets]
                 = co_await core::sql::user_limits::is_generated_phrases_limit_reached(users_db, user_id, user_has_subscription);
