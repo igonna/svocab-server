@@ -184,7 +184,7 @@ drogon::Task<std::tuple<Json::Value, bool>> update_user_words_with_current_group
         json_result.append(create_result_values_json("new", {new_words_count}, new_words));
     }
 
-    uint32_t improvement_words_count = new_words.size();
+    uint32_t improvement_words_count = improvement_words.size();
     if (improvement_words_count) {
         json_result.append(create_result_values_json("improvement", {improvement_words_count}, improvement_words));
     }

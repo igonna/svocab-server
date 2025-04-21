@@ -193,7 +193,7 @@ Json::Value replace_words_with_null(const std::string& phrase, const std::string
     std::string str_to_append;
 
     for (uint32_t i = 0; i < phrase_parts_count; ++i) {
-        if (i + words_parts_count < phrase_parts_count) {
+        if (i + words_parts_count <= phrase_parts_count) {
             uint32_t matched_count = 0;
             for (uint32_t j = 0; j < words_parts_count; ++j) {
                 const auto lower_phrase_part = core::text_processing::unicode_str_to_lower(phrase_parts[i + j], lang.c_str());
@@ -209,6 +209,8 @@ Json::Value replace_words_with_null(const std::string& phrase, const std::string
                     i += words_parts_count;
                 }
             }
+
+            if (i >= phrase_parts_count) break;
         }
 
         if (phrase_parts[i] == whitespace) continue;
