@@ -18,12 +18,6 @@ namespace v1
 {
 Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
     try {
-        Json::Value json_result_body;
-        json_result_body["ex_1"] = core::user_sequence::replace_words_with_null("The perforator perforator shit, comes after the perforator shit! And you are done. Isn't it?", "perforator shit", "en");
-        json_result_body["ex_2"] = core::user_sequence::replace_words_with_null("Andrew and Me", "and", "en");
-        json_result_body["ex_3"] = core::user_sequence::replace_words_with_null("Seeking clarification", "clarification", "en");
-        co_return local_utils::Response::JSON_OK(callback, json_result_body);
-
         auto redis_client = app().getRedisClient();
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
