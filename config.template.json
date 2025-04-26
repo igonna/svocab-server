@@ -387,6 +387,12 @@
             "config": {
                 "frequent_words_dir": "./frequent_words"
             }
+        },
+        {
+            "name": "SMTPMail",
+            "dependencies": [],
+            "config": {
+            }
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 
