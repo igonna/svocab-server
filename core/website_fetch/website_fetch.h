@@ -5,8 +5,12 @@
 #include <stdexcept>
 #include <curl/curl.h>
 #include "utils/utils.h"
+#include <drogon/utils/coroutine.h>
+#include <drogon/drogon.h>
 
 namespace core::website_fetch {
+
+drogon::Task<std::string> fetch_website_coro(const std::string &url, int32_t redirect_limit = 5);
 
 class CurlFetchWebsite {
 public:

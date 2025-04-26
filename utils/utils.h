@@ -106,6 +106,45 @@ namespace url {
 
         return {scheme, host, path};
     }
+
+    static std::tuple<std::string, uint16_t> extract_host_and_port_from_url(std::string_view url) {
+        std::string host;
+        std::string port;
+    
+        bool found_colon = false;
+        bool found_slashes = false;
+        uint32_t slash_count = 0;
+    
+        for (char c : url) {
+            if (c == '/') {
+                ++slash_count;
+                if (slash_count == 2) {
+                    found_slashes = true;
+                }
+                continue;
+            }
+    
+            if (found_slashes) {
+                if (c == ':') {
+                    found_colon = true;
+                    continue;
+                }
+    
+                if (!found_colon) {
+                    host += c;
+                } else {
+                    port += c;
+                }
+            }
+        }
+    
+        if (host.empty()) {
+            throw std::runtime_error("not_valid_host");
+        }
+    
+        return {host, std::stoi(port)};
+    }
+    
 }
 
 // utils

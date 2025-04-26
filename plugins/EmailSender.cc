@@ -5,6 +5,9 @@
 #include <unicode/normalizer2.h>
 #include <drogon/HttpClient.h>
 #include <curl/curl.h>
+#include "utils/utils.h"
+#include <drogon/drogon.h>
+#include "plugins/SMTPMail/SMTPMail.h"
 
 
 class CurlSendEmail {
@@ -168,14 +171,29 @@ void EmailSender::send_email(const std::string& email, const std::string& code) 
         throw std::runtime_error("not valid smtp config");
     }
 
-    std::string payload = "From: svocab <" + smtp_user + ">\r\n" +
-        "To: <" + email + ">\r\n" +
-        "Subject: code " + code + "\r\n" +
-        "Content-Type: text/html\r\n" +
-        "\r\n" +
-        "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
+    // std::string payload = "From: svocab <" + smtp_user + ">\r\n" +
+    //     "To: <" + email + ">\r\n" +
+    //     "Subject: code " + code + "\r\n" +
+    //     "Content-Type: text/html\r\n" +
+    //     "\r\n" +
+    //     "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
 
-    CurlSendEmail(std::move(payload)).send_email(smtp_server, smtp_user, smtp_password, email, code);
+    // CurlSendEmail(std::move(payload)).send_email(smtp_server, smtp_user, smtp_password, email, code);
+
+    auto [host, port] = local_utils::url::extract_host_and_port_from_url(smtp_server);
+    auto smtp_mail_plugin = app().getPlugin<SMTPMail>();
+
+    smtp_mail_plugin->sendEmail(
+        host,
+        port,
+        smtp_user,
+        email,
+        "code " + code,
+        "<html><body><h1>code: " + code + "</h1></body></html>",
+        smtp_user,
+        smtp_password,
+        true
+    );
 }
 
 std::string EmailSender::get_email_type(const std::string& email) {

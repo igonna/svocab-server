@@ -18,8 +18,7 @@ drogon::Task<> LinkExtractor::init(drogon::HttpRequestPtr req, const std::string
     }
 
     try {
-        core::website_fetch::CurlFetchWebsite website_fetcher;
-        std::string website_body = website_fetcher.fetch_html(url);
+        std::string website_body = co_await core::website_fetch::fetch_website_coro(url);
 
         std::tie(title, website_body) = core::text_extraction::extract_text_and_title_from_html(website_body);
 
