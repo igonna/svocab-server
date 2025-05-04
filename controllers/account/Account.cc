@@ -155,7 +155,7 @@ Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpR
 
         // delete account
         auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
-        co_await transaction->execSqlCoro("update users set email_before_delete = email, email = NULL, is_deleted = TRUE, delete_date = NOW() where user_id = $1", user_id);
+        co_await transaction->execSqlCoro("update users set email_before_delete = email, email = NULL, is_deleted = TRUE, delete_date = NOW() where id = $1", user_id);
         co_await transaction->execSqlCoro("update user_devices set device_refresh_token = NULL where user_id = $1", user_id);
 
         transaction->setCommitCallback([moved_callback = std::move(callback)](bool success) -> void {

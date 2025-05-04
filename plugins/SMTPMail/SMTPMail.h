@@ -1,6 +1,7 @@
 #pragma once
 
 #include <drogon/plugins/Plugin.h>
+#include <drogon/utils/coroutine.h>
 
 class SMTPMail : public drogon::Plugin<SMTPMail>
 {

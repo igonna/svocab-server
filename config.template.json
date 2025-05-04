@@ -361,7 +361,8 @@
             "config": {
                 "server": "${SMTP_SERVER}",
                 "user": "${SMTP_USER}",
-                "password": "${SMTP_PASSWORD}"
+                "password": "${SMTP_PASSWORD}",
+                "smtp_proxy_url": "${SMTP_PROXY_URL}"
             }
         },
         {
@@ -386,12 +387,6 @@
             "dependencies": [],
             "config": {
                 "frequent_words_dir": "./frequent_words"
-            }
-        },
-        {
-            "name": "SMTPMail",
-            "dependencies": [],
-            "config": {
             }
         }
     ],

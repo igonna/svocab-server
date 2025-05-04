@@ -29,8 +29,12 @@ public:
             // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
             curl_easy_setopt(curl, CURLOPT_USERNAME, smtp_user.c_str());
             curl_easy_setopt(curl, CURLOPT_PASSWORD, smtp_password.c_str());
+
             curl_easy_setopt(curl, CURLOPT_URL, smtp_server.c_str());
             curl_easy_setopt(curl, CURLOPT_MAIL_FROM, smtp_user.c_str());
+
+            // // Enable STARTTLS
+            // curl_easy_setopt(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_ALL);
 
             recipients = curl_slist_append(recipients, email.c_str());
             curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
@@ -90,6 +94,7 @@ void EmailSender::initAndStart(const Json::Value &config)
     smtp_server = config["server"].asString();
     smtp_user = config["user"].asString();
     smtp_password = config["password"].asString();
+    smtp_proxy_url = config["smtp_proxy_url"].asString();
 }
 
 void EmailSender::shutdown() 
@@ -171,29 +176,66 @@ void EmailSender::send_email(const std::string& email, const std::string& code) 
         throw std::runtime_error("not valid smtp config");
     }
 
-    // std::string payload = "From: svocab <" + smtp_user + ">\r\n" +
-    //     "To: <" + email + ">\r\n" +
-    //     "Subject: code " + code + "\r\n" +
-    //     "Content-Type: text/html\r\n" +
-    //     "\r\n" +
-    //     "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
+    std::string payload = "From: svocab <" + smtp_user + ">\r\n" +
+        "To: <" + email + ">\r\n" +
+        "Subject: code " + code + "\r\n" +
+        "Content-Type: text/html\r\n" +
+        "\r\n" +
+        "<html><body><h1>code: " + code + "</h1></body></html>\r\n";
 
-    // CurlSendEmail(std::move(payload)).send_email(smtp_server, smtp_user, smtp_password, email, code);
+    auto smtp_server_ = smtp_server;
+    auto smtp_user_ = smtp_user;
+    auto smtp_password_ = smtp_password;
 
-    auto [host, port] = local_utils::url::extract_host_and_port_from_url(smtp_server);
-    auto smtp_mail_plugin = app().getPlugin<SMTPMail>();
+    std::thread([=]{
+        CurlSendEmail(std::move(payload)).send_email(smtp_server_, smtp_user_, smtp_password_, email, code);
+    }).detach();
 
-    smtp_mail_plugin->sendEmail(
-        host,
-        port,
-        smtp_user,
-        email,
-        "code " + code,
-        "<html><body><h1>code: " + code + "</h1></body></html>",
-        smtp_user,
-        smtp_password,
-        true
-    );
+    // auto [host, port] = local_utils::url::extract_host_and_port_from_url(smtp_server);
+    // auto smtp_mail_plugin = app().getPlugin<SMTPMail>();
+
+    // smtp_mail_plugin->sendEmail(
+    //     host,
+    //     port,
+    //     smtp_user,
+    //     email,
+    //     "code " + code,
+    //     "<html><body><h1>code: " + code + "</h1></body></html>",
+    //     smtp_user,
+    //     smtp_password,
+    //     true
+    // );
+}
+
+drogon::Task<> EmailSender::send_email_coro(const std::string& email, const std::string& code) {
+    auto [host, path] = local_utils::url::extract_host_and_path_from_url(smtp_proxy_url);
+
+    auto client = HttpClient::newHttpClient(host);
+
+    auto [smtp_host, smtp_port] = local_utils::url::extract_host_and_port_from_url(smtp_server);
+
+    Json::Value json;
+    json["smtp_server_addr"] = smtp_host + ':' + std::to_string(smtp_port);
+    json["username"] = smtp_user;
+    json["password"] = smtp_password;
+    json["subject"] = "Your code " + code;
+    json["message"] = "<html><body><h1>Your code: " + code + "</h1></body></html>";
+    json["to"] = email;
+    json["is_html"] = true;
+
+    auto req = HttpRequest::newHttpJsonRequest(json);
+    req->setMethod(Post);
+    req->setPath(path);
+
+    auto result = co_await client->sendRequestCoro(req);
+
+    if (result->getStatusCode() == drogon::k200OK) {
+        co_return;
+    } else {
+        throw std::runtime_error(
+            "Failed to send email, code: " + std::to_string(result->getStatusCode()) + " error: " + std::string(result->getBody())
+        );
+    }
 }
 
 std::string EmailSender::get_email_type(const std::string& email) {

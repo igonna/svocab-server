@@ -67,7 +67,7 @@ Task<> SignIn::getCodeForEmailSignIn(HttpRequestPtr req, std::function<void(cons
 
     // send code to email
     try {
-        app().getPlugin<EmailSender>()->send_email(email, email_code);
+        co_await app().getPlugin<EmailSender>()->send_email_coro(email, email_code);
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
         co_return local_utils::Response::Error::SERVER_ERROR(callback);

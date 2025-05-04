@@ -19,6 +19,8 @@ public:
 
 	std::string get_email_type(const std::string& email);
 
+	drogon::Task<> send_email_coro(const std::string& email, const std::string& code);
+
 public:
 	// exceptions
 	struct google_token_not_valid_exception : public std::exception {
@@ -31,4 +33,5 @@ private:
     std::string smtp_server;
     std::string smtp_user;
     std::string smtp_password;
+	std::string smtp_proxy_url;
 };
