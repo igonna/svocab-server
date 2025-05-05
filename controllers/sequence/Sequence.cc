@@ -60,7 +60,9 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
         auto group_info = co_await core::user_sequence::UserGroup::get_group_info(users_db, user_id);
         auto current_user_item = co_await core::user_sequence::get_current_user_item(users_db, user_id);
 
-        if (current_user_item.has_value() && !group_info.is_group_expired() && !did_user_hide_item) {
+        bool is_group_generation_required = group_info.is_group_expired() || group_info.is_user_added_new_content() || did_user_hide_item || !current_user_item.has_value();
+
+        if (current_user_item.has_value() && !is_group_generation_required) {
             Json::Value group_result_json = Json::nullValue;
             if (core::user_sequence::ItemType::result == current_user_item.value().type) {
                 bool group_size_updated = false;
@@ -74,7 +76,6 @@ Task<> Sequence::getItem(HttpRequestPtr req, std::function<void(const HttpRespon
             co_return local_utils::Response::JSON_OK(callback, current_item_json);
         }
 
-        bool is_group_generation_required = group_info.is_group_expired() || group_info.is_user_added_new_content() || did_user_hide_item || !current_user_item.has_value();
         if (is_group_generation_required) {
             // bool user_has_subscription = false;
             bool user_has_subscription = true;

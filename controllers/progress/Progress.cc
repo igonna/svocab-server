@@ -61,7 +61,7 @@ Task<> Progress::removeHiddenWord(HttpRequestPtr req, std::function<void(const H
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
         co_await users_db->execSqlCoro(
-            "update user_words set is_hidden = false where user_id = $1 and src_lang = $2 and word = $3",
+            "update user_words set is_hidden = false, last_update_time = 0 where user_id = $1 and src_lang = $2 and word = $3",
             user_id, src_lang, word
         );
 

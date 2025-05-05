@@ -280,7 +280,8 @@ drogon::Task<> set_user_word_hidden(drogon::orm::DbClientPtr users_db, uint64_t 
     co_await users_db->execSqlCoro(
         "insert into user_words (user_id, src_lang, word, is_hidden, last_update_time) "
         "values ($1, $2, $3, TRUE, $4) "
-        "on conflict (user_id, src_lang, word) do update set last_update_time = EXCLUDED.last_update_time",
+        "on conflict (user_id, src_lang, word) do update set last_update_time = EXCLUDED.last_update_time"
+        ", is_hidden = EXCLUDED.is_hidden ",
         user_id, src_lang, word, time_now
     );
 }
