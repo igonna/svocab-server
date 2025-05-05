@@ -29,7 +29,7 @@ Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpRe
         co_return local_utils::Response::Error::ERROR(callback, k401Unauthorized, "");
     }
 
-    auto ip_addr = local_utils::ip::get_ip_addr_from_request(req);
+    auto remote_addr = local_utils::ip::ip4_num_to_str(local_utils::ip::get_ip_addr_from_request(req));
 
     auto time_now = local_utils::time::get_unix_timestamp();
     if (device_name.empty()) {
@@ -46,7 +46,7 @@ Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpRe
             device_model,
             device_name,
             time_now,
-            ip_addr,
+            remote_addr,
             user_id,
             device_num,
             device_refresh_token
@@ -66,7 +66,7 @@ Task<> Devices::getBareToken(HttpRequestPtr req, std::function<void(const HttpRe
         }
 
         auto session_result = co_await users_db->execSqlCoro(
-            "insert into user_sessions (user_id, started_at, finished_at, ip_address) values ($1, $2, $3, $4) returning session_id", user_id, time_now, time_now, ip_addr
+            "insert into user_sessions (user_id, ip_address) values ($1, $2) returning session_id", user_id, remote_addr
         );
 
         if (session_result.empty()) {

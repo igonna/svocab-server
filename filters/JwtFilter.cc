@@ -42,11 +42,10 @@ void JwtFilter::doFilter(const HttpRequestPtr &req, FilterCallback &&fcb, Filter
             }
 
             auto users_db = app().getDbClient(local_constants::users_db);
-            auto time_now = local_utils::time::get_unix_timestamp();
 
             std::ignore = users_db->execSqlCoro(
-                "update user_sessions set finished_at = $1, interactions = interactions + 1 where user_id = $2 and session_id = $3",
-                time_now, user_id, session_id
+                "update user_sessions set finished_at = NOW(), interactions = interactions + 1 where user_id = $1 and session_id = $2",
+                user_id, session_id
             );
 
             fccb();

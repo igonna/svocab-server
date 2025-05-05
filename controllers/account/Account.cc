@@ -68,8 +68,9 @@ Task<> Account::registerAccount(HttpRequestPtr req, std::function<void(const Htt
             " values ($1, $2, $3, $4, $5)", 
             user_id, src_lang, dst_lang, true, local_utils::time::get_unix_timestamp()
         );
-        co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
-            user_id, device_num, device_refresh_token
+
+        co_await transaction->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token, last_ip_address) values ($1, $2, $3, $4)", 
+            user_id, device_num, device_refresh_token, remote_addr
         );
         co_await transaction->execSqlCoro("insert into user_limits (user_id) values ($1)", user_id);
         co_await transaction->execSqlCoro("insert into user_group (user_id) values ($1)", user_id);

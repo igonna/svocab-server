@@ -37,16 +37,16 @@ CREATE TABLE user_devices (
 
     device_refresh_token CHAR(16),
     token_last_request_time INT NOT NULL DEFAULT 0,
-    last_ip_address INT NOT NULL DEFAULT 0,
+    last_ip_address INET NOT NULL,
     PRIMARY KEY (user_id, device_num)
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_sessions (
     session_id BIGSERIAL,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    started_at INT NOT NULL,
-    finished_at INT NOT NULL,
-    ip_address INT NOT NULL,
+    started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    ip_address INET NOT NULL,
     interactions INT NOT NULL DEFAULT 0,
     PRIMARY KEY (session_id, user_id)
 ) PARTITION BY HASH (user_id);
