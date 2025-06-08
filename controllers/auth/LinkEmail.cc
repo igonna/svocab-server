@@ -204,4 +204,61 @@ Task<> LinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(con
 
     callback(HttpResponse::newHttpResponse());
 }
+
+
+
+// #include <jwt-cpp/jwt.h>
+
+// const std::string APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys";
+// const std::string APPLE_ISSUER = "https://appleid.apple.com";
+// const std::string APP_BUNDLE_ID = "com.your.app";
+
+// void verifyAppleToken(const std::string &identityToken, std::function<void(json)> callback) {
+//     auto client = HttpClient::newHttpClient("https://appleid.apple.com");
+//     auto req = HttpRequest::newHttpRequest();
+//     req->setPath("/auth/keys");
+
+//     client->sendRequest(req, [identityToken, callback](ReqResult result, const HttpResponsePtr &resp) {
+//         if (result != ReqResult::Ok) {
+//             std::cerr << "Failed to fetch Apple public keys." << std::endl;
+//             return;
+//         }
+
+//         auto body = resp->getBody();
+//         auto jwks = json::parse(body->data(), body->data() + body->length());
+//         auto keys = jwks["keys"];
+
+//         for (const auto &key : keys) {
+//             try {
+//                 auto decoded = jwt::decode(identityToken);
+
+//                 auto verifier = jwt::verify()
+//                     .allow_algorithm(jwt::algorithm::rs256(
+//                         key["n"].get<std::string>(),
+//                         key["e"].get<std::string>(),
+//                         "", ""  // No private key needed
+//                     ))
+//                     .with_issuer(APPLE_ISSUER)
+//                     .with_audience(APP_BUNDLE_ID);
+
+//                 verifier.verify(decoded);
+
+//                 json payload = json::parse(decoded.get_payload());
+//                 callback(payload);  // Success
+//                 return;
+//             } catch (const std::exception &e) {
+//                 continue;  // Try next key
+//             }
+//         }
+
+//         std::cerr << "Apple token verification failed." << std::endl;
+//     });
+// }
+
+
+
+
+Task<> LinkEmail::linkAppleToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    co_return;
+}
 };

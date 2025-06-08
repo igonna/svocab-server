@@ -20,6 +20,13 @@ namespace json {
         auto json_str = Json::writeString(writer, json);
         return json_str;
     }
+
+    static const Json::Value& get_checked(const Json::Value& j, const std::string& key) {
+        if (!j.isMember(key)) {
+            throw std::runtime_error("Missing key: " + key);
+        }
+        return j[key];
+    }
 }
 
 namespace random {
@@ -188,6 +195,11 @@ namespace redis {
 
     static inline std::string create_blocked_user_focus_group_generation_key(uint64_t user_id) {
         return std::string("blcked-focus-gg-") + std::to_string(user_id);
+    }
+
+
+    static inline std::string create_block_verify_subscription_key(uint64_t user_id) {
+        return std::string("subscr-upd-") + std::to_string(user_id);
     }
 }
 

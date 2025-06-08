@@ -389,19 +389,20 @@ static drogon::Task<bool> is_banned_word_exists(drogon::orm::DbClientPtr transla
 }
 
 static drogon::Task<bool> does_user_have_subscription(drogon::orm::DbClientPtr users_db, uint64_t user_id) {
-    auto result = co_await users_db->execSqlCoro("select 1 from user_google_play_subscription where user_id = $1 limit 1", user_id);
-
-    if (result.size()) {
-        co_return true;
-    }
-
-    bool is_user_tester = co_await is_user_of_sepcial_user_type(users_db, user_id, "tester");
-
-    if (is_user_tester) {
-        co_return true;
-    }
-
     co_return false;
+    // auto result = co_await users_db->execSqlCoro("select 1 from user_google_play_subscription where user_id = $1 limit 1", user_id);
+
+    // if (result.size()) {
+    //     co_return true;
+    // }
+
+    // bool is_user_tester = co_await is_user_of_sepcial_user_type(users_db, user_id, "tester");
+
+    // if (is_user_tester) {
+    //     co_return true;
+    // }
+
+    // co_return false;
 }
 
 namespace user_limits {

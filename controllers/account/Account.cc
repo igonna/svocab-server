@@ -9,6 +9,7 @@
 #include <chrono>
 #include "core/device/revoke.h"
 #include "plugins/EmailSender.h"
+#include "plugins/RevenueCat/RevenueCat.h"
 
 using namespace drogon;
 
@@ -106,18 +107,23 @@ Task<> Account::getAccountInfo(HttpRequestPtr req, std::function<void(const Http
 
         auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-        auto result = co_await users_db->execSqlCoro("SELECT u.id, u.email, CASE WHEN us.user_id IS NOT NULL THEN TRUE ELSE FALSE END "
-            "AS has_subscription FROM users u LEFT JOIN user_google_play_subscription us ON u.id = us.user_id WHERE u.id = $1",
-            user_id
+        auto result = co_await users_db->execSqlCoro(
+            " SELECT urs.id, urs.email, aurs.apple_id"
+            " FROM users urs"
+            " LEFT JOIN apple_id_users aurs ON urs.id = aurs.user_id"
+            " WHERE urs.id = $1", user_id
         );
+        auto revenue_cat_plugin = app().getPlugin<RevenueCat>();
+        auto has_subscription = co_await revenue_cat_plugin->is_user_subscriber(user_id);
 
         email = result[0]["email"].as<std::string>();
-        has_subscription = result[0]["has_subscription"].as<bool>();
+        auto email_type = result[0]["apple_id"].isNull() ? app().getPlugin<EmailSender>()->get_email_type(email) : "apple";
 
         Json::Value json_resp;
         json_resp["email"] = email;
-        json_resp["email_type"] = app().getPlugin<EmailSender>()->get_email_type(email);
+        json_resp["email_type"] = email_type;
         json_resp["has_subscription"] = has_subscription;
+        json_resp["user_id"] = user_id;
 
         co_return local_utils::Response::JSON_OK(callback, json_resp);
     } catch (const std::exception& e) {

@@ -34,6 +34,12 @@ namespace exception {
         }
     };
 
+    struct too_many_requests_exception : public custom_exception {
+        const char* what() const noexcept override {
+            return "too_many_requests_exception";
+        }
+    };
+
     struct systems_are_busy : public custom_exception {
         const char* what() const noexcept override {
             return "systems_are_busy";

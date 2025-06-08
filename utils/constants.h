@@ -47,6 +47,8 @@ namespace local_constants {
 
     static const constexpr uint32_t user_blocked_focus_group_generation_seconds = 60*3;
 
+    static const constexpr uint32_t user_blocked_subscription_update_seconds = 10;
+
 namespace word_frequency {
     const uint32_t first_word_frequency = 10000000;
 }

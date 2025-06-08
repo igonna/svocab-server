@@ -1,5 +1,3 @@
-// #include <drogon/orm/DbClient.h>
-
 #include "devices_info.h"
 
 #include <unicode/uchar.h>

@@ -127,6 +127,8 @@ Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResp
     uint32_t device_num;
     std::string device_refresh_token = core::token::create_device_token();
 
+    auto remote_addr = local_utils::ip::ip4_num_to_str(local_utils::ip::get_ip_addr_from_request(req));
+
     // update user and insert device
     try {
         // update last device num
@@ -146,8 +148,8 @@ Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResp
         user_id = selectResult[0]["id"].as<uint32_t>();
         device_num = selectResult[0]["last_device_num"].as<uint32_t>();
 
-        co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token) values ($1, $2, $3)", 
-            user_id, device_num, device_refresh_token
+        co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token, last_ip_address) values ($1, $2, $3, $4)", 
+            user_id, device_num, device_refresh_token, remote_addr
         );
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();

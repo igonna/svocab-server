@@ -13,6 +13,13 @@ CREATE TABLE users (
     UNIQUE (id, email)
 ) PARTITION BY HASH (id);
 
+CREATE TABLE apple_id_users (
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    apple_id TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (user_id, apple_id)
+) PARTITION BY HASH (user_id);
+
 CREATE TABLE user_offers (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     offer_type SMALLINT NOT NULL,
@@ -137,17 +144,17 @@ CREATE TABLE user_words (
     PRIMARY KEY (user_id, src_lang, word)
 ) PARTITION BY HASH (user_id);
 
-CREATE TABLE user_google_play_subscription (
+CREATE TABLE user_revenue_cat_subscription (
     user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    subscription_id VARCHAR(255) NOT NULL,
-    purchase_token VARCHAR(255) NOT NULL,
+    product_id TEXT NOT NULL,
     purchase_time TIMESTAMP NOT NULL,
-    expiry_date TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    last_verify_date TIMESTAMP NOT NULL,
-    last_notification_code TEXT NOT NULL,
-    expiry_time INT NOT NULL
+    expires_time TIMESTAMP NOT NULL,
+    last_verify_time TIMESTAMP NOT NULL DEFAULT NOW()
 ) PARTITION BY HASH (user_id);
+
+CREATE TABLE no_payment_subscribers (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE
+);
 
 CREATE TABLE users_p0 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE users_p1 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 1);
@@ -158,6 +165,16 @@ CREATE UNIQUE INDEX idx_unique_email_p0 ON users_p0 (id, email);
 CREATE UNIQUE INDEX idx_unique_email_p1 ON users_p1 (id, email);
 CREATE UNIQUE INDEX idx_unique_email_p2 ON users_p2 (id, email);
 CREATE UNIQUE INDEX idx_unique_email_p3 ON users_p3 (id, email);
+
+CREATE TABLE apple_id_users_p0 PARTITION OF apple_id_users FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE apple_id_users_p1 PARTITION OF apple_id_users FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE apple_id_users_p2 PARTITION OF apple_id_users FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE apple_id_users_p3 PARTITION OF apple_id_users FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+
+CREATE UNIQUE INDEX idx_unique_apple_id_p0 ON apple_id_users_p0 (user_id, apple_id);
+CREATE UNIQUE INDEX idx_unique_apple_id_p1 ON apple_id_users_p1 (user_id, apple_id);
+CREATE UNIQUE INDEX idx_unique_apple_id_p2 ON apple_id_users_p2 (user_id, apple_id);
+CREATE UNIQUE INDEX idx_unique_apple_id_p3 ON apple_id_users_p3 (user_id, apple_id);
 
 CREATE TABLE user_offers_p0 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_offers_p1 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 1);
@@ -214,7 +231,7 @@ CREATE TABLE user_words_p1 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, R
 CREATE TABLE user_words_p2 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE user_words_p3 PARTITION OF user_words FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE TABLE user_google_play_subscription_p0 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 0);
-CREATE TABLE user_google_play_subscription_p1 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 1);
-CREATE TABLE user_google_play_subscription_p2 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 2);
-CREATE TABLE user_google_play_subscription_p3 PARTITION OF user_google_play_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+CREATE TABLE user_revenue_cat_subscription_p0 PARTITION OF user_revenue_cat_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE user_revenue_cat_subscription_p1 PARTITION OF user_revenue_cat_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE user_revenue_cat_subscription_p2 PARTITION OF user_revenue_cat_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE user_revenue_cat_subscription_p3 PARTITION OF user_revenue_cat_subscription FOR VALUES WITH (MODULUS 4, REMAINDER 3);

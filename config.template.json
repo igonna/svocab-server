@@ -388,6 +388,16 @@
             "config": {
                 "frequent_words_dir": "./frequent_words"
             }
+        },
+        {
+            "name": "RevenueCat",
+            "dependencies": [],
+            "config": {
+                "url": "https://api.revenuecat.com/v1/subscribers",
+                "api_key": "Bearer ${REVENUE_CAT_SECRET_API_KEY}",
+                "project_id": "${REVENUE_CAT_PROJECT_ID}",
+                "webhook_key": "${REVENUE_CAT_WEBHOOK_KEY}"
+            }
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 

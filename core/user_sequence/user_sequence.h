@@ -14,7 +14,7 @@ namespace core::user_sequence {
 
     drogon::Task<std::vector<core::phrases_generator::FocusGroupPhrase>> generate_group_phrases(
         drogon::orm::DbClientPtr users_db,
-        uint32_t user_id,
+        uint64_t user_id,
         bool user_has_subscription,
         std::vector<core::user_sequence_words::SequenceUserWord>& user_words_sequence,
         uint32_t group_size
