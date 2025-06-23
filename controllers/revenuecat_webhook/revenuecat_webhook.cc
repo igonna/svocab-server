@@ -14,10 +14,10 @@ Task<> RevenueCatWebhook::revenueCatWebhook(HttpRequestPtr req, std::function<vo
     if (!json) throw std::runtime_error("not a json");
 
     const auto& event = local_utils::json::get_checked(*json, "event");
-    auto app_user_id_json = local_utils::json::get_checked(event, "app_user_id");
+    auto app_user_id_str = local_utils::json::get_checked(event, "app_user_id").asString();
 
-    if (!app_user_id_json.isNumeric()) throw std::runtime_error("id is not numeric");
-    auto app_user_id = app_user_id_json.as<uint64_t>();
+    if (!local_utils::strings::is_string_numeric(app_user_id_str)) throw std::runtime_error("id is not numeric");
+    auto app_user_id = std::stoull(app_user_id_str);
 
     auto users_db = app().getDbClient(local_constants::users_db);
     std::ignore = co_await revenue_cat_plugin->update_user_subscription_status(app_user_id, users_db);

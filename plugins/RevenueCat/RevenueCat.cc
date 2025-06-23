@@ -21,18 +21,19 @@ drogon::Task<bool> RevenueCat::is_user_subscriber(const uint64_t user_id) try {
     auto users_db = app().getDbClient(local_constants::users_db);
 
     auto result = co_await users_db->execSqlCoro(
-        "SELECT COALESCE(urs.user_id, nps.user_id) AS user_id,"
-            " urs.expires_time,"
-            " urs.last_verify_time,"
-            " (nps.user_id IS NOT NULL) AS is_user_free_subscriber,"
-            " (urs.expires_time >= now()) AS is_subscription_active,"
-            " COALESCE(now() >= urs.expires_time + interval '1 hour', false) AS is_expired_more_than_1hr,"
-            " COALESCE(now() >= urs.last_verify_time + interval '3 minutes', false) AS is_short_verify_delay_elapsed,"
-            " COALESCE(now() >= urs.last_verify_time + interval '6 hours', false) AS is_long_verify_delay_elapsed"
-        " FROM no_payment_subscribers nps"
-        " FULL OUTER JOIN user_revenue_cat_subscription urs ON urs.user_id = nps.user_id"
-        " WHERE COALESCE(urs.user_id, nps.user_id) = $1", user_id
+        "SELECT COALESCE(urs.user_id, nps.user_id) AS user_id, "
+        "urs.expires_time, "
+        "urs.last_verify_time, "
+        "(nps.user_id IS NOT NULL) AS is_user_free_subscriber, "
+        "(urs.expires_time >= now()) AS is_subscription_active, "
+        "COALESCE(now() >= urs.expires_time + interval '1 hour', false) AS is_expired_more_than_1hr, "
+        "COALESCE(now() >= urs.last_verify_time + interval '3 minutes', false) AS is_short_verify_delay_elapsed, "
+        "COALESCE(now() >= urs.last_verify_time + interval '6 hours', false) AS is_long_verify_delay_elapsed "
+        "FROM no_payment_subscribers nps "
+        "FULL OUTER JOIN user_revenue_cat_subscription urs ON urs.user_id = nps.user_id "
+        "WHERE COALESCE(urs.user_id, nps.user_id) = $1", user_id
     );
+
 
     if (result.empty()) co_return false;
 

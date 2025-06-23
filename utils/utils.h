@@ -302,6 +302,10 @@ namespace strings {
     void replace_all(std::string& str, const std::string& from, const std::string& to);
 
     std::string get_capitalized_string(const std::string& str);
+
+    static bool is_string_numeric(const std::string& s) {
+        return !s.empty() && std::find_if(s.begin(), s.end(), [](unsigned char c) { return !std::isdigit(c); }) == s.end();
+    }
 }
 
 namespace translations_db {
