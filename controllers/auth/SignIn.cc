@@ -3,6 +3,7 @@
 #include "utils/constants.h"
 #include "plugins/EmailSender.h"
 #include "core/token/token.h"
+#include "plugins/AppleId/AppleId.h"
 
 namespace v1
 {
@@ -145,7 +146,7 @@ Task<> SignIn::signInEmail(HttpRequestPtr req, std::function<void(const HttpResp
             throw std::runtime_error("failed_to_select_user_data");
         }
 
-        user_id = selectResult[0]["id"].as<uint32_t>();
+        user_id = selectResult[0]["id"].as<uint64_t>();
         device_num = selectResult[0]["last_device_num"].as<uint32_t>();
 
         co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token, last_ip_address) values ($1, $2, $3, $4)", 
@@ -209,7 +210,7 @@ Task<> SignIn::signInGoogle(HttpRequestPtr req, std::function<void(const HttpRes
             throw std::runtime_error("failed_to_select_user_data");
         }
 
-        user_id = selectResult[0]["id"].as<uint32_t>();
+        user_id = selectResult[0]["id"].as<uint64_t>();
         device_num = selectResult[0]["last_device_num"].as<uint32_t>();
 
         co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token, last_ip_address) values ($1, $2, $3, $4)", 
@@ -223,5 +224,43 @@ Task<> SignIn::signInGoogle(HttpRequestPtr req, std::function<void(const HttpRes
     auto resp = HttpResponse::newHttpResponse();
     resp->setBody(core::token::create_device_refresh_token(user_id, device_num, device_refresh_token));
     co_return callback(resp);
+}
+
+Task<> SignIn::signInApple(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) try {
+    auto token = req->getHeader("token");
+
+    if (token.empty()) co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_token");
+
+    auto apple_id_plugin = app().getPlugin<AppleId>();
+    auto [apple_user_id, apple_user_email] = co_await apple_id_plugin->get_email_from_apple_id_token(token);
+
+    auto users_db = app().getDbClient(local_constants::users_db);
+    auto result = co_await users_db->execSqlCoro("select user_id from apple_id_users where apple_id = $1 limit 1", apple_user_id);
+
+    if (result.empty()) co_return local_utils::Response::Error::FORBIDDEN(callback, "user_not_exists");
+
+    auto user_id = result[0]["user_id"].as<uint64_t>();
+    std::string device_refresh_token = core::token::create_device_token();
+
+    auto remote_addr = local_utils::ip::ip4_num_to_str(local_utils::ip::get_ip_addr_from_request(req));
+
+    // update last device num
+    auto last_device_num_result = co_await users_db->execSqlCoro(
+        "update users set last_device_num = last_device_num + 1 where id = $1 returning last_device_num", user_id
+    );
+
+    if (last_device_num_result.empty()) throw std::runtime_error("last_device_num_result empty");
+
+    auto device_num = last_device_num_result[0]["last_device_num"].as<uint32_t>();
+
+    co_await users_db->execSqlCoro("insert into user_devices (user_id, device_num, device_refresh_token, last_ip_address) values ($1, $2, $3, $4)", 
+        user_id, device_num, device_refresh_token, remote_addr
+    );
+
+    auto refresh_token = core::token::create_device_refresh_token(user_id, device_num, device_refresh_token);
+    co_return local_utils::Response::Error::ERROR(callback, k200OK, refresh_token.c_str());
+} catch (const std::exception& e) {
+    LOG_ERROR << e.what();
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 }

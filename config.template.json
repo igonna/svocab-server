@@ -398,6 +398,13 @@
                 "project_id": "${REVENUE_CAT_PROJECT_ID}",
                 "webhook_key": "${REVENUE_CAT_WEBHOOK_KEY}"
             }
+        },
+        {
+            "name": "AppleId",
+            "dependencies": [],
+            "config": {
+                "bundle_id": "${APPLE_BUNDLE_ID}"
+            }
         }
     ],
     //custom_config: custom configuration for users. This object can be get by the app().getCustomConfig() method. 

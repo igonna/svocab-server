@@ -2,6 +2,7 @@
 #include "utils/utils.h"
 #include "utils/constants.h"
 #include "plugins/EmailSender.h"
+#include "plugins/AppleId/AppleId.h"
 
 namespace v1
 {
@@ -205,60 +206,63 @@ Task<> LinkEmail::linkGoogleToAccount(HttpRequestPtr req, std::function<void(con
     callback(HttpResponse::newHttpResponse());
 }
 
+Task<> LinkEmail::linkAppleToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) try {
+    auto headers = req->headers();
 
+    auto token = req->getHeader("token");
 
-// #include <jwt-cpp/jwt.h>
+    if (token.empty()) co_return local_utils::Response::Error::ERROR(callback, k400BadRequest, "not_valid_token");
 
-// const std::string APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys";
-// const std::string APPLE_ISSUER = "https://appleid.apple.com";
-// const std::string APP_BUNDLE_ID = "com.your.app";
+    auto apple_id_plugin = app().getPlugin<AppleId>();
+    auto [apple_user_id, apple_user_email] = co_await apple_id_plugin->get_email_from_apple_id_token(token);
 
-// void verifyAppleToken(const std::string &identityToken, std::function<void(json)> callback) {
-//     auto client = HttpClient::newHttpClient("https://appleid.apple.com");
-//     auto req = HttpRequest::newHttpRequest();
-//     req->setPath("/auth/keys");
+    auto user_id = local_utils::attributes::get_value<uint64_t>(req, local_constants::attributes::user_id);
 
-//     client->sendRequest(req, [identityToken, callback](ReqResult result, const HttpResponsePtr &resp) {
-//         if (result != ReqResult::Ok) {
-//             std::cerr << "Failed to fetch Apple public keys." << std::endl;
-//             return;
-//         }
+    // check if email or apple id already exists
+    try {
+        auto users_db = app().getDbClient(local_constants::users_db);
 
-//         auto body = resp->getBody();
-//         auto jwks = json::parse(body->data(), body->data() + body->length());
-//         auto keys = jwks["keys"];
+        if (apple_user_email.has_value()) {
+            auto result = co_await users_db->execSqlCoro("select 1 from users where email = $1 limit 1", apple_user_email);
+            if (result.size()) co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
+        }
 
-//         for (const auto &key : keys) {
-//             try {
-//                 auto decoded = jwt::decode(identityToken);
+        auto result = co_await users_db->execSqlCoro("select 1 from apple_id_users where apple_id = $1 limit 1", apple_user_id);
+        if (result.size()) co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
+    } catch (const std::exception& e) {
+        LOG_ERROR << e.what();
+        co_return local_utils::Response::Error::SERVER_ERROR(callback);
+    }
 
-//                 auto verifier = jwt::verify()
-//                     .allow_algorithm(jwt::algorithm::rs256(
-//                         key["n"].get<std::string>(),
-//                         key["e"].get<std::string>(),
-//                         "", ""  // No private key needed
-//                     ))
-//                     .with_issuer(APPLE_ISSUER)
-//                     .with_audience(APP_BUNDLE_ID);
+    auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
 
-//                 verifier.verify(decoded);
+    co_await transaction->execSqlCoro(
+        " insert into apple_id_users (user_id, apple_id) values ($1, $2)"
+        " on conflict (user_id, apple_id) do update set apple_id = EXCLUDED.apple_id"
+        , user_id, apple_user_id
+    );
 
-//                 json payload = json::parse(decoded.get_payload());
-//                 callback(payload);  // Success
-//                 return;
-//             } catch (const std::exception &e) {
-//                 continue;  // Try next key
-//             }
-//         }
+    if (apple_user_email.has_value()) {
+        co_await transaction->execSqlCoro("update users set email = $1 where id = $2", 
+            apple_user_email.value(), user_id
+        );
+    }
 
-//         std::cerr << "Apple token verification failed." << std::endl;
-//     });
-// }
-
-
-
-
-Task<> LinkEmail::linkAppleToAccount(HttpRequestPtr req, std::function<void(const HttpResponsePtr &)> callback) {
+    transaction->setCommitCallback([moved_callback = std::move(callback)](bool success) -> void {
+        if (success) {
+            auto resp = drogon::HttpResponse::newHttpResponse();
+            resp->setStatusCode(drogon::k200OK);
+            moved_callback(resp);
+        } else {
+            auto resp = drogon::HttpResponse::newHttpResponse();
+            resp->setStatusCode(drogon::k500InternalServerError);
+            resp->setBody("something_wrong");
+            moved_callback(resp);
+        }
+    });
     co_return;
+} catch (const std::exception& e) {
+    LOG_ERROR << e.what();
+    co_return local_utils::Response::Error::SERVER_ERROR(callback);
 }
 };
