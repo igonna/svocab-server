@@ -17,7 +17,7 @@ CREATE TABLE apple_id_users (
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     apple_id TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE (user_id, apple_id)
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE
 ) PARTITION BY HASH (user_id);
 
 CREATE TABLE user_offers (
@@ -171,10 +171,15 @@ CREATE TABLE apple_id_users_p1 PARTITION OF apple_id_users FOR VALUES WITH (MODU
 CREATE TABLE apple_id_users_p2 PARTITION OF apple_id_users FOR VALUES WITH (MODULUS 4, REMAINDER 2);
 CREATE TABLE apple_id_users_p3 PARTITION OF apple_id_users FOR VALUES WITH (MODULUS 4, REMAINDER 3);
 
-CREATE UNIQUE INDEX idx_unique_apple_id_p0 ON apple_id_users_p0 (user_id, apple_id);
-CREATE UNIQUE INDEX idx_unique_apple_id_p1 ON apple_id_users_p1 (user_id, apple_id);
-CREATE UNIQUE INDEX idx_unique_apple_id_p2 ON apple_id_users_p2 (user_id, apple_id);
-CREATE UNIQUE INDEX idx_unique_apple_id_p3 ON apple_id_users_p3 (user_id, apple_id);
+CREATE UNIQUE INDEX unique_active_user_apple_id_p0 ON apple_id_users_p0 (user_id, apple_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX unique_active_user_apple_id_p1 ON apple_id_users_p1 (user_id, apple_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX unique_active_user_apple_id_p2 ON apple_id_users_p2 (user_id, apple_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX unique_active_user_apple_id_p3 ON apple_id_users_p3 (user_id, apple_id) WHERE is_deleted = FALSE;
+
+CREATE UNIQUE INDEX unique_active_apple_id_p0 ON apple_id_users_p0 (apple_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX unique_active_apple_id_p1 ON apple_id_users_p1 (apple_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX unique_active_apple_id_p2 ON apple_id_users_p2 (apple_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX unique_active_apple_id_p3 ON apple_id_users_p3 (apple_id) WHERE is_deleted = FALSE;
 
 CREATE TABLE user_offers_p0 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 0);
 CREATE TABLE user_offers_p1 PARTITION OF user_offers FOR VALUES WITH (MODULUS 4, REMAINDER 1);

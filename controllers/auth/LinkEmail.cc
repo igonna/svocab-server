@@ -227,7 +227,7 @@ Task<> LinkEmail::linkAppleToAccount(HttpRequestPtr req, std::function<void(cons
             if (result.size()) co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
         }
 
-        auto result = co_await users_db->execSqlCoro("select 1 from apple_id_users where apple_id = $1 limit 1", apple_user_id);
+        auto result = co_await users_db->execSqlCoro("select 1 from apple_id_users where apple_id = $1 and is_deleted = false limit 1", apple_user_id);
         if (result.size()) co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
     } catch (const std::exception& e) {
         LOG_ERROR << e.what();
@@ -236,11 +236,9 @@ Task<> LinkEmail::linkAppleToAccount(HttpRequestPtr req, std::function<void(cons
 
     auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
 
-    co_await transaction->execSqlCoro(
-        " insert into apple_id_users (user_id, apple_id) values ($1, $2)"
-        " on conflict (user_id, apple_id) do update set apple_id = EXCLUDED.apple_id"
-        , user_id, apple_user_id
-    );
+    auto insert_result = co_await transaction->execSqlCoro("insert into apple_id_users (user_id, apple_id) values ($1, $2)", user_id, apple_user_id);
+
+    if (!insert_result.affectedRows()) co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
 
     if (apple_user_email.has_value()) {
         co_await transaction->execSqlCoro("update users set email = $1 where id = $2", 

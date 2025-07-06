@@ -110,9 +110,12 @@ Task<> Account::getAccountInfo(HttpRequestPtr req, std::function<void(const Http
         auto result = co_await users_db->execSqlCoro(
             " SELECT urs.id, urs.email, aurs.apple_id"
             " FROM users urs"
-            " LEFT JOIN apple_id_users aurs ON urs.id = aurs.user_id"
+            " LEFT JOIN apple_id_users aurs ON urs.id = aurs.user_id AND aurs.is_deleted = FALSE"
             " WHERE urs.id = $1", user_id
         );
+
+        if (result.empty()) throw std::runtime_error("user not exists");
+
         auto revenue_cat_plugin = app().getPlugin<RevenueCat>();
         auto has_subscription = co_await revenue_cat_plugin->is_user_subscriber(user_id);
 
@@ -164,6 +167,7 @@ Task<> Account::deleteAccount(HttpRequestPtr req, std::function<void(const HttpR
         auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
         co_await transaction->execSqlCoro("update users set email_before_delete = email, email = NULL, is_deleted = TRUE, delete_date = NOW() where id = $1", user_id);
         co_await transaction->execSqlCoro("update user_devices set device_refresh_token = NULL where user_id = $1", user_id);
+        co_await transaction->execSqlCoro("update apple_id_users set is_deleted = TRUE where user_id = $1 AND is_deleted = FALSE", user_id);
 
         transaction->setCommitCallback([moved_callback = std::move(callback)](bool success) -> void {
             if (success) {

@@ -235,7 +235,7 @@ Task<> SignIn::signInApple(HttpRequestPtr req, std::function<void(const HttpResp
     auto [apple_user_id, apple_user_email] = co_await apple_id_plugin->get_email_from_apple_id_token(token);
 
     auto users_db = app().getDbClient(local_constants::users_db);
-    auto result = co_await users_db->execSqlCoro("select user_id from apple_id_users where apple_id = $1 limit 1", apple_user_id);
+    auto result = co_await users_db->execSqlCoro("select user_id from apple_id_users where apple_id = $1 and is_deleted = false limit 1", apple_user_id);
 
     if (result.empty()) co_return local_utils::Response::Error::FORBIDDEN(callback, "user_not_exists");
 
