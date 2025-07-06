@@ -236,9 +236,7 @@ Task<> LinkEmail::linkAppleToAccount(HttpRequestPtr req, std::function<void(cons
 
     auto transaction = co_await app().getDbClient(local_constants::users_db)->newTransactionCoro();
 
-    auto insert_result = co_await transaction->execSqlCoro("insert into apple_id_users (user_id, apple_id) values ($1, $2)", user_id, apple_user_id);
-
-    if (!insert_result.affectedRows()) co_return local_utils::Response::Error::ERROR(callback, k409Conflict, "");
+    co_await transaction->execSqlCoro("insert into apple_id_users (user_id, apple_id) values ($1, $2)", user_id, apple_user_id);
 
     if (apple_user_email.has_value()) {
         co_await transaction->execSqlCoro("update users set email = $1 where id = $2", 

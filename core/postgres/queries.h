@@ -284,7 +284,20 @@ static drogon::Task<drogon::orm::Result> get_user_topics_sequences(drogon::orm::
 }
 
 static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::DbClientPtr translations_db) {
-    for (auto src_lang : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
+    const auto& langs = local_constants::languages::ai_supported_languages_sorted_by_learning_popularity;
+
+    if (langs.empty()) co_return;
+
+    const std::string& src_lang = langs.front();
+    const std::string& dst_lang = langs.back();
+
+    const std::string sentinel_table = "word_phrase_" + src_lang + "_" + dst_lang;
+
+    // check if the sentinel table exists
+    auto result = co_await translations_db->execSqlCoro("SELECT to_regclass($1)", sentinel_table);
+    if (result.size() && !result[0]["to_regclass"].isNull()) co_return;
+
+    for (auto src_lang : langs) {
 
         // create table for each src_lang
         auto banned_word_table_name = local_utils::translations_db::create_banned_word_table_name(src_lang);
@@ -312,7 +325,7 @@ static drogon::Task<> create_translations_db_tables_for_all_langs(drogon::orm::D
             " ) PARTITION BY LIST (dst_lang)"
         );
 
-        for (auto dst_lang : local_constants::languages::ai_supported_languages_sorted_by_learning_popularity) {
+        for (auto dst_lang : langs) {
             if (src_lang == dst_lang) continue;
 
             // create partition table for each dst_lang
