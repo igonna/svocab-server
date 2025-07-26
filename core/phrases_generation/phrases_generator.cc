@@ -6,6 +6,7 @@
 #include <unicode/uscript.h>
 #include <unicode/uloc.h>
 #include <unicode/unistr.h>
+#include <drogon/drogon.h>
 
 namespace core::phrases_generator {
 
@@ -137,18 +138,26 @@ void PhrasesGenerator::add_phrase(core::user_sequence_words::SequenceUserWord &u
 
 drogon::Task<std::vector<FocusGroupPhrase>> PhrasesGenerator::get_generated_phrases() {
     std::vector<FocusGroupPhrase> generated_phrases;
+    std::mutex phrases_mutex;
 
-    for (auto& [user_word_ref, generation_task] : phrases_to_generate) {
-        try {
-            auto generated_phrase = co_await generation_task;
-            generated_phrases.push_back(std::move(generated_phrase));
-        } catch (const OpenaiGeneration::word_not_valid_exception& e) {
-            user_word_ref->is_passed = true;
-        }
-    }
+    for (auto& [user_word_ref, generation_task] : phrases_to_generate)
+        drogon::async_run([t = std::move(generation_task), &generated_phrases, &user_word_ref, &phrases_mutex]() mutable -> drogon::Task<> {
+            try {
+                auto generated_phrase = co_await t;
+
+                std::lock_guard<std::mutex> lock(phrases_mutex);
+                generated_phrases.push_back(std::move(generated_phrase));
+            } catch (const OpenaiGeneration::word_not_valid_exception& e) {
+                user_word_ref->is_passed = true;
+            }
+
+            co_return;
+        });
+
+    while (generated_phrases.size() != phrases_to_generate.size())
+        co_await drogon::sleepCoro(drogon::app().getLoop(), std::chrono::duration<double>(std::chrono::milliseconds(300)));
 
     phrases_to_generate.clear();
-
     co_return generated_phrases;
 }
 
