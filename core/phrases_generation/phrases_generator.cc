@@ -139,9 +139,10 @@ void PhrasesGenerator::add_phrase(core::user_sequence_words::SequenceUserWord &u
 drogon::Task<std::vector<FocusGroupPhrase>> PhrasesGenerator::get_generated_phrases() {
     std::vector<FocusGroupPhrase> generated_phrases;
     std::mutex phrases_mutex;
+    std::atomic<uint32_t> finished_tasks_count = 0;
 
     for (auto& [user_word_ref, generation_task] : phrases_to_generate)
-        drogon::async_run([t = std::move(generation_task), &generated_phrases, &user_word_ref, &phrases_mutex]() mutable -> drogon::Task<> {
+        drogon::async_run([t = std::move(generation_task), &generated_phrases, &user_word_ref, &phrases_mutex, &finished_tasks_count]() mutable -> drogon::Task<> {
             try {
                 auto generated_phrase = co_await t;
 
@@ -151,10 +152,11 @@ drogon::Task<std::vector<FocusGroupPhrase>> PhrasesGenerator::get_generated_phra
                 user_word_ref->is_passed = true;
             }
 
+            ++finished_tasks_count;
             co_return;
         });
 
-    while (generated_phrases.size() != phrases_to_generate.size())
+    while (finished_tasks_count.load() != phrases_to_generate.size())
         co_await drogon::sleepCoro(drogon::app().getLoop(), std::chrono::duration<double>(std::chrono::milliseconds(300)));
 
     phrases_to_generate.clear();

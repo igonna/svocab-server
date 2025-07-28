@@ -6,6 +6,8 @@ CREATE TABLE word_phrase_en (
     phrase TEXT NOT NULL,
     word_translation TEXT NOT NULL,
     phrase_translation TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    seconds_spent REAL NOT NULL,
     attempts SMALLINT NOT NULL
     PRIMARY KEY (word, dst_lang)
 ) PARTITION BY LIST (dst_lang);
@@ -26,9 +28,7 @@ ON word_phrase_en_es (word_translation, dst_lang);
 -- create table for each src_lang
 CREATE TABLE banned_word_en (
     word TEXT PRIMARY KEY,
-    time_added INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    reason TEXT NOT NULL,
     attempts SMALLINT NOT NULL
 );
-
--- create index (time_added) for each src_lang
-CREATE INDEX idx_time_added_en ON (time_added);

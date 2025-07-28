@@ -7,6 +7,7 @@
 #include <unicode/uchar.h>
 #include <unicode/uscript.h>
 #include <unicode/uloc.h>
+#include <ranges>
 
 using namespace drogon;
 
@@ -84,6 +85,12 @@ std::string OpenaiGeneration::correct_phrase(std::string&& phrase, const std::st
 
     unicode_phrase.trim();
 
+    const UChar double_quote_char = u'"';
+    int32_t pos = 0;
+    while ((pos = unicode_phrase.indexOf(double_quote_char, pos)) != -1) {
+        unicode_phrase.remove(pos, 1);
+    }
+
     if (unicode_phrase.length()) {
         UChar upper_char = u_toupper(unicode_phrase.charAt(0));
         unicode_phrase.setCharAt(0, upper_char);
@@ -102,6 +109,12 @@ std::string OpenaiGeneration::correct_word(std::string&& word, const std::string
     unicode_word.toLower();
 
     unicode_word.trim();
+
+    const UChar double_quote_char = u'"';
+    int32_t pos = 0;
+    while ((pos = unicode_word.indexOf(double_quote_char, pos)) != -1) {
+        unicode_word.remove(pos, 1);
+    }
 
     core::text_processing::replace_apostrophe_for_lang(unicode_word, lang);
 
@@ -125,54 +138,48 @@ bool is_valid_dst_word(const icu::UnicodeString& word) {
     return true;
 }
 
-std::tuple<std::string, std::string, std::string> OpenaiGeneration::extract_word_phrase_from_openai_response(const std::string& response, const std::string& src_word, const std::string& src_lang, const std::string& dst_lang) {
-    std::string src_phrase, dst_phrase, dst_word;
+std::tuple<std::string, std::string, std::string> OpenaiGeneration::extract_word_phrase_from_openai_response(
+    const std::string& response, const std::string& src_word, const std::string& src_lang, const std::string& dst_lang
+) {
+    std::stringstream response_stream(response);
+    std::string part;
+    std::vector<std::string> parts;
 
-    auto str_size = response.size();
-
-    bool started = false;
-    uint8_t part_num = 0;
-
-    for (uint32_t i = 0; i < str_size; ++i) {
-        if (response[i] == '"') {
-            started = !started;
-            if (started) {
-                ++part_num;
-            }
-            continue;
-        }
-
-        if (started) {
-            if (part_num == 1) {
-                src_phrase += response[i];
-            } else if (part_num == 2) {
-                dst_phrase += response[i];
-            } else if (part_num == 3) {
-                dst_word += response[i];
-            } else {
-                throw not_valid_response_format_exception();
-            }
-        }
+    while(std::getline(response_stream, part, ';')) {
+        parts.push_back(part);
     }
 
-    src_phrase = correct_phrase(std::move(src_phrase), src_lang);
-    dst_phrase = correct_phrase(std::move(dst_phrase), dst_lang);
-    dst_word = correct_word(std::move(dst_word), dst_lang);
+    if (parts.size() != 3) {
+        throw not_valid_response_format_exception();
+    }
+
+    auto src_phrase = correct_phrase(std::move(parts[0]), src_lang);
+    auto dst_phrase = correct_phrase(std::move(parts[1]), dst_lang);
+    auto dst_word = correct_word(std::move(parts[2]), dst_lang);
 
     if (src_phrase.empty() || dst_phrase.empty() || dst_word.empty()) {
         throw not_valid_response_format_exception();
     }
 
-    auto unicode_src_phrase = core::text_processing::string_to_unicode(src_phrase);
-    auto src_phrase_words = core::text_processing::get_words_data_from_text(std::move(unicode_src_phrase), src_lang.c_str());
+    auto src_phrase_words = core::text_processing::get_words_data_from_text(
+        core::text_processing::string_to_unicode(src_phrase),
+        src_lang.c_str()
+    );
 
     if (src_phrase_words.size() == 1) {
         throw not_valid_response_format_exception();
     }
 
-    if (!src_phrase_words.contains(src_word)) {
+    auto src_phrase_unicode = core::text_processing::string_to_unicode(src_phrase).toLower();
+    auto src_word_unicode = core::text_processing::string_to_unicode(src_word).toLower();
+
+    if (src_phrase_unicode.indexOf(src_word_unicode) == -1) {
         throw phrase_not_contains_a_word_exception();
     }
+
+    // if (!src_phrase_words.contains(src_word)) {
+    //     throw phrase_not_contains_a_word_exception();
+    // }
 
     auto unicode_dst_phrase = core::text_processing::string_to_unicode(dst_phrase);
     auto dst_phrase_words = core::text_processing::get_words_data_from_text(std::move(unicode_dst_phrase), dst_lang.c_str());
@@ -191,11 +198,18 @@ std::tuple<std::string, std::string, std::string> OpenaiGeneration::extract_word
 
     // validate that word not contains non alpha or non whitespace character
 
-    for (auto& dst_word_part : dst_word_parts) {
-        if (!dst_phrase_words.contains(dst_word_part.first)) {
-            throw phrase_not_contains_a_word_exception();
-        }
+    auto dst_phrase_unicode = core::text_processing::string_to_unicode(dst_phrase).toLower();
+    auto dst_word_unicode = core::text_processing::string_to_unicode(dst_word).toLower();
+
+    if (dst_phrase_unicode.indexOf(dst_word_unicode) == -1) {
+        throw phrase_not_contains_a_word_exception();
     }
+
+    // for (auto& dst_word_part : dst_word_parts) {
+    //     if (!dst_phrase_words.contains(dst_word_part.first)) {
+    //         throw phrase_not_contains_a_word_exception();
+    //     }
+    // }
 
     return {src_phrase, dst_phrase, dst_word};
 }
@@ -406,7 +420,7 @@ drogon::Task<GeneratedPhrase> OpenaiGeneration::generate_phrase(const std::strin
 drogon::Task<std::string> OpenaiGeneration::generate_words_list(const std::string& lang, const std::string& topic, bool has_subscription) {
     const auto lang_name = local_utils::supported_languages::get_language_title_localized(lang, "en");
 
-    const std::string prompt = std::string("generate up to 200 popular ") + lang_name + " words for this topic '" + topic + "', output only words separated by ,";
+    const std::string prompt = std::string("generate up to 60 popular ") + lang_name + " words for this topic '" + topic + "', output only words separated by ,";
 
     uint32_t retry_count = 0;
     const uint32_t max_retries = 3;
